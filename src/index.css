@@ -8,81 +8,134 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Base colors for StudyFlow AI */
+    --background: 215 28% 97%;
+    --foreground: 215 25% 15%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 215 25% 15%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 215 25% 15%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    /* Primary brand colors - Purple for focus and productivity */
+    --primary: 262 52% 47%;
+    --primary-foreground: 0 0% 100%;
+    --primary-hover: 262 52% 42%;
+    --primary-muted: 262 52% 47% / 0.1;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    /* Secondary colors */
+    --secondary: 215 16% 92%;
+    --secondary-foreground: 215 25% 15%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 215 16% 92%;
+    --muted-foreground: 215 13% 45%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    /* Accent colors for interactive elements */
+    --accent: 216 88% 60%;
+    --accent-foreground: 0 0% 100%;
+    --accent-muted: 216 88% 60% / 0.1;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    /* Status colors */
+    --success: 142 76% 36%;
+    --success-foreground: 0 0% 100%;
+    --success-muted: 142 76% 36% / 0.1;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+    --warning-muted: 38 92% 50% / 0.1;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Borders and inputs */
+    --border: 215 16% 85%;
+    --input: 215 16% 85%;
+    --ring: 262 52% 47%;
+
+    /* Course color palette */
+    --course-math: 210 100% 56%;
+    --course-science: 142 76% 36%;
+    --course-english: 262 52% 47%;
+    --course-history: 38 92% 50%;
+    --course-language: 333 71% 51%;
+    --course-art: 280 100% 70%;
+
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(262 52% 47%), hsl(216 88% 60%));
+    --gradient-card: linear-gradient(135deg, hsl(0 0% 100%), hsl(215 16% 98%));
+    --gradient-progress: linear-gradient(90deg, hsl(262 52% 47%), hsl(216 88% 60%));
+
+    /* Shadows */
+    --shadow-card: 0 1px 3px 0 hsl(215 25% 15% / 0.1), 0 1px 2px 0 hsl(215 25% 15% / 0.06);
+    --shadow-elevated: 0 10px 15px -3px hsl(215 25% 15% / 0.1), 0 4px 6px -2px hsl(215 25% 15% / 0.05);
+    --shadow-primary: 0 10px 30px -10px hsl(262 52% 47% / 0.3);
+
+    /* Animations */
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-quick: all 0.15s ease-out;
 
     --radius: 0.5rem;
 
     --sidebar-background: 0 0% 98%;
-
     --sidebar-foreground: 240 5.3% 26.1%;
-
     --sidebar-primary: 240 5.9% 10%;
-
     --sidebar-primary-foreground: 0 0% 98%;
-
     --sidebar-accent: 240 4.8% 95.9%;
-
     --sidebar-accent-foreground: 240 5.9% 10%;
-
     --sidebar-border: 220 13% 91%;
-
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
+    /* Dark mode for StudyFlow AI */
+    --background: 215 28% 7%;
+    --foreground: 215 20% 85%;
 
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
+    --card: 215 28% 9%;
+    --card-foreground: 215 20% 85%;
 
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 215 28% 9%;
+    --popover-foreground: 215 20% 85%;
 
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    --primary: 262 52% 55%;
+    --primary-foreground: 0 0% 100%;
+    --primary-hover: 262 52% 60%;
+    --primary-muted: 262 52% 55% / 0.15;
 
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 215 28% 12%;
+    --secondary-foreground: 215 20% 85%;
 
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    --muted: 215 28% 12%;
+    --muted-foreground: 215 13% 55%;
 
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 216 88% 68%;
+    --accent-foreground: 0 0% 100%;
+    --accent-muted: 216 88% 68% / 0.15;
 
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
+    --success: 142 76% 45%;
+    --success-foreground: 0 0% 100%;
+    --success-muted: 142 76% 45% / 0.15;
 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    --warning: 38 92% 60%;
+    --warning-foreground: 0 0% 100%;
+    --warning-muted: 38 92% 60% / 0.15;
+
+    --destructive: 0 72% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 215 28% 18%;
+    --input: 215 28% 18%;
+    --ring: 262 52% 55%;
+
+    --gradient-primary: linear-gradient(135deg, hsl(262 52% 55%), hsl(216 88% 68%));
+    --gradient-card: linear-gradient(135deg, hsl(215 28% 9%), hsl(215 28% 11%));
+    --gradient-progress: linear-gradient(90deg, hsl(262 52% 55%), hsl(216 88% 68%));
+
+    --shadow-card: 0 1px 3px 0 hsl(0 0% 0% / 0.3), 0 1px 2px 0 hsl(0 0% 0% / 0.2);
+    --shadow-elevated: 0 10px 15px -3px hsl(0 0% 0% / 0.3), 0 4px 6px -2px hsl(0 0% 0% / 0.2);
+    --shadow-primary: 0 10px 30px -10px hsl(262 52% 55% / 0.4);
+
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
     --sidebar-primary: 224.3 76.3% 48%;
