@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Plus, Calendar, Target, Zap } from "lucide-react";
+import { Plus, Calendar, Target, Zap, LogOut } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 import { CourseCard } from "./CourseCard";
 import { TodayTimeline } from "./TodayTimeline";
 import { QuickStats } from "./QuickStats";
@@ -23,6 +24,7 @@ const mockUpcoming = [
 
 export function Dashboard() {
   const [showAddDialog, setShowAddDialog] = useState(false);
+  const { signOut } = useAuth();
 
   return (
     <div className="min-h-screen bg-background">
@@ -36,13 +38,23 @@ export function Dashboard() {
               </h1>
               <p className="text-muted-foreground">Your intelligent study companion</p>
             </div>
-            <Button 
-              onClick={() => setShowAddDialog(true)}
-              className="bg-gradient-primary hover:opacity-90 shadow-primary"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Add Assignment
-            </Button>
+            <div className="flex items-center space-x-3">
+              <Button 
+                onClick={() => signOut()}
+                variant="outline" 
+                size="sm"
+              >
+                <LogOut className="w-4 h-4 mr-2" />
+                Sign Out
+              </Button>
+              <Button 
+                onClick={() => setShowAddDialog(true)}
+                className="bg-gradient-primary hover:opacity-90 shadow-primary"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Add Assignment
+              </Button>
+            </div>
           </div>
         </div>
       </header>
