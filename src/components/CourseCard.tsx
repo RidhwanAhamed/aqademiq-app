@@ -1,64 +1,95 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { BookOpen, Clock } from "lucide-react";
+import { MoreHorizontal, BookOpen } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Course } from "@/hooks/useCourses";
 
-interface Course {
-  id: string;
-  name: string;
-  color: string;
-  progress: number;
-  tasks: number;
-}
+const colorVariants = {
+  blue: "bg-blue-500",
+  red: "bg-red-500", 
+  green: "bg-green-500",
+  purple: "bg-purple-500",
+  orange: "bg-orange-500",
+  pink: "bg-pink-500",
+  indigo: "bg-indigo-500",
+  teal: "bg-teal-500",
+};
 
 interface CourseCardProps {
   course: Course;
+  onEdit?: (course: Course) => void;
+  onDelete?: (courseId: string) => void;
 }
 
-const courseColorMap = {
-  math: "bg-course-math",
-  science: "bg-course-science", 
-  english: "bg-course-english",
-  history: "bg-course-history",
-  language: "bg-course-language",
-  art: "bg-course-art",
-};
-
-export function CourseCard({ course }: CourseCardProps) {
-  const colorClass = courseColorMap[course.color as keyof typeof courseColorMap] || "bg-primary";
+export function CourseCard({ course, onEdit, onDelete }: CourseCardProps) {
+  const colorClass = colorVariants[course.color as keyof typeof colorVariants] || colorVariants.blue;
 
   return (
-    <Card className="bg-gradient-card shadow-card hover:shadow-elevated transition-all duration-300 cursor-pointer group">
+    <Card className="bg-gradient-card shadow-card hover:shadow-lg transition-shadow">
       <CardContent className="p-4">
         <div className="flex items-start justify-between mb-3">
-          <div className="flex items-center gap-3">
-            <div className={`w-3 h-3 rounded-full ${colorClass}`} />
-            <div>
-              <h3 className="font-semibold text-sm group-hover:text-primary transition-colors">
-                {course.name}
-              </h3>
-              <div className="flex items-center gap-4 mt-1">
-                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <BookOpen className="w-3 h-3" />
-                  {course.tasks} tasks
-                </div>
-              </div>
+          <div className="flex items-center space-x-3">
+            <div className={`w-10 h-10 rounded-lg ${colorClass} flex items-center justify-center`}>
+              <BookOpen className="w-5 h-5 text-white" />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-semibold text-foreground">{course.name}</h3>
+              {course.code && (
+                <p className="text-sm text-muted-foreground">{course.code}</p>
+              )}
             </div>
           </div>
-          <Badge variant="secondary" className="text-xs">
-            {course.progress}%
-          </Badge>
+          
+          {(onEdit || onDelete) && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {onEdit && (
+                  <DropdownMenuItem onClick={() => onEdit(course)}>
+                    Edit Course
+                  </DropdownMenuItem>
+                )}
+                {onDelete && (
+                  <DropdownMenuItem 
+                    onClick={() => onDelete(course.id)}
+                    className="text-destructive"
+                  >
+                    Delete Course
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
-        
-        <div className="space-y-2">
-          <div className="flex justify-between items-center text-xs">
-            <span className="text-muted-foreground">Progress</span>
-            <span className="font-medium">{course.progress}%</span>
+
+        <div className="space-y-3">
+          <div className="flex justify-between items-center">
+            <span className="text-sm text-muted-foreground">Progress</span>
+            <span className="text-sm font-medium">{course.progress_percentage}%</span>
           </div>
-          <Progress 
-            value={course.progress} 
-            className="h-2 bg-muted"
-          />
+          <Progress value={course.progress_percentage} className="h-2" />
+          
+          <div className="flex justify-between items-center text-sm">
+            <span className="text-muted-foreground">Credits: {course.credits}</span>
+            {course.target_grade && (
+              <Badge variant="outline">Target: {course.target_grade}</Badge>
+            )}
+          </div>
+          
+          {course.instructor && (
+            <p className="text-xs text-muted-foreground">{course.instructor}</p>
+          )}
         </div>
       </CardContent>
     </Card>

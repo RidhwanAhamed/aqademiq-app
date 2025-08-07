@@ -10,6 +10,7 @@ import {
   ChevronLeft,
   ChevronRight
 } from "lucide-react";
+import { useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
   Sidebar,
@@ -24,6 +25,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
+import { AddCourseDialog } from "@/components/AddCourseDialog";
 
 const mainItems = [
   { title: "Dashboard", url: "/", icon: Home },
@@ -43,6 +45,7 @@ export function AppSidebar() {
   const collapsed = state === "collapsed";
   const location = useLocation();
   const currentPath = location.pathname;
+  const [showAddCourse, setShowAddCourse] = useState(false);
 
   const isActive = (path: string) => {
     if (path === "/") return currentPath === "/";
@@ -82,6 +85,7 @@ export function AppSidebar() {
           <Button 
             className="w-full bg-gradient-primary hover:opacity-90 shadow-primary"
             size={collapsed ? "icon" : "default"}
+            onClick={() => setShowAddCourse(true)}
           >
             <Plus className="w-4 h-4" />
             {!collapsed && <span className="ml-2">Quick Add</span>}
@@ -134,6 +138,11 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+      
+      <AddCourseDialog 
+        open={showAddCourse} 
+        onOpenChange={setShowAddCourse} 
+      />
     </Sidebar>
   );
 }

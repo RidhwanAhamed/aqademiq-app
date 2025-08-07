@@ -7,22 +7,17 @@ import { CourseCard } from "./CourseCard";
 import { TodayTimeline } from "./TodayTimeline";
 import { QuickStats } from "./QuickStats";
 import { AddAssignmentDialog } from "./AddAssignmentDialog";
-
-const mockCourses = [
-  { id: "1", name: "Calculus II", color: "math", progress: 75, tasks: 3 },
-  { id: "2", name: "Physics", color: "science", progress: 60, tasks: 5 },
-  { id: "3", name: "English Lit", color: "english", progress: 85, tasks: 2 },
-  { id: "4", name: "History", color: "history", progress: 40, tasks: 4 },
-];
-
-const mockUpcoming = [
-  { title: "Physics Lab Report", due: "Tomorrow", course: "Physics" },
-  { title: "Essay Draft", due: "Friday", course: "English Lit" },
-  { title: "Problem Set 7", due: "Monday", course: "Calculus II" },
-];
+import { useCourses } from "@/hooks/useCourses";
 
 export function Dashboard() {
   const [showAddDialog, setShowAddDialog] = useState(false);
+  const { courses } = useCourses();
+
+  const mockUpcoming = [
+    { title: "Physics Lab Report", due: "Tomorrow", course: "Physics" },
+    { title: "Essay Draft", due: "Friday", course: "English Lit" },
+    { title: "Problem Set 7", due: "Monday", course: "Calculus II" },
+  ];
 
   return (
     <div className="p-6 space-y-6">
@@ -69,11 +64,18 @@ export function Dashboard() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {mockCourses.map((course) => (
-                  <CourseCard key={course.id} course={course} />
-                ))}
-              </div>
+              {courses.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Target className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                  <p>No courses yet. Add your first course to get started!</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {courses.slice(0, 4).map((course) => (
+                    <CourseCard key={course.id} course={course} />
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
