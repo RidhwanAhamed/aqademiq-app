@@ -70,6 +70,29 @@ export function useAssignments() {
     }
   };
 
+  const updateAssignment = async (id: string, updates: Partial<Assignment>) => {
+    try {
+      const { error } = await supabase
+        .from("assignments")
+        .update(updates)
+        .eq("id", id);
+      if (error) throw error;
+      await fetchAssignments();
+      return true;
+    } catch (err: any) {
+      console.error("Error updating assignment:", err);
+      setError("Failed to update assignment");
+      return false;
+    }
+  };
+
+  const toggleComplete = async (id: string, completed: boolean) => {
+    return updateAssignment(id, { 
+      is_completed: completed,
+      completion_percentage: completed ? 100 : 0
+    });
+  };
+
   useEffect(() => {
     fetchAssignments();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -81,5 +104,7 @@ export function useAssignments() {
     error,
     refetch: fetchAssignments,
     addAssignment,
+    updateAssignment,
+    toggleComplete,
   };
 }

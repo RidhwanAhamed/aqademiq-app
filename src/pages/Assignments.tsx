@@ -3,16 +3,78 @@ import { Button } from "@/components/ui/button";
 import { Target, Plus, AlertCircle, CheckCircle } from "lucide-react";
 import { useMemo, useState } from "react";
 import { AddAssignmentDialog } from "@/components/AddAssignmentDialog";
+import { AssignmentRow } from "@/components/AssignmentRow";
+import { AssignmentFilters, type AssignmentFilters as FiltersType } from "@/components/AssignmentFilters";
 import { useAssignments } from "@/hooks/useAssignments";
 import { useCourses } from "@/hooks/useCourses";
-import { isSameDay, isBefore, startOfToday, format } from "date-fns";
+import { isSameDay, isBefore, startOfToday, format, isAfter, isBefore as isBeforeDate } from "date-fns";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 export default function Assignments() {
   const [open, setOpen] = useState(false);
-  const { assignments, loading, refetch } = useAssignments();
+  const [currentPage, setCurrentPage] = useState(1);
+  const [filters, setFilters] = useState<FiltersType>({
+    status: "all",
+    courseId: "all",
+    search: "",
+  });
+  
+  const { assignments, loading, refetch, updateAssignment, toggleComplete } = useAssignments();
   const { courses } = useCourses();
   const courseMap = useMemo(() => Object.fromEntries(courses.map(c => [c.id, c.name])), [courses]);
   const today = startOfToday();
+  
+  const ITEMS_PER_PAGE = 10;
+  
+  // Filter assignments
+  const filteredAssignments = useMemo(() => {
+    let filtered = assignments;
+    
+    // Status filter
+    if (filters.status !== "all") {
+      filtered = filtered.filter(a => 
+        filters.status === "completed" ? a.is_completed : !a.is_completed
+      );
+    }
+    
+    // Course filter
+    if (filters.courseId !== "all") {
+      filtered = filtered.filter(a => a.course_id === filters.courseId);
+    }
+    
+    // Search filter
+    if (filters.search) {
+      const search = filters.search.toLowerCase();
+      filtered = filtered.filter(a => 
+        a.title.toLowerCase().includes(search) ||
+        a.description?.toLowerCase().includes(search) ||
+        courseMap[a.course_id]?.toLowerCase().includes(search)
+      );
+    }
+    
+    // Date range filters
+    if (filters.dueDateFrom) {
+      filtered = filtered.filter(a => 
+        !isBeforeDate(new Date(a.due_date), filters.dueDateFrom!)
+      );
+    }
+    if (filters.dueDateTo) {
+      filtered = filtered.filter(a => 
+        !isAfter(new Date(a.due_date), filters.dueDateTo!)
+      );
+    }
+    
+    return filtered;
+  }, [assignments, filters, courseMap]);
+  
+  // Pagination
+  const totalPages = Math.ceil(filteredAssignments.length / ITEMS_PER_PAGE);
+  const paginatedAssignments = filteredAssignments.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+  
+  // Stats from all assignments
   const stats = useMemo(() => {
     const dueToday = assignments.filter(a => !a.is_completed && isSameDay(new Date(a.due_date), today)).length;
     const overdue = assignments.filter(a => !a.is_completed && isBefore(new Date(a.due_date), today)).length;
@@ -20,6 +82,12 @@ export default function Assignments() {
     const inProgress = assignments.length - completed;
     return { dueToday, overdue, inProgress, completed };
   }, [assignments, today]);
+  
+  // Reset to page 1 when filters change
+  useMemo(() => {
+    setCurrentPage(1);
+  }, [filters]);
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
