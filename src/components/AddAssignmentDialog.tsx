@@ -10,20 +10,17 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { CalendarIcon, Sparkles, Clock } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-
+import { useToast } from "@/hooks/use-toast";
+import { useCourses } from "@/hooks/useCourses";
+import { useAssignments, type Assignment } from "@/hooks/useAssignments";
 interface AddAssignmentDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onCreated?: (assignment: Assignment) => void;
 }
 
-const mockCourses = [
-  { id: "1", name: "Calculus II", color: "math" },
-  { id: "2", name: "Physics", color: "science" },
-  { id: "3", name: "English Lit", color: "english" },
-  { id: "4", name: "History", color: "history" },
-];
 
-export function AddAssignmentDialog({ open, onOpenChange }: AddAssignmentDialogProps) {
+export function AddAssignmentDialog({ open, onOpenChange, onCreated }: AddAssignmentDialogProps) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [course, setCourse] = useState("");
@@ -31,13 +28,28 @@ export function AddAssignmentDialog({ open, onOpenChange }: AddAssignmentDialogP
   const [estimatedHours, setEstimatedHours] = useState(2);
   const [isProcessing, setIsProcessing] = useState(false);
 
+  const { addAssignment } = useAssignments();
+  const { courses } = useCourses();
+  const { toast } = useToast();
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!dueDate) return;
     setIsProcessing(true);
-    
-    // Simulate AI processing
-    setTimeout(() => {
-      setIsProcessing(false);
+    try {
+      const { data, error } = await addAssignment({
+        title,
+        description: description || undefined,
+        course_id: course,
+        due_date: dueDate.toISOString(),
+        estimated_hours: Math.round(Number(estimatedHours) || 0),
+      });
+      if (error || !data) throw new Error(error || "Failed to create assignment");
+      toast({
+        title: "Assignment created",
+        description: "We’ll plan it into tasks shortly.",
+      });
+      onCreated?.(data);
       onOpenChange(false);
       // Reset form
       setTitle("");
@@ -45,7 +57,15 @@ export function AddAssignmentDialog({ open, onOpenChange }: AddAssignmentDialogP
       setCourse("");
       setDueDate(undefined);
       setEstimatedHours(2);
-    }, 2000);
+    } catch (err: any) {
+      toast({
+        title: "Could not create assignment",
+        description: err?.message || "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   return (
@@ -77,7 +97,7 @@ export function AddAssignmentDialog({ open, onOpenChange }: AddAssignmentDialogP
                 <SelectValue placeholder="Select a course" />
               </SelectTrigger>
               <SelectContent>
-                {mockCourses.map((courseItem) => (
+                {courses.map((courseItem) => (
                   <SelectItem key={courseItem.id} value={courseItem.id}>
                     {courseItem.name}
                   </SelectItem>
