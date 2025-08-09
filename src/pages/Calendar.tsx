@@ -1,8 +1,43 @@
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { CalendarDays, Plus, Clock, Users } from "lucide-react";
+import { CalendarDays, Clock, Users, GraduationCap } from "lucide-react";
+import { CalendarView } from '@/components/calendar/CalendarView';
+import { AddClassDialog } from '@/components/calendar/AddClassDialog';
+import { useSchedule } from '@/hooks/useSchedule';
+import { useAssignments } from '@/hooks/useAssignments';
+import { useExams } from '@/hooks/useExams';
+import { format, isToday } from 'date-fns';
 
 export default function Calendar() {
+  const [view, setView] = useState<'week' | 'month'>('week');
+  const { scheduleBlocks, exams, loading: scheduleLoading } = useSchedule();
+  const { assignments, loading: assignmentsLoading } = useAssignments();
+  const { exams: examsList, loading: examsLoading } = useExams();
+
+  const loading = scheduleLoading || assignmentsLoading || examsLoading;
+
+  // Calculate today's stats
+  const todayClasses = scheduleBlocks.filter(block => {
+    if (!block.is_recurring) return false;
+    const today = new Date();
+    return block.day_of_week === today.getDay();
+  }).length;
+
+  const todayAssignments = assignments.filter(assignment => 
+    isToday(new Date(assignment.due_date))
+  ).length;
+
+  const weeklyStudyHours = scheduleBlocks.reduce((total, block) => {
+    const start = new Date(`2000-01-01T${block.start_time}`);
+    const end = new Date(`2000-01-01T${block.end_time}`);
+    const duration = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+    return total + duration;
+  }, 0);
+
+  const upcomingExams = examsList.filter(exam => 
+    new Date(exam.exam_date) > new Date()
+  ).length;
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
@@ -11,10 +46,7 @@ export default function Calendar() {
           <h1 className="text-3xl font-bold text-foreground">Calendar</h1>
           <p className="text-muted-foreground">Manage your academic schedule</p>
         </div>
-        <Button className="bg-gradient-primary hover:opacity-90">
-          <Plus className="w-4 h-4 mr-2" />
-          Add Event
-        </Button>
+        <AddClassDialog />
       </div>
 
       {/* Quick Stats */}
@@ -27,7 +59,7 @@ export default function Calendar() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Today's Classes</p>
-                <p className="text-2xl font-bold">4</p>
+                <p className="text-2xl font-bold">{loading ? '...' : todayClasses}</p>
               </div>
             </div>
           </CardContent>
@@ -40,22 +72,8 @@ export default function Calendar() {
                 <Clock className="w-5 h-5 text-accent" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Study Hours</p>
-                <p className="text-2xl font-bold">6.5</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-card">
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-3">
-              <div className="p-2 bg-success/10 rounded-lg">
-                <Users className="w-5 h-5 text-success" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Free Time</p>
-                <p className="text-2xl font-bold">2h</p>
+                <p className="text-sm text-muted-foreground">Weekly Hours</p>
+                <p className="text-2xl font-bold">{loading ? '...' : Math.round(weeklyStudyHours)}</p>
               </div>
             </div>
           </CardContent>
@@ -65,11 +83,25 @@ export default function Calendar() {
           <CardContent className="p-4">
             <div className="flex items-center space-x-3">
               <div className="p-2 bg-warning/10 rounded-lg">
-                <CalendarDays className="w-5 h-5 text-warning" />
+                <Users className="w-5 h-5 text-warning" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">This Week</p>
-                <p className="text-2xl font-bold">24</p>
+                <p className="text-sm text-muted-foreground">Due Today</p>
+                <p className="text-2xl font-bold">{loading ? '...' : todayAssignments}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-card">
+          <CardContent className="p-4">
+            <div className="flex items-center space-x-3">
+              <div className="p-2 bg-success/10 rounded-lg">
+                <GraduationCap className="w-5 h-5 text-success" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Upcoming Exams</p>
+                <p className="text-2xl font-bold">{loading ? '...' : upcomingExams}</p>
               </div>
             </div>
           </CardContent>
@@ -77,17 +109,24 @@ export default function Calendar() {
       </div>
 
       {/* Calendar View */}
-      <Card className="bg-gradient-card">
-        <CardHeader>
-          <CardTitle>Weekly Schedule</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center py-12 text-muted-foreground">
-            <CalendarDays className="w-12 h-12 mx-auto mb-4 opacity-50" />
-            <p>Calendar component will be implemented in the next section</p>
-          </div>
-        </CardContent>
-      </Card>
+      {loading ? (
+        <Card className="bg-gradient-card">
+          <CardContent className="p-12">
+            <div className="text-center text-muted-foreground">
+              <Clock className="w-8 h-8 mx-auto mb-4 animate-spin" />
+              <p>Loading your schedule...</p>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <CalendarView
+          scheduleBlocks={scheduleBlocks}
+          exams={examsList}
+          assignments={assignments}
+          view={view}
+          onViewChange={setView}
+        />
+      )}
     </div>
   );
 }
