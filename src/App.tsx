@@ -8,6 +8,7 @@ import { AppLayout } from "@/components/AppLayout";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Calendar from "./pages/Calendar";
+import StudySage from "./pages/StudySage";
 import Courses from "./pages/Courses";
 import Assignments from "./pages/Assignments";
 import Timer from "./pages/Timer";
@@ -29,6 +30,7 @@ const App = () => (
             <Route path="/" element={<AppLayout />}>
               <Route index element={<Index />} />
               <Route path="calendar" element={<Calendar />} />
+              <Route path="studysage" element={<StudySage />} />
               <Route path="courses" element={<Courses />} />
               <Route path="assignments" element={<Assignments />} />
               <Route path="timer" element={<Timer />} />

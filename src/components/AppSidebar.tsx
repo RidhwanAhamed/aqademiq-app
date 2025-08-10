@@ -8,7 +8,8 @@ import {
   Settings,
   Plus,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Bot
 } from "lucide-react";
 import { useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
@@ -30,6 +31,7 @@ import { AddCourseDialog } from "@/components/AddCourseDialog";
 const mainItems = [
   { title: "Dashboard", url: "/", icon: Home },
   { title: "Calendar", url: "/calendar", icon: Calendar },
+  { title: "StudySage", url: "/studysage", icon: Bot },
   { title: "Courses", url: "/courses", icon: BookOpen },
   { title: "Assignments", url: "/assignments", icon: Target },
   { title: "Study Timer", url: "/timer", icon: Clock },
