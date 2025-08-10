@@ -70,7 +70,13 @@ export function AIInsightButton({
         throw new Error(response.error.message || 'Failed to generate insights');
       }
 
-      setInsights(response.data);
+      // Ensure all required properties exist with defaults
+      const safeInsights = {
+        suggestedSessions: response.data?.suggestedSessions || [],
+        productivityTips: response.data?.productivityTips || [],
+        planningRecommendations: response.data?.planningRecommendations || []
+      };
+      setInsights(safeInsights);
     } catch (error: any) {
       console.error('Error generating insights:', error);
       toast({
@@ -134,7 +140,7 @@ export function AIInsightButton({
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                {insights.suggestedSessions.map((session, index) => (
+                {(insights.suggestedSessions || []).map((session, index) => (
                   <div key={index} className="p-4 bg-muted/50 rounded-lg">
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
@@ -160,7 +166,7 @@ export function AIInsightButton({
               </CardHeader>
               <CardContent>
                 <ul className="space-y-2">
-                  {insights.productivityTips.map((tip, index) => (
+                  {(insights.productivityTips || []).map((tip, index) => (
                     <li key={index} className="flex items-start gap-2">
                       <div className="w-2 h-2 rounded-full bg-yellow-500 mt-2 flex-shrink-0" />
                       <span className="text-sm">{tip}</span>
@@ -180,7 +186,7 @@ export function AIInsightButton({
               </CardHeader>
               <CardContent>
                 <ul className="space-y-2">
-                  {insights.planningRecommendations.map((rec, index) => (
+                  {(insights.planningRecommendations || []).map((rec, index) => (
                     <li key={index} className="flex items-start gap-2">
                       <div className="w-2 h-2 rounded-full bg-green-500 mt-2 flex-shrink-0" />
                       <span className="text-sm">{rec}</span>
