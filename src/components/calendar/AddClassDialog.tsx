@@ -34,6 +34,7 @@ export function AddClassDialog({ children }: AddClassDialogProps) {
     rotation_weeks: '',
     semester_week_start: 1,
     rotation_group: '',
+    week_type: '',
   });
 
   const { templates, loading: templatesLoading } = useRotationTemplates();
@@ -117,6 +118,7 @@ export function AddClassDialog({ children }: AddClassDialogProps) {
         rotation_weeks: '',
         semester_week_start: 1,
         rotation_group: '',
+        week_type: '',
       });
     }
   };
