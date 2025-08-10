@@ -99,6 +99,9 @@ const StudySage = () => {
                 <Badge variant="outline" className="text-xs">
                   Academic Assistant
                 </Badge>
+                <Badge variant="outline" className="text-xs bg-orange-50 text-orange-600 border-orange-200 dark:bg-orange-950/30 dark:text-orange-400 dark:border-orange-800">
+                  Beta
+                </Badge>
               </div>
             </div>
           </div>
