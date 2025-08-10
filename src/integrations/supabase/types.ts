@@ -466,6 +466,10 @@ export type Database = {
           is_recurring: boolean | null
           location: string | null
           recurrence_pattern: string | null
+          rotation_group: string | null
+          rotation_type: string | null
+          rotation_weeks: number[] | null
+          semester_week_start: number | null
           specific_date: string | null
           start_time: string
           title: string
@@ -484,6 +488,10 @@ export type Database = {
           is_recurring?: boolean | null
           location?: string | null
           recurrence_pattern?: string | null
+          rotation_group?: string | null
+          rotation_type?: string | null
+          rotation_weeks?: number[] | null
+          semester_week_start?: number | null
           specific_date?: string | null
           start_time: string
           title: string
@@ -502,6 +510,10 @@ export type Database = {
           is_recurring?: boolean | null
           location?: string | null
           recurrence_pattern?: string | null
+          rotation_group?: string | null
+          rotation_type?: string | null
+          rotation_weeks?: number[] | null
+          semester_week_start?: number | null
           specific_date?: string | null
           start_time?: string
           title?: string
@@ -767,6 +779,10 @@ export type Database = {
       }
       is_holiday_period: {
         Args: { p_user_id: string; p_date: string }
+        Returns: boolean
+      }
+      should_class_occur_on_date: {
+        Args: { p_schedule_id: string; p_target_date: string }
         Returns: boolean
       }
     }
