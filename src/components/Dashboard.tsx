@@ -8,17 +8,38 @@ import { TodayTimeline } from "./TodayTimeline";
 import { QuickStats } from "./QuickStats";
 import { AddAssignmentDialog } from "./AddAssignmentDialog";
 import { useCourses } from "@/hooks/useCourses";
+import { useAssignments } from "@/hooks/useAssignments";
+import { useExams } from "@/hooks/useExams";
+import { useUserStats } from "@/hooks/useUserStats";
 import { RevisionTasksPanel } from "./RevisionTasksPanel";
+import { format, isAfter, isBefore, addDays } from "date-fns";
 
 export function Dashboard() {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const { courses } = useCourses();
+  const { assignments } = useAssignments();
+  const { exams } = useExams();
+  const { stats } = useUserStats();
 
-  const mockUpcoming = [
-    { title: "Physics Lab Report", due: "Tomorrow", course: "Physics" },
-    { title: "Essay Draft", due: "Friday", course: "English Lit" },
-    { title: "Problem Set 7", due: "Monday", course: "Calculus II" },
-  ];
+  // Get upcoming assignments and exams (next 7 days)
+  const upcoming = [
+    ...assignments
+      .filter(a => !a.is_completed && isAfter(new Date(a.due_date), new Date()) && isBefore(new Date(a.due_date), addDays(new Date(), 7)))
+      .map(a => ({
+        title: a.title,
+        due: format(new Date(a.due_date), 'EEE MMM d'),
+        course: courses.find(c => c.id === a.course_id)?.name || 'Unknown Course',
+        type: 'assignment'
+      })),
+    ...exams
+      .filter(e => isAfter(new Date(e.exam_date), new Date()) && isBefore(new Date(e.exam_date), addDays(new Date(), 7)))
+      .map(e => ({
+        title: e.title,
+        due: format(new Date(e.exam_date), 'EEE MMM d'),
+        course: courses.find(c => c.id === e.course_id)?.name || 'Unknown Course',
+        type: 'exam'
+      }))
+  ].sort((a, b) => new Date(a.due).getTime() - new Date(b.due).getTime()).slice(0, 5);
 
   return (
     <div className="p-6 space-y-6">
@@ -93,10 +114,10 @@ export function Dashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-center">
-                <div className="text-3xl font-bold text-warning">7</div>
+                <div className="text-3xl font-bold text-warning">{stats?.current_streak || 0}</div>
                 <p className="text-sm text-muted-foreground">days in a row</p>
                 <div className="mt-4 flex justify-center space-x-1">
-                  {[...Array(7)].map((_, i) => (
+                  {[...Array(Math.min(stats?.current_streak || 0, 7))].map((_, i) => (
                     <div 
                       key={i} 
                       className="w-3 h-3 rounded-full bg-warning"
@@ -113,17 +134,27 @@ export function Dashboard() {
               <CardTitle className="text-lg">Upcoming Deadlines</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              {mockUpcoming.map((item, index) => (
-                <div key={index} className="flex justify-between items-start">
-                  <div className="flex-1">
-                    <p className="font-medium text-sm">{item.title}</p>
-                    <p className="text-xs text-muted-foreground">{item.course}</p>
-                  </div>
-                  <span className="text-xs bg-primary-muted text-primary px-2 py-1 rounded-full">
-                    {item.due}
-                  </span>
+              {upcoming.length === 0 ? (
+                <div className="text-center py-4 text-muted-foreground">
+                  <p className="text-sm">No upcoming deadlines in the next 7 days</p>
                 </div>
-              ))}
+              ) : (
+                upcoming.map((item, index) => (
+                  <div key={index} className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <p className="font-medium text-sm">{item.title}</p>
+                      <p className="text-xs text-muted-foreground">{item.course}</p>
+                    </div>
+                    <span className={`text-xs px-2 py-1 rounded-full ${
+                      item.type === 'exam' 
+                        ? 'bg-destructive-muted text-destructive' 
+                        : 'bg-primary-muted text-primary'
+                    }`}>
+                      {item.due}
+                    </span>
+                  </div>
+                ))
+              )}
             </CardContent>
           </Card>
 

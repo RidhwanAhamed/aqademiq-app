@@ -1,50 +1,63 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { TrendingUp, Target, Clock, CheckCircle } from "lucide-react";
-
-const stats = [
-  {
-    title: "Tasks Completed",
-    value: "12",
-    subtitle: "out of 18 this week",
-    progress: 67,
-    icon: CheckCircle,
-    color: "text-success",
-    bgColor: "bg-success-muted"
-  },
-  {
-    title: "Study Hours",
-    value: "24.5",
-    subtitle: "hours this week",
-    progress: 82,
-    icon: Clock,
-    color: "text-primary",
-    bgColor: "bg-primary-muted"
-  },
-  {
-    title: "Weekly Goal",
-    value: "82%",
-    subtitle: "on track",
-    progress: 82,
-    icon: Target,
-    color: "text-accent",
-    bgColor: "bg-accent-muted"
-  },
-  {
-    title: "Productivity",
-    value: "↑15%",
-    subtitle: "vs last week",
-    progress: 90,
-    icon: TrendingUp,
-    color: "text-warning",
-    bgColor: "bg-warning-muted"
-  }
-];
+import { useUserStats } from "@/hooks/useUserStats";
+import { useAssignments } from "@/hooks/useAssignments";
 
 export function QuickStats() {
+  const { stats } = useUserStats();
+  const { assignments } = useAssignments();
+
+  // Calculate weekly stats
+  const completedThisWeek = assignments.filter(a => a.is_completed).length;
+  const totalThisWeek = assignments.length;
+  const completionProgress = totalThisWeek > 0 ? Math.round((completedThisWeek / totalThisWeek) * 100) : 0;
+  
+  const studyHours = stats?.total_study_hours || 0;
+  const weeklyGoal = stats?.weekly_study_goal || 20;
+  const goalProgress = Math.min(Math.round((studyHours / weeklyGoal) * 100), 100);
+
+  const quickStats = [
+    {
+      title: "Tasks Completed",
+      value: completedThisWeek.toString(),
+      subtitle: `out of ${totalThisWeek} total`,
+      progress: completionProgress,
+      icon: CheckCircle,
+      color: "text-success",
+      bgColor: "bg-success-muted"
+    },
+    {
+      title: "Study Hours",
+      value: studyHours.toString(),
+      subtitle: "total hours logged",
+      progress: Math.min(studyHours * 5, 100), // Rough estimate for visual
+      icon: Clock,
+      color: "text-primary",
+      bgColor: "bg-primary-muted"
+    },
+    {
+      title: "Weekly Goal",
+      value: `${goalProgress}%`,
+      subtitle: "on track",
+      progress: goalProgress,
+      icon: Target,
+      color: "text-accent",
+      bgColor: "bg-accent-muted"
+    },
+    {
+      title: "Current Streak",
+      value: `${stats?.current_streak || 0}`,
+      subtitle: "days in a row",
+      progress: Math.min((stats?.current_streak || 0) * 10, 100),
+      icon: TrendingUp,
+      color: "text-warning",
+      bgColor: "bg-warning-muted"
+    }
+  ];
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-      {stats.map((stat, index) => {
+      {quickStats.map((stat, index) => {
         const Icon = stat.icon;
         
         return (
