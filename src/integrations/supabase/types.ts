@@ -171,6 +171,7 @@ export type Database = {
           created_at: string | null
           credits: number | null
           current_gpa: number | null
+          expected_exams: number | null
           id: string
           instructor: string | null
           is_active: boolean | null
@@ -187,6 +188,7 @@ export type Database = {
           created_at?: string | null
           credits?: number | null
           current_gpa?: number | null
+          expected_exams?: number | null
           id?: string
           instructor?: string | null
           is_active?: boolean | null
@@ -203,6 +205,7 @@ export type Database = {
           created_at?: string | null
           credits?: number | null
           current_gpa?: number | null
+          expected_exams?: number | null
           id?: string
           instructor?: string | null
           is_active?: boolean | null
