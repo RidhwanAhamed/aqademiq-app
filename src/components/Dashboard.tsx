@@ -12,7 +12,6 @@ import { useCourses } from "@/hooks/useCourses";
 import { useAssignments } from "@/hooks/useAssignments";
 import { useExams } from "@/hooks/useExams";
 import { useUserStats } from "@/hooks/useUserStats";
-import { RemindersPanel } from "./RemindersPanel";
 import { RevisionTasksPanel } from "./RevisionTasksPanel";
 import { format, isAfter, isBefore, addDays } from "date-fns";
 
@@ -45,25 +44,26 @@ export function Dashboard() {
   ].sort((a, b) => new Date(a.due).getTime() - new Date(b.due).getTime()).slice(0, 5);
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Welcome back!</h1>
-          <p className="text-muted-foreground">Here's your study overview for today</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Welcome back!</h1>
+          <p className="text-muted-foreground text-sm sm:text-base">Here's your study overview for today</p>
         </div>
         <Button 
           onClick={() => setShowAddDialog(true)}
-          className="bg-gradient-primary hover:opacity-90 shadow-primary"
+          className="bg-gradient-primary hover:opacity-90 shadow-primary w-full sm:w-auto"
+          size="sm"
         >
           <Plus className="w-4 h-4 mr-2" />
           Quick Add
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         {/* Main Content */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-2 space-y-4 sm:space-y-6">
           {/* Quick Stats */}
           <QuickStats />
 
@@ -90,12 +90,12 @@ export function Dashboard() {
             </CardHeader>
             <CardContent>
               {courses.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Target className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                  <p>No courses yet. Add your first course to get started!</p>
+                <div className="text-center py-6 sm:py-8 text-muted-foreground">
+                  <Target className="w-6 h-6 sm:w-8 sm:h-8 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm sm:text-base">No courses yet. Add your first course to get started!</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                   {courses.slice(0, 4).map((course) => (
                     <CourseCard key={course.id} course={course} />
                   ))}
@@ -106,7 +106,7 @@ export function Dashboard() {
         </div>
 
         {/* Sidebar */}
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           {/* Study Streak */}
           <Card className="bg-gradient-card shadow-card">
             <CardHeader className="pb-3">
@@ -117,23 +117,23 @@ export function Dashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-center">
-                <div className="text-3xl font-bold text-warning">{stats?.current_streak || 0}</div>
-                <p className="text-sm text-muted-foreground">days in a row</p>
-                <div className="mt-4 flex justify-center space-x-1">
+                <div className="text-2xl sm:text-3xl font-bold text-warning">{stats?.current_streak || 0}</div>
+                <p className="text-xs sm:text-sm text-muted-foreground">days in a row</p>
+                <div className="mt-3 sm:mt-4 flex justify-center space-x-1">
                   {[...Array(Math.min(stats?.current_streak || 0, 7))].map((_, i) => (
                     <div 
                       key={i} 
-                      className="w-3 h-3 rounded-full bg-warning"
+                      className="w-2 h-2 sm:w-3 sm:h-3 rounded-full bg-warning"
                     />
                   ))}
                 </div>
                 <Button 
                   variant="outline" 
                   size="sm" 
-                  className="mt-4 w-full"
+                  className="mt-3 sm:mt-4 w-full text-xs sm:text-sm"
                   onClick={() => setShowStudySessionDialog(true)}
                 >
-                  <Clock className="w-4 h-4 mr-2" />
+                  <Clock className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
                   Log Study Time
                 </Button>
               </div>
@@ -145,19 +145,19 @@ export function Dashboard() {
             <CardHeader className="pb-3">
               <CardTitle className="text-lg">Upcoming Deadlines</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="space-y-2 sm:space-y-3">
               {upcoming.length === 0 ? (
-                <div className="text-center py-4 text-muted-foreground">
-                  <p className="text-sm">No upcoming deadlines in the next 7 days</p>
+                <div className="text-center py-3 sm:py-4 text-muted-foreground">
+                  <p className="text-xs sm:text-sm">No upcoming deadlines in the next 7 days</p>
                 </div>
               ) : (
                 upcoming.map((item, index) => (
-                  <div key={index} className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <p className="font-medium text-sm">{item.title}</p>
-                      <p className="text-xs text-muted-foreground">{item.course}</p>
+                  <div key={index} className="flex justify-between items-start gap-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-xs sm:text-sm truncate">{item.title}</p>
+                      <p className="text-xs text-muted-foreground truncate">{item.course}</p>
                     </div>
-                    <span className={`text-xs px-2 py-1 rounded-full ${
+                    <span className={`text-xs px-2 py-1 rounded-full whitespace-nowrap ${
                       item.type === 'exam' 
                         ? 'bg-destructive-muted text-destructive' 
                         : 'bg-primary-muted text-primary'
@@ -179,9 +179,9 @@ export function Dashboard() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
-                <div className="p-3 bg-primary-muted rounded-lg">
-                  <p className="text-sm text-primary font-medium">Today's Focus</p>
+              <div className="space-y-2 sm:space-y-3">
+                <div className="p-2 sm:p-3 bg-primary-muted rounded-lg">
+                  <p className="text-xs sm:text-sm text-primary font-medium">Today's Focus</p>
                   <p className="text-xs text-muted-foreground mt-1">
                     {upcoming.length > 0 
                       ? `You have ${upcoming.length} upcoming deadline${upcoming.length > 1 ? 's' : ''}. Consider starting with "${upcoming[0]?.title}" to stay ahead.`
@@ -189,8 +189,8 @@ export function Dashboard() {
                     }
                   </p>
                 </div>
-                <div className="p-3 bg-warning-muted rounded-lg">
-                  <p className="text-sm text-warning font-medium">Study Recommendation</p>
+                <div className="p-2 sm:p-3 bg-warning-muted rounded-lg">
+                  <p className="text-xs sm:text-sm text-warning font-medium">Study Recommendation</p>
                   <p className="text-xs text-muted-foreground mt-1">
                     {stats?.current_streak > 0 
                       ? `Amazing ${stats.current_streak}-day streak! Keep the momentum going with a focused 25-minute study session.`
@@ -199,8 +199,8 @@ export function Dashboard() {
                   </p>
                 </div>
                 {stats?.total_study_hours > 0 && (
-                  <div className="p-3 bg-success-muted rounded-lg">
-                    <p className="text-sm text-success font-medium">Progress Update</p>
+                  <div className="p-2 sm:p-3 bg-success-muted rounded-lg">
+                    <p className="text-xs sm:text-sm text-success font-medium">Progress Update</p>
                     <p className="text-xs text-muted-foreground mt-1">
                       You've completed {stats.total_study_hours} hours of study time. You're building great study habits!
                     </p>
@@ -212,9 +212,6 @@ export function Dashboard() {
            
            {/* Revision Tasks */}
            <RevisionTasksPanel />
-           
-           {/* Reminders Panel */}
-           <RemindersPanel />
         </div>
       </div>
 

@@ -65,8 +65,12 @@ export function StudySageChat() {
   const MESSAGE_LIMIT = 10;
 
   useEffect(() => {
-    loadChatHistory();
-  }, [user]);
+    // Clear everything when component is refreshed/reset
+    setMessages([]);
+    setConflicts([]);
+    setMessageCount(0);
+    setInputMessage('');
+  }, []);
 
   useEffect(() => {
     scrollToBottom();

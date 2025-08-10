@@ -13,6 +13,7 @@ const StudySage = () => {
   const [refreshKey, setRefreshKey] = useState(0);
 
   const handleRefreshChat = () => {
+    // Clear all chat messages and reset
     setRefreshKey(prev => prev + 1);
   };
   const features = [
@@ -81,22 +82,22 @@ const StudySage = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30">
-      <div className="container mx-auto px-4 py-8 max-w-7xl">
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30 pb-16 sm:pb-0">
+      <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 lg:py-8 max-w-7xl">
         {/* Hero Header */}
-        <div className="text-center mb-12">
-          <div className="inline-flex items-center gap-3 mb-6">
+        <div className="text-center mb-6 sm:mb-8 lg:mb-12">
+          <div className="inline-flex flex-col sm:flex-row items-center gap-3 mb-4 sm:mb-6">
             <div className="relative">
               <div className="absolute inset-0 bg-gradient-to-br from-primary to-secondary rounded-2xl blur-lg opacity-25 scale-110"></div>
-              <div className="relative p-4 bg-gradient-to-br from-primary/90 to-secondary/90 rounded-2xl">
-                <Bot className="w-10 h-10 text-white" />
+              <div className="relative p-3 sm:p-4 bg-gradient-to-br from-primary/90 to-secondary/90 rounded-2xl">
+                <Bot className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
               </div>
             </div>
-            <div className="text-left">
-              <h1 className="text-5xl font-bold tracking-tight bg-gradient-to-br from-primary via-primary to-secondary bg-clip-text text-transparent">
+            <div className="text-center sm:text-left">
+              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight bg-gradient-to-br from-primary via-primary to-secondary bg-clip-text text-transparent">
                 StudySage
               </h1>
-              <div className="flex items-center gap-2 mt-1">
+              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-1 sm:gap-2 mt-1">
                 <Badge variant="secondary" className="text-xs font-medium">
                   <Sparkles className="w-3 h-3 mr-1" />
                   AI-Powered
@@ -111,16 +112,16 @@ const StudySage = () => {
             </div>
           </div>
           
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
+          <p className="text-base sm:text-lg lg:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed px-4">
             Transform chaos into clarity with intelligent schedule management, 
             automated conflict detection, and personalized academic planning.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 sm:gap-6 lg:gap-8">
           {/* Main Chat Interface */}
           <div className="xl:col-span-8">
-            <Card className="h-[700px] flex flex-col bg-gradient-to-br from-card to-card/80 border-2 shadow-2xl">
+            <Card className="h-[500px] sm:h-[600px] lg:h-[700px] flex flex-col bg-gradient-to-br from-card to-card/80 border-2 shadow-2xl">
               <CardHeader className="pb-3 border-b">
                 <div className="flex items-center justify-between">
                   <CardTitle className="flex items-center gap-2">
@@ -144,7 +145,7 @@ const StudySage = () => {
           </div>
 
           {/* Enhanced Sidebar */}
-          <div className="xl:col-span-4 space-y-6">
+          <div className="xl:col-span-4 space-y-4 sm:space-y-6">
             {/* Features Overview */}
             <Card className="bg-gradient-to-br from-card to-card/80 border-0 shadow-lg">
               <Collapsible open={capabilitiesOpen} onOpenChange={setCapabilitiesOpen}>
