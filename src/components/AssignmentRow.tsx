@@ -192,13 +192,16 @@ export function AssignmentRow({ assignment, onUpdate, onToggleComplete }: Assign
       </div>
 
       <div className="flex items-center gap-2">
-        <AIInsightButton
-          type="assignment"
-          title={assignment.title}
-          dueDate={assignment.due_date}
-          estimatedHours={assignment.estimated_hours}
-          description={assignment.description || undefined}
-        />
+        {!assignment.is_completed && (
+          <AIInsightButton
+            type="assignment"
+            title={assignment.title}
+            dueDate={assignment.due_date}
+            estimatedHours={assignment.estimated_hours}
+            description={assignment.description || undefined}
+            isCompleted={assignment.is_completed}
+          />
+        )}
         <Button
           variant="ghost"
           size="sm"

@@ -149,6 +149,7 @@ export default function Settings() {
 
       <div className="space-y-6">
         <NotificationSettings />
+        
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Profile Settings */}
         <Card className="bg-gradient-card">
@@ -197,21 +198,7 @@ export default function Settings() {
           </CardContent>
         </Card>
 
-        {/* Notification Settings */}
-        <Card className="bg-gradient-card">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Bell className="w-5 h-5" />
-              Notifications
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-center py-12 text-muted-foreground">
-              <Bell className="w-12 h-12 mx-auto mb-4 opacity-50" />
-              <p>Notification settings will be implemented in Section 7</p>
-            </div>
-          </CardContent>
-        </Card>
+          <ThemeCustomizer />
 
         {/* Appearance Settings */}
         <Card className="bg-gradient-card">

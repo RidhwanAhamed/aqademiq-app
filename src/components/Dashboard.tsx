@@ -12,7 +12,7 @@ import { useCourses } from "@/hooks/useCourses";
 import { useAssignments } from "@/hooks/useAssignments";
 import { useExams } from "@/hooks/useExams";
 import { useUserStats } from "@/hooks/useUserStats";
-import { RevisionTasksPanel } from "./RevisionTasksPanel";
+import { RemindersPanel } from "./RemindersPanel";
 import { format, isAfter, isBefore, addDays } from "date-fns";
 
 export function Dashboard() {
@@ -180,23 +180,37 @@ export function Dashboard() {
             <CardContent>
               <div className="space-y-3">
                 <div className="p-3 bg-primary-muted rounded-lg">
-                  <p className="text-sm text-primary font-medium">Productivity Tip</p>
+                  <p className="text-sm text-primary font-medium">Today's Focus</p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    You're most productive between 2-4 PM. Consider scheduling difficult tasks during this time.
+                    {upcoming.length > 0 
+                      ? `You have ${upcoming.length} upcoming deadline${upcoming.length > 1 ? 's' : ''}. Consider starting with "${upcoming[0]?.title}" to stay ahead.`
+                      : "Great job! No urgent deadlines today. Perfect time for review sessions or getting ahead on future assignments."
+                    }
                   </p>
                 </div>
                 <div className="p-3 bg-warning-muted rounded-lg">
-                  <p className="text-sm text-warning font-medium">Schedule Alert</p>
+                  <p className="text-sm text-warning font-medium">Study Recommendation</p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Your Physics deadline is approaching. Consider breaking it into smaller tasks.
+                    {stats?.current_streak > 0 
+                      ? `Amazing ${stats.current_streak}-day streak! Keep the momentum going with a focused 25-minute study session.`
+                      : "Starting a study session today will begin your study streak. Even 15 minutes makes a difference!"
+                    }
                   </p>
                 </div>
+                {stats?.total_study_hours > 0 && (
+                  <div className="p-3 bg-success-muted rounded-lg">
+                    <p className="text-sm text-success font-medium">Progress Update</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      You've completed {stats.total_study_hours} hours of study time. You're building great study habits!
+                    </p>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
           
-          {/* Revision Tasks Panel */}
-          <RevisionTasksPanel />
+          {/* Reminders Panel */}
+          <RemindersPanel />
         </div>
       </div>
 
