@@ -85,7 +85,7 @@ export function AddClassDialog({ children }: AddClassDialogProps) {
       title: formData.title,
       description: formData.description || undefined,
       location: formData.location || undefined,
-      course_id: formData.course_id || undefined,
+      course_id: (formData.course_id && formData.course_id !== 'none') ? formData.course_id : undefined,
       start_time: formData.start_time,
       end_time: formData.end_time,
       day_of_week: formData.is_recurring ? parseInt(formData.day_of_week) : undefined,
@@ -166,7 +166,7 @@ export function AddClassDialog({ children }: AddClassDialogProps) {
                 <SelectValue placeholder="Select course" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">No course</SelectItem>
+                <SelectItem value="none">No course</SelectItem>
                 {courses.map((course) => (
                   <SelectItem key={course.id} value={course.id}>
                     <div className="flex items-center gap-2">
@@ -261,7 +261,7 @@ export function AddClassDialog({ children }: AddClassDialogProps) {
                     <SelectValue placeholder="Select week type" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Every week</SelectItem>
+                    <SelectItem value="none">Every week</SelectItem>
                     <SelectItem value="A">Week A</SelectItem>
                     <SelectItem value="B">Week B</SelectItem>
                     <SelectItem value="odd">Odd weeks</SelectItem>
