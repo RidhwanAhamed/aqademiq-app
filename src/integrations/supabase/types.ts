@@ -454,6 +454,36 @@ export type Database = {
           },
         ]
       }
+      rotation_templates: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          is_system_template: boolean | null
+          name: string
+          rotation_type: string
+          rotation_weeks: number[] | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_system_template?: boolean | null
+          name: string
+          rotation_type: string
+          rotation_weeks?: number[] | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_system_template?: boolean | null
+          name?: string
+          rotation_type?: string
+          rotation_weeks?: number[] | null
+        }
+        Relationships: []
+      }
       schedule_blocks: {
         Row: {
           course_id: string | null
@@ -776,6 +806,22 @@ export type Database = {
       generate_revision_tasks_for_exam: {
         Args: { p_exam_id: string; p_user_id: string }
         Returns: undefined
+      }
+      get_schedule_for_date_range: {
+        Args: { p_user_id: string; p_start_date: string; p_end_date: string }
+        Returns: {
+          schedule_id: string
+          course_id: string
+          course_name: string
+          course_color: string
+          title: string
+          location: string
+          start_time: string
+          end_time: string
+          occurs_on: string
+          day_of_week: number
+          rotation_info: string
+        }[]
       }
       is_holiday_period: {
         Args: { p_user_id: string; p_date: string }
