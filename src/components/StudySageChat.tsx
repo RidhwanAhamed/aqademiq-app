@@ -327,39 +327,62 @@ export function StudySageChat() {
   };
 
   return (
-    <div className="flex flex-col h-full max-h-[600px]">
-      {/* Header */}
-      <div className="p-4 border-b bg-gradient-to-r from-primary/10 to-secondary/10">
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-full bg-primary/20">
-            <Bot className="w-5 h-5 text-primary" />
+    <div className="flex flex-col h-full">
+      {/* Enhanced Header */}
+      <div className="px-6 py-4 border-b bg-gradient-to-r from-primary/8 via-primary/5 to-secondary/8">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="relative">
+              <div className="absolute inset-0 bg-gradient-to-br from-primary to-secondary rounded-xl blur-sm opacity-25"></div>
+              <div className="relative p-2.5 bg-gradient-to-br from-primary/90 to-secondary/90 rounded-xl">
+                <Bot className="w-5 h-5 text-white" />
+              </div>
+            </div>
+            <div>
+              <h3 className="font-bold text-lg bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+                StudySage
+              </h3>
+              <p className="text-sm text-muted-foreground font-medium">AI Academic Assistant</p>
+            </div>
           </div>
-          <div>
-            <h3 className="font-semibold text-lg">StudySage</h3>
-            <p className="text-sm text-muted-foreground">Your AI Academic Assistant</p>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+              <span className="text-xs font-medium text-green-600 dark:text-green-400">Online</span>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Conflicts Alert */}
+      {/* Enhanced Conflicts Alert */}
       {conflicts.length > 0 && (
-        <div className="p-4 bg-destructive/10 border-b">
-          <div className="flex items-center gap-2 mb-2">
-            <AlertTriangle className="w-4 h-4 text-destructive" />
-            <span className="font-medium text-destructive">Schedule Conflicts Detected</span>
+        <div className="mx-4 mt-4 p-4 bg-gradient-to-r from-destructive/10 to-destructive/5 border border-destructive/20 rounded-xl">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="p-1.5 bg-destructive/20 rounded-lg">
+              <AlertTriangle className="w-4 h-4 text-destructive" />
+            </div>
+            <div>
+              <h4 className="font-semibold text-destructive">Schedule Conflicts Detected</h4>
+              <p className="text-xs text-muted-foreground">Review and resolve these conflicts</p>
+            </div>
           </div>
-          <div className="space-y-2">
+          <div className="space-y-3">
             {conflicts.map((conflict, index) => (
-              <div key={index} className="flex items-center justify-between bg-background rounded p-2">
-                <div className="flex items-center gap-2">
-                  <Calendar className="w-4 h-4" />
-                  <span className="text-sm">{conflict.conflict_title}</span>
-                  <Badge variant="outline">{conflict.conflict_type}</Badge>
+              <div key={index} className="flex items-center justify-between p-3 bg-background/80 backdrop-blur-sm rounded-lg border">
+                <div className="flex items-center gap-3">
+                  <Calendar className="w-4 h-4 text-muted-foreground" />
+                  <div>
+                    <span className="text-sm font-medium">{conflict.conflict_title}</span>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Badge variant="outline" className="text-xs">{conflict.conflict_type}</Badge>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex gap-1">
+                <div className="flex gap-2">
                   <Button 
                     size="sm" 
                     variant="outline"
+                    className="text-xs"
                     onClick={() => resolveConflict(conflict.conflict_id, 'reschedule')}
                   >
                     Reschedule
@@ -367,6 +390,7 @@ export function StudySageChat() {
                   <Button 
                     size="sm" 
                     variant="ghost"
+                    className="text-xs"
                     onClick={() => resolveConflict(conflict.conflict_id, 'ignore')}
                   >
                     Ignore
@@ -378,39 +402,61 @@ export function StudySageChat() {
         </div>
       )}
 
-      {/* Messages */}
-      <ScrollArea className="flex-1 p-4">
-        <div className="space-y-4">
+      {/* Enhanced Messages Area */}
+      <ScrollArea className="flex-1 px-6 py-4">
+        <div className="space-y-6">
           {messages.length === 0 && (
-            <div className="text-center py-8">
-              <Bot className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-              <h4 className="font-medium mb-2">Welcome to StudySage!</h4>
-              <p className="text-sm text-muted-foreground mb-4">
-                I can help you organize your academic schedule. Upload syllabi, timetables, or just tell me about your classes!
+            <div className="text-center py-12">
+              <div className="relative inline-block mb-6">
+                <div className="absolute inset-0 bg-gradient-to-br from-primary to-secondary rounded-full blur-lg opacity-20 scale-110"></div>
+                <div className="relative p-6 bg-gradient-to-br from-primary/10 to-secondary/10 rounded-full border-2 border-primary/20">
+                  <Bot className="w-12 h-12 text-primary" />
+                </div>
+              </div>
+              <h4 className="text-xl font-bold mb-3 bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+                Welcome to StudySage!
+              </h4>
+              <p className="text-muted-foreground mb-6 max-w-md mx-auto leading-relaxed">
+                I'm here to help you organize your academic life. Upload your schedules, syllabi, or simply chat about your academic goals.
               </p>
-              <div className="flex flex-col gap-2 text-xs text-muted-foreground">
-                <p>✓ Parse PDFs and images of schedules</p>
-                <p>✓ Detect scheduling conflicts</p>
-                <p>✓ Create recurring assignments</p>
-                <p>✓ AI-powered schedule optimization</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-lg mx-auto">
+                {[
+                  { icon: FileText, text: "Parse academic documents" },
+                  { icon: Calendar, text: "Detect scheduling conflicts" },
+                  { icon: CheckCircle, text: "Create recurring tasks" },
+                  { icon: Bot, text: "AI-powered optimization" }
+                ].map((feature, index) => (
+                  <div key={index} className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
+                    <feature.icon className="w-4 h-4 text-primary" />
+                    <span className="text-sm font-medium">{feature.text}</span>
+                  </div>
+                ))}
               </div>
             </div>
           )}
           
           {messages.map((message) => (
             <div key={message.id} className={`flex ${message.is_user ? 'justify-end' : 'justify-start'}`}>
-              <div className={`flex items-start gap-2 max-w-[80%] ${message.is_user ? 'flex-row-reverse' : ''}`}>
-                <div className={`p-2 rounded-full ${message.is_user ? 'bg-primary/20' : 'bg-secondary/20'}`}>
-                  {message.is_user ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
-                </div>
-                <div className={`p-3 rounded-lg ${message.is_user 
-                  ? 'bg-primary text-primary-foreground' 
-                  : 'bg-muted'
+              <div className={`flex items-start gap-3 max-w-[85%] ${message.is_user ? 'flex-row-reverse' : ''}`}>
+                <div className={`p-2 rounded-xl flex-shrink-0 ${
+                  message.is_user 
+                    ? 'bg-gradient-to-br from-primary to-primary/80' 
+                    : 'bg-gradient-to-br from-muted to-muted/60'
                 }`}>
-                  <p className="text-sm whitespace-pre-wrap">{message.message}</p>
-                  <div className="flex items-center gap-1 mt-1">
-                    <Clock className="w-3 h-3 opacity-60" />
-                    <span className="text-xs opacity-60">
+                  {message.is_user ? 
+                    <User className="w-4 h-4 text-white" /> : 
+                    <Bot className="w-4 h-4 text-foreground" />
+                  }
+                </div>
+                <div className={`p-4 rounded-2xl shadow-sm ${
+                  message.is_user 
+                    ? 'bg-gradient-to-br from-primary to-primary/90 text-white' 
+                    : 'bg-gradient-to-br from-muted/80 to-muted/40 backdrop-blur-sm border'
+                }`}>
+                  <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.message}</p>
+                  <div className="flex items-center gap-1.5 mt-2 opacity-70">
+                    <Clock className="w-3 h-3" />
+                    <span className="text-xs">
                       {format(new Date(message.created_at), 'HH:mm')}
                     </span>
                   </div>
@@ -421,12 +467,19 @@ export function StudySageChat() {
           
           {isProcessing && (
             <div className="flex justify-start">
-              <div className="flex items-start gap-2">
-                <div className="p-2 rounded-full bg-secondary/20">
-                  <Bot className="w-4 h-4 animate-pulse" />
+              <div className="flex items-start gap-3">
+                <div className="p-2 rounded-xl bg-gradient-to-br from-muted to-muted/60">
+                  <Bot className="w-4 h-4 text-foreground animate-pulse" />
                 </div>
-                <div className="p-3 rounded-lg bg-muted">
-                  <p className="text-sm">Processing...</p>
+                <div className="p-4 rounded-2xl bg-gradient-to-br from-muted/80 to-muted/40 backdrop-blur-sm border">
+                  <div className="flex items-center gap-2">
+                    <div className="flex gap-1">
+                      <div className="w-2 h-2 bg-current rounded-full animate-bounce"></div>
+                      <div className="w-2 h-2 bg-current rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
+                      <div className="w-2 h-2 bg-current rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+                    </div>
+                    <span className="text-sm text-muted-foreground">Thinking...</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -435,11 +488,9 @@ export function StudySageChat() {
         <div ref={messagesEndRef} />
       </ScrollArea>
 
-      <Separator />
-
-      {/* Input Area */}
-      <div className="p-4">
-        <div className="flex gap-2">
+      {/* Enhanced Input Area */}
+      <div className="p-6 border-t bg-gradient-to-r from-muted/30 to-muted/10">
+        <div className="flex gap-3">
           <input
             type="file"
             ref={fileInputRef}
@@ -452,24 +503,35 @@ export function StudySageChat() {
             size="icon"
             onClick={() => fileInputRef.current?.click()}
             disabled={isProcessing}
+            className="shrink-0 h-12 w-12 rounded-xl border-2 hover:border-primary transition-colors duration-200"
           >
-            <Upload className="w-4 h-4" />
+            <Upload className="w-5 h-5" />
           </Button>
-          <Input
-            value={inputMessage}
-            onChange={(e) => setInputMessage(e.target.value)}
-            onKeyPress={handleKeyPress}
-            placeholder="Ask me about your schedule or upload a file..."
-            disabled={isProcessing}
-            className="flex-1"
-          />
-          <Button 
-            onClick={handleSendMessage}
-            disabled={!inputMessage.trim() || isProcessing}
-            size="icon"
-          >
-            <Send className="w-4 h-4" />
-          </Button>
+          <div className="flex-1 relative">
+            <Input
+              value={inputMessage}
+              onChange={(e) => setInputMessage(e.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder="Ask me about your schedule, upload a file, or describe your academic goals..."
+              disabled={isProcessing}
+              className="h-12 pr-14 rounded-xl border-2 bg-background/50 backdrop-blur-sm focus:border-primary transition-colors duration-200"
+            />
+            <Button 
+              onClick={handleSendMessage}
+              disabled={!inputMessage.trim() || isProcessing}
+              size="icon"
+              className="absolute right-1 top-1 h-10 w-10 rounded-lg bg-gradient-to-br from-primary to-secondary hover:opacity-90 transition-opacity duration-200"
+            >
+              <Send className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+        <div className="flex items-center justify-center mt-3 gap-4 text-xs text-muted-foreground">
+          <span>Powered by AI</span>
+          <span>•</span>
+          <span>Secure & Private</span>
+          <span>•</span>
+          <span>Real-time Processing</span>
         </div>
       </div>
     </div>
