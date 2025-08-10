@@ -245,6 +245,39 @@ export type Database = {
           },
         ]
       }
+      holiday_periods: {
+        Row: {
+          created_at: string | null
+          end_date: string
+          id: string
+          is_active: boolean | null
+          name: string
+          start_date: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          end_date: string
+          id?: string
+          is_active?: boolean | null
+          name: string
+          start_date: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          end_date?: string
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          start_date?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string | null
@@ -289,6 +322,7 @@ export type Database = {
           message: string | null
           remind_at: string
           reminder_type: string
+          respect_holidays: boolean | null
           schedule_block_id: string | null
           title: string
           user_id: string
@@ -303,6 +337,7 @@ export type Database = {
           message?: string | null
           remind_at: string
           reminder_type: string
+          respect_holidays?: boolean | null
           schedule_block_id?: string | null
           title: string
           user_id: string
@@ -317,6 +352,7 @@ export type Database = {
           message?: string | null
           remind_at?: string
           reminder_type?: string
+          respect_holidays?: boolean | null
           schedule_block_id?: string | null
           title?: string
           user_id?: string
@@ -651,6 +687,10 @@ export type Database = {
       generate_recurring_assignments: {
         Args: Record<PropertyKey, never>
         Returns: undefined
+      }
+      is_holiday_period: {
+        Args: { p_user_id: string; p_date: string }
+        Returns: boolean
       }
     }
     Enums: {
