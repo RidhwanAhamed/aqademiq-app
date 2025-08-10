@@ -70,6 +70,10 @@ export function AIInsightButton({
         throw new Error(response.error.message || 'Failed to generate insights');
       }
 
+      if (response.data?.error) {
+        throw new Error(response.data.error);
+      }
+
       // Ensure all required properties exist with defaults
       const safeInsights = {
         suggestedSessions: response.data?.suggestedSessions || [],
