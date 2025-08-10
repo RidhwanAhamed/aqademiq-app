@@ -52,8 +52,14 @@ export type Database = {
           grade_received: string | null
           id: string
           is_completed: boolean | null
+          is_recurring: boolean | null
           notes: string | null
+          original_due_date: string | null
+          parent_assignment_id: string | null
           priority: number | null
+          recurrence_end_date: string | null
+          recurrence_interval: number | null
+          recurrence_pattern: string | null
           title: string
           updated_at: string | null
           user_id: string
@@ -71,8 +77,14 @@ export type Database = {
           grade_received?: string | null
           id?: string
           is_completed?: boolean | null
+          is_recurring?: boolean | null
           notes?: string | null
+          original_due_date?: string | null
+          parent_assignment_id?: string | null
           priority?: number | null
+          recurrence_end_date?: string | null
+          recurrence_interval?: number | null
+          recurrence_pattern?: string | null
           title: string
           updated_at?: string | null
           user_id: string
@@ -90,8 +102,14 @@ export type Database = {
           grade_received?: string | null
           id?: string
           is_completed?: boolean | null
+          is_recurring?: boolean | null
           notes?: string | null
+          original_due_date?: string | null
+          parent_assignment_id?: string | null
           priority?: number | null
+          recurrence_end_date?: string | null
+          recurrence_interval?: number | null
+          recurrence_pattern?: string | null
           title?: string
           updated_at?: string | null
           user_id?: string
@@ -630,7 +648,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      generate_recurring_assignments: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
