@@ -8,7 +8,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { CalendarIcon, Edit2, Save, X, Clock } from "lucide-react";
+import { CalendarIcon, Edit2, Save, X, Clock, Repeat } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useCourses } from "@/hooks/useCourses";
@@ -161,6 +161,12 @@ export function AssignmentRow({ assignment, onUpdate, onToggleComplete }: Assign
             {assignment.is_completed && (
               <Badge variant="outline" className="text-success border-success">
                 Completed
+              </Badge>
+            )}
+            {(assignment.is_recurring || assignment.parent_assignment_id) && (
+              <Badge variant="outline" className="text-primary border-primary">
+                <Repeat className="w-3 h-3 mr-1" />
+                {assignment.is_recurring ? "Recurring" : "Instance"}
               </Badge>
             )}
           </div>

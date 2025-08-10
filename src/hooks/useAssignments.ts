@@ -18,6 +18,12 @@ export interface Assignment {
   ai_generated_tasks?: any | null;
   grade_points?: number | null;
   grade_received?: string | null;
+  is_recurring?: boolean | null;
+  recurrence_pattern?: string | null;
+  recurrence_interval?: number | null;
+  recurrence_end_date?: string | null;
+  parent_assignment_id?: string | null;
+  original_due_date?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -52,6 +58,10 @@ export function useAssignments() {
     course_id: string;
     due_date: string; // ISO
     estimated_hours?: number;
+    is_recurring?: boolean;
+    recurrence_pattern?: string;
+    recurrence_interval?: number;
+    recurrence_end_date?: string;
   }) => {
     if (!user) return { data: null as Assignment | null, error: "Not authenticated" };
     try {

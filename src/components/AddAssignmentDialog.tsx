@@ -7,18 +7,19 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, Sparkles, Clock } from "lucide-react";
+import { CalendarIcon, Sparkles, Clock, Repeat } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useCourses } from "@/hooks/useCourses";
 import { useAssignments, type Assignment } from "@/hooks/useAssignments";
+import { Checkbox } from "@/components/ui/checkbox";
+
 interface AddAssignmentDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCreated?: (assignment: Assignment) => void;
 }
-
 
 export function AddAssignmentDialog({ open, onOpenChange, onCreated }: AddAssignmentDialogProps) {
   const [title, setTitle] = useState("");
@@ -26,6 +27,13 @@ export function AddAssignmentDialog({ open, onOpenChange, onCreated }: AddAssign
   const [course, setCourse] = useState("");
   const [dueDate, setDueDate] = useState<Date>();
   const [estimatedHours, setEstimatedHours] = useState(2);
+  
+  // Recurring assignment fields
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [recurrencePattern, setRecurrencePattern] = useState("weekly");
+  const [recurrenceInterval, setRecurrenceInterval] = useState(1);
+  const [recurrenceEndDate, setRecurrenceEndDate] = useState<Date>();
+  
   const [isProcessing, setIsProcessing] = useState(false);
 
   const { addAssignment } = useAssignments();
@@ -34,29 +42,44 @@ export function AddAssignmentDialog({ open, onOpenChange, onCreated }: AddAssign
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!dueDate) return;
+    if (!dueDate || (isRecurring && !recurrenceEndDate)) return;
     setIsProcessing(true);
     try {
-      const { data, error } = await addAssignment({
+      const assignmentData = {
         title,
         description: description || undefined,
         course_id: course,
         due_date: dueDate.toISOString(),
         estimated_hours: Math.round(Number(estimatedHours) || 0),
-      });
+        is_recurring: isRecurring,
+        recurrence_pattern: isRecurring ? recurrencePattern : undefined,
+        recurrence_interval: isRecurring ? recurrenceInterval : undefined,
+        recurrence_end_date: isRecurring && recurrenceEndDate ? recurrenceEndDate.toISOString().split('T')[0] : undefined,
+      };
+
+      const { data, error } = await addAssignment(assignmentData);
       if (error || !data) throw new Error(error || "Failed to create assignment");
+      
       toast({
-        title: "Assignment created",
-        description: "We’ll plan it into tasks shortly.",
+        title: isRecurring ? "Recurring assignment created" : "Assignment created",
+        description: isRecurring 
+          ? "Future instances will be generated automatically based on your schedule."
+          : "We'll plan it into tasks shortly.",
       });
+      
       onCreated?.(data);
       onOpenChange(false);
+      
       // Reset form
       setTitle("");
       setDescription("");
       setCourse("");
       setDueDate(undefined);
       setEstimatedHours(2);
+      setIsRecurring(false);
+      setRecurrencePattern("weekly");
+      setRecurrenceInterval(1);
+      setRecurrenceEndDate(undefined);
     } catch (err: any) {
       toast({
         title: "Could not create assignment",
@@ -70,7 +93,7 @@ export function AddAssignmentDialog({ open, onOpenChange, onCreated }: AddAssign
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px] bg-gradient-card">
+      <DialogContent className="sm:max-w-[500px] bg-gradient-card max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-primary" />
@@ -161,14 +184,89 @@ export function AddAssignmentDialog({ open, onOpenChange, onCreated }: AddAssign
             </div>
           </div>
 
+          {/* Recurring Assignment Section */}
+          <div className="space-y-4 border-t pt-4">
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="recurring"
+                checked={isRecurring}
+                onCheckedChange={(checked) => setIsRecurring(checked as boolean)}
+              />
+              <Label htmlFor="recurring" className="flex items-center gap-2">
+                <Repeat className="w-4 h-4" />
+                Make this a recurring assignment
+              </Label>
+            </div>
+
+            {isRecurring && (
+              <div className="space-y-4 bg-muted/30 p-4 rounded-lg">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Repeat every</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        type="number"
+                        min="1"
+                        value={recurrenceInterval}
+                        onChange={(e) => setRecurrenceInterval(Number(e.target.value))}
+                        className="w-20"
+                      />
+                      <Select value={recurrencePattern} onValueChange={setRecurrencePattern}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="daily">Day(s)</SelectItem>
+                          <SelectItem value="weekly">Week(s)</SelectItem>
+                          <SelectItem value="biweekly">Bi-week(s)</SelectItem>
+                          <SelectItem value="monthly">Month(s)</SelectItem>
+                          <SelectItem value="yearly">Year(s)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Until</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full justify-start text-left font-normal",
+                            !recurrenceEndDate && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {recurrenceEndDate ? format(recurrenceEndDate, "PPP") : "End date"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={recurrenceEndDate}
+                          onSelect={setRecurrenceEndDate}
+                          disabled={(date) => dueDate ? date <= dueDate : false}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
           <div className="bg-primary-muted p-4 rounded-lg">
             <div className="flex items-start gap-3">
               <Sparkles className="w-5 h-5 text-primary mt-0.5" />
               <div>
                 <h4 className="font-medium text-primary mb-1">AI Planning</h4>
                 <p className="text-sm text-muted-foreground">
-                  Our AI will automatically break this assignment into manageable tasks 
-                  and suggest optimal study times based on your schedule.
+                  {isRecurring 
+                    ? "Our AI will automatically generate future instances and break each into manageable tasks based on your schedule."
+                    : "Our AI will automatically break this assignment into manageable tasks and suggest optimal study times based on your schedule."
+                  }
                 </p>
               </div>
             </div>
@@ -185,7 +283,7 @@ export function AddAssignmentDialog({ open, onOpenChange, onCreated }: AddAssign
             </Button>
             <Button 
               type="submit" 
-              disabled={!title || !course || !dueDate || isProcessing}
+              disabled={!title || !course || !dueDate || (isRecurring && !recurrenceEndDate) || isProcessing}
               className="bg-gradient-primary hover:opacity-90"
             >
               {isProcessing ? (
@@ -196,7 +294,7 @@ export function AddAssignmentDialog({ open, onOpenChange, onCreated }: AddAssign
               ) : (
                 <>
                   <Sparkles className="w-4 h-4 mr-2" />
-                  Create Assignment
+                  {isRecurring ? "Create Recurring Assignment" : "Create Assignment"}
                 </>
               )}
             </Button>
