@@ -12,6 +12,7 @@ import { CalendarIcon, Edit2, Save, X, Clock } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useCourses } from "@/hooks/useCourses";
+import { AIInsightButton } from "@/components/AIInsightButton";
 
 interface AssignmentRowProps {
   assignment: Assignment;
@@ -184,14 +185,23 @@ export function AssignmentRow({ assignment, onUpdate, onToggleComplete }: Assign
         </div>
       </div>
 
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => setIsEditing(true)}
-        className="ml-2"
-      >
-        <Edit2 className="w-4 h-4" />
-      </Button>
+      <div className="flex items-center gap-2">
+        <AIInsightButton
+          type="assignment"
+          title={assignment.title}
+          dueDate={assignment.due_date}
+          estimatedHours={assignment.estimated_hours}
+          description={assignment.description || undefined}
+        />
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setIsEditing(true)}
+          className="ml-2"
+        >
+          <Edit2 className="w-4 h-4" />
+        </Button>
+      </div>
     </div>
   );
 }

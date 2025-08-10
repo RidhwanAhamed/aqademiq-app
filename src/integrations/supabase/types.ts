@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_insights_history: {
+        Row: {
+          ai_response: Json
+          created_at: string
+          id: string
+          request_payload: Json
+          user_id: string
+        }
+        Insert: {
+          ai_response: Json
+          created_at?: string
+          id?: string
+          request_payload: Json
+          user_id: string
+        }
+        Update: {
+          ai_response?: Json
+          created_at?: string
+          id?: string
+          request_payload?: Json
+          user_id?: string
+        }
+        Relationships: []
+      }
       assignments: {
         Row: {
           ai_generated_tasks: Json | null

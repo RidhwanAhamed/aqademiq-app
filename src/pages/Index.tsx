@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Dashboard } from "@/components/Dashboard";
+import { RemindersPanel } from "@/components/RemindersPanel";
 
 const Index = () => {
   const { user, loading } = useAuth();
@@ -28,7 +29,12 @@ const Index = () => {
     return null;
   }
 
-  return <Dashboard />;
+  return (
+    <div className="space-y-6">
+      <Dashboard />
+      <RemindersPanel />
+    </div>
+  );
 };
 
 export default Index;
