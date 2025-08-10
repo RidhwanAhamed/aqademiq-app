@@ -21,9 +21,9 @@ interface NavItem {
 const navItems: NavItem[] = [
   { title: "Home", url: "/", icon: Home },
   { title: "Calendar", url: "/calendar", icon: Calendar },
-  { title: "StudySage", url: "/studysage", icon: Bot, badge: "Beta" },
   { title: "Courses", url: "/courses", icon: BookOpen },
-  { title: "Timer", url: "/timer", icon: Clock },
+  { title: "Tasks", url: "/assignments", icon: Target },
+  { title: "Settings", url: "/settings", icon: Settings },
 ];
 
 export function MobileBottomNav() {

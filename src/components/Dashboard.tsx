@@ -212,9 +212,6 @@ export function Dashboard() {
            
            {/* Revision Tasks */}
            <RevisionTasksPanel />
-           
-           {/* Reminders Panel */}
-           <RemindersPanel />
         </div>
       </div>
 

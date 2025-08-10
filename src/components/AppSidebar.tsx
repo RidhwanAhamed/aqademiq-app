@@ -69,7 +69,7 @@ export function AppSidebar() {
 
   return (
     <Sidebar
-      className={`transition-all duration-300 ${collapsed ? "w-16" : "w-64"} border-r bg-card hidden lg:flex`}
+      className={`transition-all duration-300 ${collapsed ? "w-16" : "w-64"} border-r bg-card`}
       collapsible="icon"
     >
       {/* Header */}

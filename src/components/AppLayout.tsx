@@ -12,7 +12,7 @@ export function AppLayout() {
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full bg-background">
-        {/* Desktop Sidebar */}
+        {/* Desktop Sidebar - Show on desktop */}
         <div className="hidden lg:block">
           <AppSidebar />
         </div>
@@ -39,8 +39,9 @@ export function AppLayout() {
           </header>
 
           {/* Main Content */}
-          <main className="flex-1 overflow-auto pb-20 lg:pb-0">
-            <div className="container mx-auto px-4 py-4 lg:px-6 lg:py-6">
+          <main className="flex-1 overflow-auto">
+            {/* Add bottom padding only on mobile for bottom nav */}
+            <div className="pb-20 lg:pb-0">
               <Outlet />
             </div>
           </main>
