@@ -2,9 +2,14 @@ import { StudySageChat } from "@/components/StudySageChat";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Bot, Upload, MessageSquare, Calendar, Zap, Sparkles, FileText, Users, Lightbulb, ChevronRight } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Bot, Upload, MessageSquare, Calendar, Zap, Sparkles, FileText, Users, Lightbulb, ChevronRight, ChevronDown } from "lucide-react";
+import { useState } from "react";
 
 const StudySage = () => {
+  const [capabilitiesOpen, setCapabilitiesOpen] = useState(true);
+  const [tipsOpen, setTipsOpen] = useState(false);
+  const [formatsOpen, setFormatsOpen] = useState(false);
   const features = [
     {
       icon: Upload,
@@ -116,81 +121,116 @@ const StudySage = () => {
           <div className="xl:col-span-4 space-y-6">
             {/* Features Overview */}
             <Card className="bg-gradient-to-br from-card to-card/80 border-0 shadow-lg">
-              <CardHeader className="pb-4">
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <Zap className="w-5 h-5 text-primary" />
-                  Capabilities
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {features.map((feature, index) => (
-                  <div key={index} className="group cursor-pointer">
-                    <div className="flex items-start gap-3 p-3 rounded-xl hover:bg-muted/50 transition-all duration-200">
-                      <div className={`p-2 rounded-lg ${feature.bgColor} ${feature.darkBgColor} group-hover:scale-110 transition-transform duration-200`}>
-                        <feature.icon className={`w-4 h-4 ${feature.color}`} />
+              <Collapsible open={capabilitiesOpen} onOpenChange={setCapabilitiesOpen}>
+                <CollapsibleTrigger asChild>
+                  <CardHeader className="pb-4 cursor-pointer hover:bg-muted/20 transition-colors rounded-t-lg">
+                    <CardTitle className="flex items-center justify-between text-lg">
+                      <div className="flex items-center gap-2">
+                        <Zap className="w-5 h-5 text-primary" />
+                        Capabilities
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-semibold text-sm leading-tight">{feature.title}</h4>
-                        <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                          {feature.description}
-                        </p>
+                      {capabilitiesOpen ? 
+                        <ChevronDown className="w-4 h-4 text-muted-foreground" /> : 
+                        <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                      }
+                    </CardTitle>
+                  </CardHeader>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <CardContent className="space-y-4 pt-0">
+                    {features.map((feature, index) => (
+                      <div key={index} className="group cursor-pointer">
+                        <div className="flex items-start gap-3 p-3 rounded-xl hover:bg-muted/50 transition-all duration-200">
+                          <div className={`p-2 rounded-lg ${feature.bgColor} ${feature.darkBgColor} group-hover:scale-110 transition-transform duration-200`}>
+                            <feature.icon className={`w-4 h-4 ${feature.color}`} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-semibold text-sm leading-tight">{feature.title}</h4>
+                            <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                              {feature.description}
+                            </p>
+                          </div>
+                        </div>
                       </div>
-                      <ChevronRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
-                    </div>
-                  </div>
-                ))}
-              </CardContent>
+                    ))}
+                  </CardContent>
+                </CollapsibleContent>
+              </Collapsible>
             </Card>
 
             {/* Interactive Tips */}
             <Card className="bg-gradient-to-br from-card to-card/80 border-0 shadow-lg">
-              <CardHeader className="pb-4">
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <Lightbulb className="w-5 h-5 text-primary" />
-                  How to Get Started
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {quickTips.map((tip, index) => (
-                  <div key={index} className={`p-4 bg-gradient-to-r from-muted/30 to-muted/10 rounded-xl border-l-4 ${tip.accent} hover:shadow-md transition-all duration-200`}>
-                    <div className="flex items-start gap-3">
-                      <span className="text-2xl">{tip.emoji}</span>
-                      <div>
-                        <h4 className="font-semibold text-sm text-foreground mb-1">{tip.title}</h4>
-                        <p className="text-xs text-muted-foreground leading-relaxed">{tip.description}</p>
+              <Collapsible open={tipsOpen} onOpenChange={setTipsOpen}>
+                <CollapsibleTrigger asChild>
+                  <CardHeader className="pb-4 cursor-pointer hover:bg-muted/20 transition-colors rounded-t-lg">
+                    <CardTitle className="flex items-center justify-between text-lg">
+                      <div className="flex items-center gap-2">
+                        <Lightbulb className="w-5 h-5 text-primary" />
+                        How to Get Started
                       </div>
-                    </div>
-                  </div>
-                ))}
-              </CardContent>
+                      {tipsOpen ? 
+                        <ChevronDown className="w-4 h-4 text-muted-foreground" /> : 
+                        <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                      }
+                    </CardTitle>
+                  </CardHeader>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <CardContent className="space-y-4 pt-0">
+                    {quickTips.map((tip, index) => (
+                      <div key={index} className={`p-4 bg-gradient-to-r from-muted/30 to-muted/10 rounded-xl border-l-4 ${tip.accent} hover:shadow-md transition-all duration-200`}>
+                        <div className="flex items-start gap-3">
+                          <span className="text-2xl">{tip.emoji}</span>
+                          <div>
+                            <h4 className="font-semibold text-sm text-foreground mb-1">{tip.title}</h4>
+                            <p className="text-xs text-muted-foreground leading-relaxed">{tip.description}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </CardContent>
+                </CollapsibleContent>
+              </Collapsible>
             </Card>
 
             {/* File Support */}
             <Card className="bg-gradient-to-br from-card to-card/80 border-0 shadow-lg">
-              <CardHeader className="pb-4">
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <FileText className="w-5 h-5 text-primary" />
-                  Supported Formats
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 gap-3">
-                  {fileTypes.map((file, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors duration-200">
-                      <div className="flex items-center gap-3">
-                        <span className="text-lg">{file.icon}</span>
-                        <div>
-                          <span className="font-semibold text-sm">{file.type}</span>
-                          <p className="text-xs text-muted-foreground">{file.desc}</p>
-                        </div>
+              <Collapsible open={formatsOpen} onOpenChange={setFormatsOpen}>
+                <CollapsibleTrigger asChild>
+                  <CardHeader className="pb-4 cursor-pointer hover:bg-muted/20 transition-colors rounded-t-lg">
+                    <CardTitle className="flex items-center justify-between text-lg">
+                      <div className="flex items-center gap-2">
+                        <FileText className="w-5 h-5 text-primary" />
+                        Supported Formats
                       </div>
-                      <Badge variant="outline" className="text-xs">
-                        Supported
-                      </Badge>
+                      {formatsOpen ? 
+                        <ChevronDown className="w-4 h-4 text-muted-foreground" /> : 
+                        <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                      }
+                    </CardTitle>
+                  </CardHeader>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <CardContent className="pt-0">
+                    <div className="grid grid-cols-1 gap-3">
+                      {fileTypes.map((file, index) => (
+                        <div key={index} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors duration-200">
+                          <div className="flex items-center gap-3">
+                            <span className="text-lg">{file.icon}</span>
+                            <div>
+                              <span className="font-semibold text-sm">{file.type}</span>
+                              <p className="text-xs text-muted-foreground">{file.desc}</p>
+                            </div>
+                          </div>
+                          <Badge variant="outline" className="text-xs">
+                            Supported
+                          </Badge>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              </CardContent>
+                  </CardContent>
+                </CollapsibleContent>
+              </Collapsible>
             </Card>
 
             {/* Status & Stats */}

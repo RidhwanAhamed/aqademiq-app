@@ -18,7 +18,8 @@ import {
   AlertTriangle,
   CheckCircle,
   Calendar,
-  Clock
+  Clock,
+  CalendarPlus
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -64,10 +65,12 @@ export function StudySageChat() {
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [messages, isProcessing]);
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }, 100);
   };
 
   const loadChatHistory = async () => {
@@ -280,6 +283,11 @@ export function StudySageChat() {
 
       if (aiMessage) {
         setMessages(prev => [...prev, aiMessage]);
+        
+        // Check if the response contains schedule data that should be added to calendar
+        if (aiResponse.metadata?.schedule_data && userMessage.toLowerCase().includes('add to calendar')) {
+          await addToCalendar(aiResponse.metadata.schedule_data);
+        }
       }
 
     } catch (error) {
@@ -321,6 +329,107 @@ export function StudySageChat() {
       toast({
         title: 'Error',
         description: 'Failed to resolve conflict',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const addToCalendar = async (scheduleData: any) => {
+    try {
+      if (!user || !scheduleData) return;
+
+      const { courses = [], assignments = [], exams = [], schedule_blocks = [] } = scheduleData;
+      
+      // Add courses
+      for (const course of courses) {
+        const { data, error } = await supabase
+          .from('courses')
+          .insert([{
+            user_id: user.id,
+            name: course.name,
+            code: course.code || '',
+            description: course.description || '',
+            color: course.color || '#3B82F6',
+            credits: course.credits || 3,
+            semester_id: null // Will need to be updated based on current semester
+          }]);
+        
+        if (error) console.error('Error adding course:', error);
+      }
+
+      // Add assignments
+      for (const assignment of assignments) {
+        const { data, error } = await supabase
+          .from('assignments')
+          .insert([{
+            user_id: user.id,
+            title: assignment.title,
+            description: assignment.description || '',
+            due_date: assignment.due_date,
+            course_id: null, // Will need to match with course
+            type: assignment.type || 'homework',
+            status: 'todo'
+          }]);
+        
+        if (error) console.error('Error adding assignment:', error);
+      }
+
+      // Add exams
+      for (const exam of exams) {
+        const { data, error } = await supabase
+          .from('exams')
+          .insert([{
+            user_id: user.id,
+            title: exam.title,
+            course_id: null, // Will need to match with course
+            exam_date: exam.date,
+            duration: exam.duration || 120,
+            location: exam.location || '',
+            notes: exam.notes || ''
+          }]);
+        
+        if (error) console.error('Error adding exam:', error);
+      }
+
+      // Add schedule blocks
+      for (const block of schedule_blocks) {
+        const { data, error } = await supabase
+          .from('schedule_blocks')
+          .insert([{
+            user_id: user.id,
+            title: block.title,
+            start_time: block.start_time,
+            end_time: block.end_time,
+            day_of_week: block.day_of_week,
+            course_id: null, // Will need to match with course
+            location: block.location || '',
+            recurrence_pattern: block.recurrence_pattern || 'weekly',
+            is_active: true
+          }]);
+        
+        if (error) console.error('Error adding schedule block:', error);
+      }
+
+      toast({
+        title: 'Calendar Updated',
+        description: 'Your schedule has been successfully added to the calendar',
+      });
+
+      // Send confirmation message
+      const confirmationMessage = await saveChatMessage(
+        '✅ Perfect! I\'ve successfully added your schedule to the calendar. You can now view all your courses, assignments, and exams in the Calendar section.',
+        false
+      );
+
+      if (confirmationMessage) {
+        setMessages(prev => [...prev, confirmationMessage]);
+      }
+
+    } catch (error) {
+      console.error('Error adding to calendar:', error);
+      toast({
+        title: 'Calendar Error',
+        description: 'Failed to add schedule to calendar',
         variant: 'destructive'
       });
     }
@@ -454,6 +563,22 @@ export function StudySageChat() {
                     : 'bg-gradient-to-br from-muted/80 to-muted/40 backdrop-blur-sm border'
                 }`}>
                   <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.message}</p>
+                  
+                  {/* Add to Calendar Button for AI messages with schedule data */}
+                  {!message.is_user && message.metadata?.parsed_data && (
+                    <div className="mt-3 pt-3 border-t border-current/20">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => addToCalendar(message.metadata.parsed_data)}
+                        className="h-8 text-xs bg-background/80 backdrop-blur-sm hover:bg-background"
+                      >
+                        <CalendarPlus className="w-3 h-3 mr-1" />
+                        Add to Calendar
+                      </Button>
+                    </div>
+                  )}
+                  
                   <div className="flex items-center gap-1.5 mt-2 opacity-70">
                     <Clock className="w-3 h-3" />
                     <span className="text-xs">
@@ -485,7 +610,7 @@ export function StudySageChat() {
             </div>
           )}
         </div>
-        <div ref={messagesEndRef} />
+        <div ref={messagesEndRef} className="h-4" />
       </ScrollArea>
 
       {/* Enhanced Input Area */}
