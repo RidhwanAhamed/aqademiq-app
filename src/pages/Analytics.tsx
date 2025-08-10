@@ -1,12 +1,16 @@
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { BarChart3, TrendingUp, Target, Clock } from "lucide-react";
+import { BarChart3, TrendingUp, Target, Clock, Plus } from "lucide-react";
 import { useUserStats } from "@/hooks/useUserStats";
 import { StudyTimeChart } from "@/components/analytics/StudyTimeChart";
 import { GradeChart } from "@/components/analytics/GradeChart";
 import { StreakCard } from "@/components/analytics/StreakCard";
+import { AddStudySessionDialog } from "@/components/AddStudySessionDialog";
 
 export default function Analytics() {
   const { stats, studyTimeData, gradeData, loading } = useUserStats();
+  const [showStudySessionDialog, setShowStudySessionDialog] = useState(false);
 
   if (loading) {
     return (
@@ -33,6 +37,13 @@ export default function Analytics() {
           <h1 className="text-3xl font-bold text-foreground">Analytics</h1>
           <p className="text-muted-foreground">Track your academic progress</p>
         </div>
+        <Button 
+          onClick={() => setShowStudySessionDialog(true)}
+          className="bg-gradient-primary hover:opacity-90 shadow-primary"
+        >
+          <Plus className="w-4 h-4 mr-2" />
+          Log Study Time
+        </Button>
       </div>
 
       {/* Overview Stats */}
@@ -106,6 +117,11 @@ export default function Analytics() {
           <StreakCard stats={stats} />
         </div>
       </div>
+      
+      <AddStudySessionDialog
+        open={showStudySessionDialog}
+        onOpenChange={setShowStudySessionDialog}
+      />
     </div>
   );
 }

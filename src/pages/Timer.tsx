@@ -3,10 +3,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Play, Pause, RotateCcw, Clock, Coffee, Target } from "lucide-react";
+import { Play, Pause, RotateCcw, Clock, Coffee, Target, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { AddStudySessionDialog } from "@/components/AddStudySessionDialog";
 
 type TimerMode = 'focus' | 'short-break' | 'long-break';
 
@@ -23,6 +24,7 @@ export default function Timer() {
   const [sessionsCompleted, setSessionsCompleted] = useState(0);
   const [totalFocusTime, setTotalFocusTime] = useState(0);
   const [currentSessionStart, setCurrentSessionStart] = useState<Date | null>(null);
+  const [showStudySessionDialog, setShowStudySessionDialog] = useState(false);
   
   const intervalRef = useRef<NodeJS.Timeout>();
   const { toast } = useToast();
@@ -145,6 +147,13 @@ export default function Timer() {
           <h1 className="text-3xl font-bold text-foreground">Study Timer</h1>
           <p className="text-muted-foreground">Focus with Pomodoro technique</p>
         </div>
+        <Button 
+          onClick={() => setShowStudySessionDialog(true)}
+          variant="outline"
+        >
+          <Plus className="w-4 h-4 mr-2" />
+          Log Manual Session
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -259,6 +268,11 @@ export default function Timer() {
           )}
         </CardContent>
       </Card>
+      
+      <AddStudySessionDialog
+        open={showStudySessionDialog}
+        onOpenChange={setShowStudySessionDialog}
+      />
     </div>
   );
 }

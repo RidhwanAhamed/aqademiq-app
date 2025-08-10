@@ -2,11 +2,12 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Plus, Calendar, Target, Zap } from "lucide-react";
+import { Plus, Calendar, Target, Zap, Clock } from "lucide-react";
 import { CourseCard } from "./CourseCard";
 import { TodayTimeline } from "./TodayTimeline";
 import { QuickStats } from "./QuickStats";
 import { AddAssignmentDialog } from "./AddAssignmentDialog";
+import { AddStudySessionDialog } from "./AddStudySessionDialog";
 import { useCourses } from "@/hooks/useCourses";
 import { useAssignments } from "@/hooks/useAssignments";
 import { useExams } from "@/hooks/useExams";
@@ -16,6 +17,7 @@ import { format, isAfter, isBefore, addDays } from "date-fns";
 
 export function Dashboard() {
   const [showAddDialog, setShowAddDialog] = useState(false);
+  const [showStudySessionDialog, setShowStudySessionDialog] = useState(false);
   const { courses } = useCourses();
   const { assignments } = useAssignments();
   const { exams } = useExams();
@@ -124,6 +126,15 @@ export function Dashboard() {
                     />
                   ))}
                 </div>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="mt-4 w-full"
+                  onClick={() => setShowStudySessionDialog(true)}
+                >
+                  <Clock className="w-4 h-4 mr-2" />
+                  Log Study Time
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -192,6 +203,11 @@ export function Dashboard() {
       <AddAssignmentDialog 
         open={showAddDialog} 
         onOpenChange={setShowAddDialog} 
+      />
+      
+      <AddStudySessionDialog
+        open={showStudySessionDialog}
+        onOpenChange={setShowStudySessionDialog}
       />
     </div>
   );
