@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useCourses } from "@/hooks/useCourses";
 import { useAssignments, type Assignment } from "@/hooks/useAssignments";
+import { useExams } from "@/hooks/useExams";
 import { Checkbox } from "@/components/ui/checkbox";
 
 interface AddAssignmentDialogProps {
@@ -33,11 +34,13 @@ export function AddAssignmentDialog({ open, onOpenChange, onCreated }: AddAssign
   const [recurrencePattern, setRecurrencePattern] = useState("weekly");
   const [recurrenceInterval, setRecurrenceInterval] = useState(1);
   const [recurrenceEndDate, setRecurrenceEndDate] = useState<Date>();
+  const [linkedExam, setLinkedExam] = useState("");
   
   const [isProcessing, setIsProcessing] = useState(false);
 
   const { addAssignment } = useAssignments();
   const { courses } = useCourses();
+  const { exams } = useExams();
   const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -55,6 +58,7 @@ export function AddAssignmentDialog({ open, onOpenChange, onCreated }: AddAssign
         recurrence_pattern: isRecurring ? recurrencePattern : undefined,
         recurrence_interval: isRecurring ? recurrenceInterval : undefined,
         recurrence_end_date: isRecurring && recurrenceEndDate ? recurrenceEndDate.toISOString().split('T')[0] : undefined,
+        exam_id: linkedExam || undefined,
       };
 
       const { data, error } = await addAssignment(assignmentData);
@@ -80,6 +84,7 @@ export function AddAssignmentDialog({ open, onOpenChange, onCreated }: AddAssign
       setRecurrencePattern("weekly");
       setRecurrenceInterval(1);
       setRecurrenceEndDate(undefined);
+      setLinkedExam("");
     } catch (err: any) {
       toast({
         title: "Could not create assignment",
@@ -254,6 +259,28 @@ export function AddAssignmentDialog({ open, onOpenChange, onCreated }: AddAssign
                   </div>
                 </div>
               </div>
+            )}
+          </div>
+
+          {/* Exam Linking Section */}
+          <div className="space-y-2">
+            <Label htmlFor="linkedExam">Link to Exam (Optional)</Label>
+            <Select value={linkedExam} onValueChange={setLinkedExam}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select an exam to link this assignment" />
+              </SelectTrigger>
+              <SelectContent>
+                {exams.map((exam) => (
+                  <SelectItem key={exam.id} value={exam.id}>
+                    {exam.title} - {format(new Date(exam.exam_date), "PPP")}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {linkedExam && (
+              <p className="text-xs text-muted-foreground">
+                Linking to an exam will automatically generate revision tasks before the exam date.
+              </p>
             )}
           </div>
 

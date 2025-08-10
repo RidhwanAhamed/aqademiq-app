@@ -23,6 +23,7 @@ export interface Assignment {
   recurrence_interval?: number | null;
   recurrence_end_date?: string | null;
   parent_assignment_id?: string | null;
+  exam_id?: string | null;
   original_due_date?: string | null;
   created_at: string;
   updated_at: string;
@@ -62,6 +63,7 @@ export function useAssignments() {
     recurrence_pattern?: string;
     recurrence_interval?: number;
     recurrence_end_date?: string;
+    exam_id?: string;
   }) => {
     if (!user) return { data: null as Assignment | null, error: "Not authenticated" };
     try {

@@ -8,6 +8,7 @@ import { TodayTimeline } from "./TodayTimeline";
 import { QuickStats } from "./QuickStats";
 import { AddAssignmentDialog } from "./AddAssignmentDialog";
 import { useCourses } from "@/hooks/useCourses";
+import { RevisionTasksPanel } from "./RevisionTasksPanel";
 
 export function Dashboard() {
   const [showAddDialog, setShowAddDialog] = useState(false);
@@ -151,6 +152,9 @@ export function Dashboard() {
               </div>
             </CardContent>
           </Card>
+          
+          {/* Revision Tasks Panel */}
+          <RevisionTasksPanel />
         </div>
       </div>
 

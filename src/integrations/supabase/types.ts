@@ -48,6 +48,7 @@ export type Database = {
           description: string | null
           due_date: string
           estimated_hours: number | null
+          exam_id: string | null
           grade_points: number | null
           grade_received: string | null
           id: string
@@ -73,6 +74,7 @@ export type Database = {
           description?: string | null
           due_date: string
           estimated_hours?: number | null
+          exam_id?: string | null
           grade_points?: number | null
           grade_received?: string | null
           id?: string
@@ -98,6 +100,7 @@ export type Database = {
           description?: string | null
           due_date?: string
           estimated_hours?: number | null
+          exam_id?: string | null
           grade_points?: number | null
           grade_received?: string | null
           id?: string
@@ -120,6 +123,13 @@ export type Database = {
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assignments_exam_id_fkey"
+            columns: ["exam_id"]
+            isOneToOne: false
+            referencedRelation: "exams"
             referencedColumns: ["id"]
           },
         ]
@@ -377,6 +387,69 @@ export type Database = {
             columns: ["schedule_block_id"]
             isOneToOne: false
             referencedRelation: "schedule_blocks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      revision_tasks: {
+        Row: {
+          assignment_id: string | null
+          created_at: string | null
+          description: string | null
+          due_date: string
+          estimated_hours: number | null
+          exam_id: string
+          id: string
+          is_completed: boolean | null
+          priority: number | null
+          task_type: string | null
+          title: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          assignment_id?: string | null
+          created_at?: string | null
+          description?: string | null
+          due_date: string
+          estimated_hours?: number | null
+          exam_id: string
+          id?: string
+          is_completed?: boolean | null
+          priority?: number | null
+          task_type?: string | null
+          title: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          assignment_id?: string | null
+          created_at?: string | null
+          description?: string | null
+          due_date?: string
+          estimated_hours?: number | null
+          exam_id?: string
+          id?: string
+          is_completed?: boolean | null
+          priority?: number | null
+          task_type?: string | null
+          title?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "revision_tasks_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "assignments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "revision_tasks_exam_id_fkey"
+            columns: ["exam_id"]
+            isOneToOne: false
+            referencedRelation: "exams"
             referencedColumns: ["id"]
           },
         ]
@@ -686,6 +759,10 @@ export type Database = {
     Functions: {
       generate_recurring_assignments: {
         Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      generate_revision_tasks_for_exam: {
+        Args: { p_exam_id: string; p_user_id: string }
         Returns: undefined
       }
       is_holiday_period: {
