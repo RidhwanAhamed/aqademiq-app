@@ -300,18 +300,18 @@ export function EnhancedCalendarView({
 
                   const droppableId = `${day.getDay()}-${hour}`;
 
-                  return (
-                    <Droppable key={droppableId} droppableId={droppableId}>
-                      {(provided, snapshot) => (
-                        <div
-                          ref={provided.innerRef}
-                          {...provided.droppableProps}
-                          className={cn(
-                            "bg-card min-h-[3rem] p-1 border-t border-border cursor-pointer hover:bg-muted/50 transition-colors",
-                            snapshot.isDraggingOver && "bg-primary/10"
-                          )}
-                          onClick={() => handleQuickAdd(day, hour)}
-                        >
+                   return (
+                     <Droppable key={droppableId} droppableId={droppableId}>
+                       {(provided, snapshot) => (
+                         <div
+                           ref={provided.innerRef}
+                           {...provided.droppableProps}
+                           className={cn(
+                             "bg-background min-h-[3rem] p-1 border-t border-border cursor-pointer hover:bg-muted/30 transition-colors",
+                             snapshot.isDraggingOver && "bg-primary/20 border-primary"
+                           )}
+                           onClick={() => handleQuickAdd(day, hour)}
+                         >
                           {events.map((event, index) => (
                             <Draggable
                               key={event.id}
@@ -320,33 +320,31 @@ export function EnhancedCalendarView({
                               isDragDisabled={event.type !== 'class'}
                             >
                               {(provided, snapshot) => (
-                                <div
-                                  ref={provided.innerRef}
-                                  {...provided.draggableProps}
-                                  {...provided.dragHandleProps}
-                                  className={cn(
-                                    "text-xs p-2 rounded mb-1 border-l-4 cursor-grab active:cursor-grabbing",
-                                    `border-l-${event.color}`,
-                                    snapshot.isDragging && "rotate-2 shadow-lg z-50"
-                                  )}
-                                  style={{
-                                    backgroundColor: `hsl(var(--${event.color}))`,
-                                    opacity: 0.1,
-                                    ...provided.draggableProps.style
-                                  }}
-                                >
-                                  <div className="font-medium text-foreground text-xs">{event.title}</div>
-                                  <div className="text-muted-foreground flex items-center gap-1">
-                                    <Clock className="w-3 h-3" />
-                                    <span className="text-xs">{event.time}</span>
-                                  </div>
-                                  {event.location && (
-                                    <div className="text-muted-foreground flex items-center gap-1">
-                                      <MapPin className="w-3 h-3" />
-                                      <span className="text-xs">{event.location}</span>
-                                    </div>
-                                  )}
-                                </div>
+                                 <div
+                                   ref={provided.innerRef}
+                                   {...provided.draggableProps}
+                                   {...provided.dragHandleProps}
+                                   className={cn(
+                                     "text-xs p-2 rounded mb-1 border-l-4 cursor-grab active:cursor-grabbing shadow-sm",
+                                     event.type === 'exam' ? "bg-red-50 dark:bg-red-950/50 border-red-500 text-red-900 dark:text-red-100" :
+                                     event.type === 'assignment' ? "bg-blue-50 dark:bg-blue-950/50 border-blue-500 text-blue-900 dark:text-blue-100" :
+                                     "bg-green-50 dark:bg-green-950/50 border-green-500 text-green-900 dark:text-green-100",
+                                     snapshot.isDragging && "rotate-2 shadow-lg z-50"
+                                   )}
+                                   style={provided.draggableProps.style}
+                                 >
+                                   <div className="font-semibold text-xs">{event.title}</div>
+                                   <div className="flex items-center gap-1 opacity-75">
+                                     <Clock className="w-3 h-3" />
+                                     <span className="text-xs">{event.time}</span>
+                                   </div>
+                                   {event.location && (
+                                     <div className="flex items-center gap-1 opacity-75">
+                                       <MapPin className="w-3 h-3" />
+                                       <span className="text-xs">{event.location}</span>
+                                     </div>
+                                   )}
+                                 </div>
                               )}
                             </Draggable>
                           ))}
@@ -467,20 +465,21 @@ export function EnhancedCalendarView({
                   
                   <div className="space-y-1">
                     {events.slice(0, 3).map(event => (
-                      <div
-                        key={event.id}
-                        className={cn(
-                          "text-xs p-1 rounded border-l-2 truncate",
-                          `border-l-${event.color}`
-                        )}
-                        style={{ backgroundColor: `hsl(var(--${event.color}))`, opacity: 0.1 }}
-                        title={event.title}
-                      >
-                        {event.type === 'exam' && '📝 '}
-                        {event.type === 'assignment' && '📋 '}
-                        {event.type === 'class' && '🎓 '}
-                        {event.title}
-                      </div>
+                       <div
+                         key={event.id}
+                         className={cn(
+                           "text-xs p-2 rounded-md border-l-2 truncate font-medium shadow-sm",
+                           event.type === 'exam' ? "bg-red-50 dark:bg-red-950/50 border-red-500 text-red-900 dark:text-red-100" :
+                           event.type === 'assignment' ? "bg-blue-50 dark:bg-blue-950/50 border-blue-500 text-blue-900 dark:text-blue-100" :
+                           "bg-green-50 dark:bg-green-950/50 border-green-500 text-green-900 dark:text-green-100"
+                         )}
+                         title={event.title}
+                       >
+                         {event.type === 'exam' && '📝 '}
+                         {event.type === 'assignment' && '📋 '}
+                         {event.type === 'class' && '🎓 '}
+                         {event.title}
+                       </div>
                     ))}
                     {events.length > 3 && (
                       <div className="text-xs text-muted-foreground">

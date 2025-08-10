@@ -209,8 +209,8 @@ export function Dashboard() {
             </CardContent>
           </Card>
           
-          {/* Reminders Panel */}
-          <RemindersPanel />
+           {/* Reminders Panel */}
+           <RemindersPanel />
         </div>
       </div>
 

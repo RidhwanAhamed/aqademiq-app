@@ -64,10 +64,11 @@ export function RemindersPanel() {
 
   const getReminderTypeColor = (type: string) => {
     switch (type) {
-      case 'assignment': return 'bg-blue-500';
-      case 'exam': return 'bg-red-500';
-      case 'class': return 'bg-green-500';
-      default: return 'bg-gray-500';
+      case 'assignment': return 'bg-blue-500 text-white';
+      case 'exam': return 'bg-red-500 text-white';
+      case 'class': return 'bg-green-500 text-white';
+      case 'study': return 'bg-purple-500 text-white';
+      default: return 'bg-muted-foreground text-background';
     }
   };
 
@@ -157,13 +158,13 @@ export function RemindersPanel() {
         {upcomingReminders.length > 0 ? (
           <div className="space-y-3">
             {upcomingReminders.slice(0, 5).map((reminder) => (
-              <div key={reminder.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+              <div key={reminder.id} className="flex items-center justify-between p-3 bg-card border border-border rounded-lg shadow-sm hover:shadow-md transition-shadow">
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
-                    <Badge className={`${getReminderTypeColor(reminder.reminder_type)} text-white`}>
-                      {reminder.reminder_type}
-                    </Badge>
-                    <span className="font-medium">{reminder.title}</span>
+                     <Badge className={getReminderTypeColor(reminder.reminder_type)}>
+                       {reminder.reminder_type}
+                     </Badge>
+                     <span className="font-semibold text-foreground">{reminder.title}</span>
                   </div>
                   <div className="flex items-center gap-1 text-sm text-muted-foreground">
                     <Clock className="w-3 h-3" />
