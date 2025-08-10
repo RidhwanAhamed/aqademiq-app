@@ -1,44 +1,9 @@
 import { Clock, BookOpen } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { useSchedule } from "@/hooks/useSchedule";
+import { useAssignments } from "@/hooks/useAssignments";
+import { format, isToday, isBefore, addHours } from "date-fns";
 
-const mockSessions = [
-  {
-    id: "1",
-    title: "Physics Lab Report",
-    course: "Physics",
-    time: "9:00 AM",
-    duration: "2 hours",
-    status: "completed",
-    color: "science"
-  },
-  {
-    id: "2", 
-    title: "Calculus Problem Set",
-    course: "Calculus II",
-    time: "2:00 PM",
-    duration: "1.5 hours",
-    status: "current",
-    color: "math"
-  },
-  {
-    id: "3",
-    title: "Essay Writing",
-    course: "English Lit",
-    time: "4:00 PM", 
-    duration: "2 hours",
-    status: "upcoming",
-    color: "english"
-  },
-  {
-    id: "4",
-    title: "Review Notes",
-    course: "History",
-    time: "7:00 PM",
-    duration: "1 hour", 
-    status: "upcoming",
-    color: "history"
-  }
-];
 
 const statusStyles = {
   completed: "bg-success-muted text-success border-success/20",
@@ -56,7 +21,50 @@ const courseColorMap = {
 };
 
 export function TodayTimeline() {
-  if (mockSessions.length === 0) {
+  const { scheduleBlocks } = useSchedule();
+  const { assignments } = useAssignments();
+  
+  // Get today's schedule blocks
+  const todayBlocks = scheduleBlocks.filter(block => {
+    // Simple check for today - in real app would use the schedule function
+    const today = new Date().getDay(); // 0 = Sunday, 1 = Monday, etc.
+    return block.day_of_week === today && block.is_active;
+  });
+
+  // Get assignments due today
+  const todayAssignments = assignments.filter(assignment => 
+    isToday(new Date(assignment.due_date)) && !assignment.is_completed
+  );
+
+  // Combine schedule blocks and assignments into sessions
+  const todaySessions = [
+    ...todayBlocks.map(block => ({
+      id: block.id,
+      title: block.title,
+      course: "Course", // You might want to join with courses table
+      time: format(new Date(`2000-01-01T${block.start_time}`), 'h:mm a'),
+      duration: `${Math.round((new Date(`2000-01-01T${block.end_time}`).getTime() - new Date(`2000-01-01T${block.start_time}`).getTime()) / (1000 * 60 * 60) * 10) / 10} hours`,
+      status: "upcoming",
+      color: "primary",
+      type: "class"
+    })),
+    ...todayAssignments.map(assignment => ({
+      id: assignment.id,
+      title: assignment.title,
+      course: "Assignment",
+      time: format(new Date(assignment.due_date), 'h:mm a'),
+      duration: `${assignment.estimated_hours || 1} hours`,
+      status: isBefore(new Date(assignment.due_date), new Date()) ? "overdue" : "upcoming",
+      color: "warning",
+      type: "assignment"
+    }))
+  ].sort((a, b) => {
+    const timeA = new Date(`2000-01-01 ${a.time}`).getTime();
+    const timeB = new Date(`2000-01-01 ${b.time}`).getTime();
+    return timeA - timeB;
+  });
+
+  if (todaySessions.length === 0) {
     return (
       <div className="text-center py-8">
         <BookOpen className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
@@ -68,9 +76,9 @@ export function TodayTimeline() {
 
   return (
     <div className="space-y-4">
-      {mockSessions.map((session, index) => {
+      {todaySessions.map((session, index) => {
         const colorClass = courseColorMap[session.color as keyof typeof courseColorMap] || "border-l-primary";
-        const statusClass = statusStyles[session.status as keyof typeof statusStyles];
+        const statusClass = statusStyles[session.status as keyof typeof statusStyles] || statusStyles.upcoming;
         
         return (
           <div 
@@ -99,12 +107,19 @@ export function TodayTimeline() {
         );
       })}
       
-      <div className="mt-6 pt-4 border-t">
-        <div className="flex justify-between items-center text-sm">
-          <span className="text-muted-foreground">Total study time planned</span>
-          <span className="font-semibold text-primary">6.5 hours</span>
+      {todaySessions.length > 0 && (
+        <div className="mt-6 pt-4 border-t">
+          <div className="flex justify-between items-center text-sm">
+            <span className="text-muted-foreground">Total time planned</span>
+            <span className="font-semibold text-primary">
+              {todaySessions.reduce((total, session) => {
+                const hours = parseFloat(session.duration.split(' ')[0]);
+                return total + hours;
+              }, 0).toFixed(1)} hours
+            </span>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

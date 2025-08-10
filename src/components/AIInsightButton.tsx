@@ -16,6 +16,7 @@ interface AIInsightButtonProps {
   availableSlots?: string[];
   description?: string;
   courseInfo?: string;
+  isCompleted?: boolean;
 }
 
 interface AIInsightResponse {
@@ -37,7 +38,8 @@ export function AIInsightButton({
   estimatedHours, 
   availableSlots, 
   description, 
-  courseInfo 
+  courseInfo,
+  isCompleted = false
 }: AIInsightButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [insights, setInsights] = useState<AIInsightResponse | null>(null);
@@ -103,6 +105,14 @@ export function AIInsightButton({
   };
 
   const handleOpenDialog = () => {
+    if (isCompleted) {
+      toast({
+        title: "Insights Not Available",
+        description: "AI insights are not available for completed assignments.",
+        variant: "destructive"
+      });
+      return;
+    }
     setIsOpen(true);
     if (!insights) {
       generateInsights();

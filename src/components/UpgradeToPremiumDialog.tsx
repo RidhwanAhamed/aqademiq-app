@@ -12,7 +12,7 @@ interface UpgradeToPremiumDialogProps {
 export function UpgradeToPremiumDialog({ open, onOpenChange, feature }: UpgradeToPremiumDialogProps) {
   const handleUpgrade = () => {
     // For now, just close the dialog - in a real app this would redirect to payment
-    window.open('https://lovable.dev/pricing', '_blank');
+    window.open('https://stripe.com', '_blank');
   };
 
   const getFeatureDetails = () => {
@@ -20,24 +20,24 @@ export function UpgradeToPremiumDialog({ open, onOpenChange, feature }: UpgradeT
       case 'ai-insights':
         return {
           title: 'Unlimited AI Insights',
-          subtitle: 'You\'ve reached your daily limit of 10 AI insights',
+          subtitle: 'Daily AI insights limit reached',
           features: [
             'Unlimited AI study insights',
+            'Unlimited file upload',
             'Priority AI processing',
-            'Advanced study recommendations',
-            'Personalized learning paths'
+            'Early access to new updates'
           ],
           icon: <Sparkles className="w-6 h-6" />
         };
       case 'studysage':
         return {
           title: 'Unlimited StudySage Chat',
-          subtitle: 'Free token limit reached (10 messages)',
+          subtitle: 'Free token limit reached',
           features: [
-            'Unlimited chat messages',
+            'Unlimited token usage',
+            'Unlimited file upload',
             'Advanced AI tutoring',
-            'Detailed explanations',
-            '24/7 study assistance'
+            'Early access to new updates'
           ],
           icon: <MessageCircle className="w-6 h-6" />
         };

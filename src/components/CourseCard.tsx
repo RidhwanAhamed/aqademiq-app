@@ -10,6 +10,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Course } from "@/hooks/useCourses";
+import { CourseDetails } from "@/components/CourseDetails";
+import { useState } from "react";
 
 const colorVariants = {
   blue: "bg-blue-500",
@@ -26,14 +28,20 @@ interface CourseCardProps {
   course: Course;
   onEdit?: (course: Course) => void;
   onDelete?: (courseId: string) => void;
+  onClick?: () => void;
 }
 
-export function CourseCard({ course, onEdit, onDelete }: CourseCardProps) {
+export function CourseCard({ course, onEdit, onDelete, onClick }: CourseCardProps) {
+  const [showDetails, setShowDetails] = useState(false);
   const colorClass = colorVariants[course.color as keyof typeof colorVariants] || colorVariants.blue;
 
   return (
-    <Card className="bg-gradient-card shadow-card hover:shadow-lg transition-shadow">
-      <CardContent className="p-4">
+    <>
+      <Card 
+        className="bg-gradient-card shadow-card hover:shadow-lg transition-shadow cursor-pointer"
+        onClick={() => onClick ? onClick() : setShowDetails(true)}
+      >
+        <CardContent className="p-4">
         <div className="flex items-start justify-between mb-3">
           <div className="flex items-center space-x-3">
             <div className={`w-10 h-10 rounded-lg ${colorClass} flex items-center justify-center`}>
@@ -50,19 +58,27 @@ export function CourseCard({ course, onEdit, onDelete }: CourseCardProps) {
           {(onEdit || onDelete) && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8">
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-8 w-8"
+                  onClick={(e) => e.stopPropagation()}
+                >
                   <MoreHorizontal className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setShowDetails(true); }}>
+                  View Details
+                </DropdownMenuItem>
                 {onEdit && (
-                  <DropdownMenuItem onClick={() => onEdit(course)}>
+                  <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEdit(course); }}>
                     Edit Course
                   </DropdownMenuItem>
                 )}
                 {onDelete && (
                   <DropdownMenuItem 
-                    onClick={() => onDelete(course.id)}
+                    onClick={(e) => { e.stopPropagation(); onDelete(course.id); }}
                     className="text-destructive"
                   >
                     Delete Course
@@ -93,5 +109,13 @@ export function CourseCard({ course, onEdit, onDelete }: CourseCardProps) {
         </div>
       </CardContent>
     </Card>
+
+    <CourseDetails
+      course={course}
+      open={showDetails}
+      onOpenChange={setShowDetails}
+      onEdit={onEdit ? () => onEdit(course) : undefined}
+    />
+  </>
   );
 }

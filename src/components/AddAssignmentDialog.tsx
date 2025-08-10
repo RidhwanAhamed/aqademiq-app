@@ -20,12 +20,13 @@ interface AddAssignmentDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCreated?: (assignment: Assignment) => void;
+  preselectedCourse?: string;
 }
 
-export function AddAssignmentDialog({ open, onOpenChange, onCreated }: AddAssignmentDialogProps) {
+export function AddAssignmentDialog({ open, onOpenChange, onCreated, preselectedCourse }: AddAssignmentDialogProps) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [course, setCourse] = useState("");
+  const [course, setCourse] = useState(preselectedCourse || "");
   const [dueDate, setDueDate] = useState<Date>();
   const [estimatedHours, setEstimatedHours] = useState(2);
   
@@ -77,7 +78,7 @@ export function AddAssignmentDialog({ open, onOpenChange, onCreated }: AddAssign
       // Reset form
       setTitle("");
       setDescription("");
-      setCourse("");
+      setCourse(preselectedCourse || "");
       setDueDate(undefined);
       setEstimatedHours(2);
       setIsRecurring(false);

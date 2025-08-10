@@ -26,12 +26,20 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { AddCourseDialog } from "@/components/AddCourseDialog";
 
-const mainItems = [
+interface NavItem {
+  title: string;
+  url: string;
+  icon: any;
+  badge?: string;
+}
+
+const mainItems: NavItem[] = [
   { title: "Dashboard", url: "/", icon: Home },
   { title: "Calendar", url: "/calendar", icon: Calendar },
-  { title: "StudySage", url: "/studysage", icon: Bot },
+  { title: "StudySage", url: "/studysage", icon: Bot, badge: "Beta" },
   { title: "Courses", url: "/courses", icon: BookOpen },
   { title: "Assignments", url: "/assignments", icon: Target },
   { title: "Study Timer", url: "/timer", icon: Clock },
@@ -104,14 +112,23 @@ export function AppSidebar() {
               {mainItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
-                    <NavLink 
-                      to={item.url} 
-                      end={item.url === "/"}
-                      className={getNavClass(isActive(item.url))}
-                    >
-                      <item.icon className="w-5 h-5" />
-                      {!collapsed && <span className="ml-3">{item.title}</span>}
-                    </NavLink>
+                     <NavLink 
+                       to={item.url} 
+                       end={item.url === "/"}
+                       className={getNavClass(isActive(item.url))}
+                     >
+                       <item.icon className="w-5 h-5" />
+                       {!collapsed && (
+                         <div className="flex items-center justify-between flex-1 ml-3">
+                           <span>{item.title}</span>
+                           {item.badge && (
+                             <Badge variant="secondary" className="text-xs px-2 py-0.5 ml-2">
+                               {item.badge}
+                             </Badge>
+                           )}
+                         </div>
+                       )}
+                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
