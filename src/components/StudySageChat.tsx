@@ -214,7 +214,7 @@ export function StudySageChat() {
         parseResult.response,
         false,
         fileId,
-        { parsed_data: parseResult.schedule_data, conflicts: parseResult.conflicts }
+        { parsed_data: parseResult.schedule_data, conflicts: parseResult.conflicts, can_add_to_calendar: true }
       );
 
       if (aiMessage) {
@@ -338,86 +338,125 @@ export function StudySageChat() {
     try {
       if (!user || !scheduleData) return;
 
-      const { courses = [], assignments = [], exams = [], schedule_blocks = [] } = scheduleData;
+      console.log('Adding to calendar:', scheduleData);
       
-      // Add courses
+      const { courses = [], classes = [], assignments = [], exams = [] } = scheduleData;
+      let addedItems = { courses: 0, assignments: 0, exams: 0, classes: 0 };
+      
+      // First, add courses and get their IDs
+      const courseMap = new Map();
       for (const course of courses) {
-        const { data, error } = await supabase
-          .from('courses')
-          .insert([{
-            user_id: user.id,
-            name: course.name,
-            code: course.code || '',
-            description: course.description || '',
-            color: course.color || '#3B82F6',
-            credits: course.credits || 3,
-            semester_id: null // Will need to be updated based on current semester
-          }]);
-        
-        if (error) console.error('Error adding course:', error);
+        try {
+          const { data: existingCourse } = await supabase
+            .from('courses')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('code', course.code)
+            .single();
+
+          if (!existingCourse) {
+            const { data: newCourse, error } = await supabase
+              .from('courses')
+              .insert([{
+                user_id: user.id,
+                name: course.name,
+                code: course.code || '',
+                semester_id: '', // Will be updated later
+                color: course.color || '#3B82F6',
+                credits: course.credits || 3,
+                instructor: course.instructor || ''
+              }])
+              .select()
+              .single();
+            
+            if (!error && newCourse) {
+              courseMap.set(course.code, newCourse.id);
+              addedItems.courses++;
+            }
+          } else {
+            courseMap.set(course.code, existingCourse.id);
+          }
+        } catch (error) {
+          console.error('Error adding course:', error);
+        }
+      }
+
+      // Add schedule blocks/classes
+      for (const scheduleClass of classes) {
+        try {
+          const courseId = courseMap.get(scheduleClass.course_code);
+          const { data, error } = await supabase
+            .from('schedule_blocks')
+            .insert([{
+              user_id: user.id,
+              title: scheduleClass.title,
+              start_time: scheduleClass.start_time,
+              end_time: scheduleClass.end_time,
+              day_of_week: scheduleClass.day_of_week,
+              course_id: courseId,
+              location: scheduleClass.location || '',
+              recurrence_pattern: scheduleClass.recurrence || 'weekly',
+              is_active: true
+            }]);
+          
+          if (!error) addedItems.classes++;
+        } catch (error) {
+          console.error('Error adding schedule block:', error);
+        }
       }
 
       // Add assignments
       for (const assignment of assignments) {
-        const { data, error } = await supabase
-          .from('assignments')
-          .insert([{
-            user_id: user.id,
-            title: assignment.title,
-            description: assignment.description || '',
-            due_date: assignment.due_date,
-            course_id: null, // Will need to match with course
-            type: assignment.type || 'homework',
-            status: 'todo'
-          }]);
-        
-        if (error) console.error('Error adding assignment:', error);
+        try {
+          const courseId = courseMap.get(assignment.course_code);
+          const { data, error } = await supabase
+            .from('assignments')
+            .insert([{
+              user_id: user.id,
+              title: assignment.title,
+              description: assignment.description || '',
+              due_date: assignment.due_date,
+              course_id: courseId,
+              assignment_type: assignment.type || 'homework',
+              status: 'todo'
+            }]);
+          
+          if (!error) addedItems.assignments++;
+        } catch (error) {
+          console.error('Error adding assignment:', error);
+        }
       }
 
       // Add exams
       for (const exam of exams) {
-        const { data, error } = await supabase
-          .from('exams')
-          .insert([{
-            user_id: user.id,
-            title: exam.title,
-            course_id: null, // Will need to match with course
-            exam_date: exam.date,
-            duration: exam.duration || 120,
-            location: exam.location || '',
-            notes: exam.notes || ''
-          }]);
-        
-        if (error) console.error('Error adding exam:', error);
-      }
-
-      // Add schedule blocks
-      for (const block of schedule_blocks) {
-        const { data, error } = await supabase
-          .from('schedule_blocks')
-          .insert([{
-            user_id: user.id,
-            title: block.title,
-            start_time: block.start_time,
-            end_time: block.end_time,
-            day_of_week: block.day_of_week,
-            course_id: null, // Will need to match with course
-            location: block.location || '',
-            recurrence_pattern: block.recurrence_pattern || 'weekly',
-            is_active: true
-          }]);
-        
-        if (error) console.error('Error adding schedule block:', error);
+        try {
+          const courseId = courseMap.get(exam.course_code);
+          const { data, error } = await supabase
+            .from('exams')
+            .insert([{
+              user_id: user.id,
+              title: exam.title,
+              course_id: courseId,
+              exam_date: exam.date,
+              duration: exam.duration_minutes || 120,
+              location: exam.location || '',
+              notes: exam.notes || ''
+            }]);
+          
+          if (!error) addedItems.exams++;
+        } catch (error) {
+          console.error('Error adding exam:', error);
+        }
       }
 
       toast({
-        title: 'Calendar Updated',
-        description: 'Your schedule has been successfully added to the calendar',
+        title: 'Calendar Updated Successfully! 🎉',
+        description: `Added ${addedItems.courses} courses, ${addedItems.classes} classes, ${addedItems.assignments} assignments, ${addedItems.exams} exams`,
       });
 
       // Send confirmation message
       const confirmationMessage = await saveChatMessage(
-        '✅ Perfect! I\'ve successfully added your schedule to the calendar. You can now view all your courses, assignments, and exams in the Calendar section.',
+        `✅ Perfect! I've successfully added your schedule to the calendar:\n\n📚 ${addedItems.courses} courses\n🕒 ${addedItems.classes} class sessions\n📝 ${addedItems.assignments} assignments\n📖 ${addedItems.exams} exams\n\nYou can now view and manage everything in your Calendar section. Is there anything else you'd like me to help you organize?`,
         false
       );
 
@@ -429,7 +468,7 @@ export function StudySageChat() {
       console.error('Error adding to calendar:', error);
       toast({
         title: 'Calendar Error',
-        description: 'Failed to add schedule to calendar',
+        description: 'Failed to add some items to calendar. Please try again.',
         variant: 'destructive'
       });
     }
@@ -565,7 +604,7 @@ export function StudySageChat() {
                   <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.message}</p>
                   
                   {/* Add to Calendar Button for AI messages with schedule data */}
-                  {!message.is_user && message.metadata?.parsed_data && (
+                  {!message.is_user && message.metadata?.can_add_to_calendar && message.metadata?.parsed_data && (
                     <div className="mt-3 pt-3 border-t border-current/20">
                       <Button
                         size="sm"

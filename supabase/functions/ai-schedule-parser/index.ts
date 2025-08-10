@@ -73,11 +73,13 @@ Your task is to parse academic documents (syllabi, timetables, schedules) and ex
 
 For recurring events, identify the pattern (weekly, biweekly, specific weeks).
 
-Respond in JSON format with:
+Respond with a friendly, natural explanation of what you found, then provide structured data for calendar integration.
+
+Return your response as JSON in this exact format:
 {
-  "response": "Friendly explanation of what you found",
+  "response": "A friendly, conversational explanation of what you found in the document, like: 'Great! I found your schedule for Computer Science 101. You have classes on Monday and Wednesday from 10:00-11:30 AM in Room 203, with assignments due every Friday and a midterm exam on March 15th. Would you like me to add this to your calendar?'",
   "schedule_data": {
-    "courses": [{"name": "", "code": "", "instructor": "", "credits": 0, "color": ""}],
+    "courses": [{"name": "", "code": "", "instructor": "", "credits": 0, "color": "#3B82F6"}],
     "classes": [{"course_code": "", "title": "", "day_of_week": 0, "start_time": "", "end_time": "", "location": "", "recurrence": "weekly"}],
     "assignments": [{"title": "", "course_code": "", "due_date": "", "type": "", "description": ""}],
     "exams": [{"title": "", "course_code": "", "date": "", "time": "", "location": "", "duration_minutes": 0}]
