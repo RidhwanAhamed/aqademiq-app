@@ -1,6 +1,7 @@
 import { Outlet } from "react-router-dom";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
+import { MobileBottomNav } from "@/components/MobileBottomNav";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { LogOut, Menu } from "lucide-react";
@@ -11,17 +12,20 @@ export function AppLayout() {
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full bg-background">
-        <AppSidebar />
+        {/* Desktop Sidebar */}
+        <div className="hidden lg:block">
+          <AppSidebar />
+        </div>
         
         <div className="flex-1 flex flex-col">
           {/* Mobile Header */}
-          <header className="lg:hidden h-16 border-b bg-card flex items-center justify-between px-4">
+          <header className="lg:hidden h-14 border-b bg-card/95 backdrop-blur-sm flex items-center justify-between px-4 sticky top-0 z-40">
             <div className="flex items-center space-x-2">
-              <SidebarTrigger className="h-8 w-8">
-                <Menu className="h-4 w-4" />
-              </SidebarTrigger>
+              <div className="w-6 h-6 rounded bg-gradient-primary flex items-center justify-center">
+                <span className="text-white text-xs font-bold">S</span>
+              </div>
               <span className="font-bold text-lg bg-gradient-primary bg-clip-text text-transparent">
-                StudyFlow AI
+                StudyFlow
               </span>
             </div>
             <Button 
@@ -35,10 +39,15 @@ export function AppLayout() {
           </header>
 
           {/* Main Content */}
-          <main className="flex-1 overflow-auto">
-            <Outlet />
+          <main className="flex-1 overflow-auto pb-20 lg:pb-0">
+            <div className="container mx-auto px-4 py-4 lg:px-6 lg:py-6">
+              <Outlet />
+            </div>
           </main>
         </div>
+        
+        {/* Mobile Bottom Navigation */}
+        <MobileBottomNav />
       </div>
     </SidebarProvider>
   );
