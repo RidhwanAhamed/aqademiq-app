@@ -7,7 +7,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Clock, MapPin, Repeat } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Plus, Clock, MapPin, Repeat, RotateCcw, Info } from 'lucide-react';
+import { useRotationTemplates } from '@/hooks/useRotationTemplates';
 import { useCourses } from '@/hooks/useCourses';
 import { useSchedule } from '@/hooks/useSchedule';
 import { useToast } from '@/hooks/use-toast';
@@ -28,9 +30,13 @@ export function AddClassDialog({ children }: AddClassDialogProps) {
     day_of_week: '',
     specific_date: '',
     is_recurring: true,
-    recurrence_pattern: 'weekly',
-    week_type: '',
+    rotation_type: 'weekly',
+    rotation_weeks: '',
+    semester_week_start: 1,
+    rotation_group: '',
   });
+
+  const { templates, loading: templatesLoading } = useRotationTemplates();
 
   const { courses } = useCourses();
   const { addScheduleBlock } = useSchedule();
@@ -66,6 +72,14 @@ export function AddClassDialog({ children }: AddClassDialogProps) {
       return;
     }
 
+    let rotationWeeks: number[] | null = null;
+    if (formData.rotation_type === 'custom' && formData.rotation_weeks) {
+      rotationWeeks = formData.rotation_weeks
+        .split(',')
+        .map(w => parseInt(w.trim()))
+        .filter(w => !isNaN(w) && w > 0);
+    }
+
     const result = await addScheduleBlock({
       title: formData.title,
       description: formData.description || undefined,
@@ -76,8 +90,10 @@ export function AddClassDialog({ children }: AddClassDialogProps) {
       day_of_week: formData.is_recurring ? parseInt(formData.day_of_week) : undefined,
       specific_date: !formData.is_recurring ? formData.specific_date : undefined,
       is_recurring: formData.is_recurring,
-      recurrence_pattern: formData.recurrence_pattern,
-      week_type: formData.week_type || undefined,
+      rotation_type: formData.rotation_type as any,
+      rotation_weeks: rotationWeeks,
+      semester_week_start: formData.semester_week_start,
+      rotation_group: formData.rotation_group || undefined,
       is_active: true,
     });
 
@@ -97,8 +113,10 @@ export function AddClassDialog({ children }: AddClassDialogProps) {
         day_of_week: '',
         specific_date: '',
         is_recurring: true,
-        recurrence_pattern: 'weekly',
-        week_type: '',
+        rotation_type: 'weekly',
+        rotation_weeks: '',
+        semester_week_start: 1,
+        rotation_group: '',
       });
     }
   };
@@ -123,7 +141,7 @@ export function AddClassDialog({ children }: AddClassDialogProps) {
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Add New Class</DialogTitle>
         </DialogHeader>

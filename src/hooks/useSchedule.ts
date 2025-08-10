@@ -16,6 +16,10 @@ export interface ScheduleBlock {
   is_recurring: boolean;
   recurrence_pattern?: string;
   week_type?: string; // 'A', 'B', etc. for rotation
+  rotation_type?: 'none' | 'weekly' | 'biweekly' | 'odd_weeks' | 'even_weeks' | 'custom';
+  rotation_weeks?: number[] | null;
+  semester_week_start?: number;
+  rotation_group?: string;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -72,7 +76,7 @@ export function useSchedule() {
         .order('start_time', { ascending: true });
 
       if (error) throw error;
-      setScheduleBlocks(data || []);
+      setScheduleBlocks((data || []) as ScheduleBlock[]);
     } catch (error) {
       console.error('Error fetching schedule blocks:', error);
       setError('Failed to fetch schedule');
