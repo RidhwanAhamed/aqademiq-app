@@ -154,32 +154,57 @@ serve(async (req) => {
     const aiData = await aiResponse.json();
     const aiContent = aiData.choices[0].message.content;
 
-    // Parse AI response
+    // Parse AI response - handle both plain JSON and markdown-wrapped JSON
     let parsedResponse: AIInsightResponse;
     try {
-      parsedResponse = JSON.parse(aiContent);
+      let jsonContent = aiContent;
+      
+      // Check if the response is wrapped in markdown code blocks
+      const markdownJsonMatch = aiContent.match(/```json\s*([\s\S]*?)\s*```/);
+      if (markdownJsonMatch) {
+        jsonContent = markdownJsonMatch[1].trim();
+        console.log('Extracted JSON from markdown:', jsonContent);
+      }
+      
+      parsedResponse = JSON.parse(jsonContent);
+      console.log('Successfully parsed AI response');
     } catch (parseError) {
-      console.error('Failed to parse AI response:', aiContent);
-      // Fallback response
+      console.error('Failed to parse AI response:', parseError);
+      console.error('Original AI content:', aiContent);
+      
+      // Create a more dynamic fallback response based on the request
+      const fallbackDate = new Date();
+      const todayStr = fallbackDate.toISOString().split('T')[0];
+      const tomorrowStr = new Date(fallbackDate.getTime() + 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      
       parsedResponse = {
         suggestedSessions: [
           {
-            date: new Date().toISOString().split('T')[0],
+            date: todayStr,
             time: "2:00 PM",
-            duration: "2 hours",
-            focus: "Initial work session",
-            description: "Start working on the task systematically"
+            duration: requestData.estimatedHours ? `${Math.ceil(requestData.estimatedHours / 2)} hours` : "2 hours",
+            focus: `Initial work on ${requestData.title}`,
+            description: `Begin working on your ${requestData.type} systematically. Focus on understanding the requirements and creating an outline.`
+          },
+          {
+            date: tomorrowStr,
+            time: "10:00 AM",
+            duration: requestData.estimatedHours ? `${Math.floor(requestData.estimatedHours / 2)} hours` : "1.5 hours",
+            focus: `Continue ${requestData.title}`,
+            description: `Build upon yesterday's work. Review your progress and tackle the main content or problem-solving phase.`
           }
         ],
         productivityTips: [
-          "Break the work into smaller, manageable chunks",
-          "Use the Pomodoro technique for focused work sessions",
-          "Review your progress regularly to stay on track"
+          `Break "${requestData.title}" into smaller, manageable sections`,
+          "Use the Pomodoro technique (25-min focused sessions) for optimal concentration",
+          `Set specific goals for each study session related to ${requestData.type}`,
+          "Take regular breaks to maintain focus and avoid burnout"
         ],
         planningRecommendations: [
-          "Start early to avoid last-minute stress",
-          "Schedule breaks between work sessions",
-          "Have all materials ready before starting"
+          requestData.dueDate ? `Start early - you have until ${new Date(requestData.dueDate).toLocaleDateString()}` : "Start as early as possible to avoid last-minute stress",
+          "Create a dedicated workspace free from distractions",
+          `Gather all materials and resources needed for your ${requestData.type} before starting`,
+          "Track your progress after each session to stay motivated"
         ]
       };
     }
