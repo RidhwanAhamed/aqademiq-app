@@ -5,9 +5,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
+import { UpgradeToPremiumDialog } from '@/components/UpgradeToPremiumDialog';
 import { 
   Upload, 
   Send, 
@@ -56,8 +57,12 @@ export function StudySageChat() {
   const [inputMessage, setInputMessage] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [conflicts, setConflicts] = useState<ScheduleConflict[]>([]);
+  const [messageCount, setMessageCount] = useState(0);
+  const [showUpgrade, setShowUpgrade] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const MESSAGE_LIMIT = 10;
 
   useEffect(() => {
     loadChatHistory();
@@ -89,6 +94,9 @@ export function StudySageChat() {
     }
 
     setMessages(data || []);
+    // Count user messages to track limit
+    const userMessages = (data || []).filter(msg => msg.is_user);
+    setMessageCount(userMessages.length);
   };
 
   const saveChatMessage = async (message: string, isUser: boolean, fileUploadId?: string, metadata?: any) => {
@@ -255,6 +263,12 @@ export function StudySageChat() {
   const handleSendMessage = async () => {
     if (!inputMessage.trim() || !user || isProcessing) return;
 
+    // Check message limit
+    if (messageCount >= MESSAGE_LIMIT) {
+      setShowUpgrade(true);
+      return;
+    }
+
     const userMessage = inputMessage.trim();
     setInputMessage('');
     setIsProcessing(true);
@@ -264,6 +278,7 @@ export function StudySageChat() {
       const savedUserMessage = await saveChatMessage(userMessage, true);
       if (savedUserMessage) {
         setMessages(prev => [...prev, savedUserMessage]);
+        setMessageCount(prev => prev + 1);
       }
 
       // Get AI response
@@ -475,6 +490,7 @@ export function StudySageChat() {
   };
 
   return (
+    <>
     <div className="flex flex-col h-full">
       {/* Enhanced Header */}
       <div className="px-6 py-4 border-b bg-gradient-to-r from-primary/8 via-primary/5 to-secondary/8">
@@ -695,9 +711,16 @@ export function StudySageChat() {
           <span>•</span>
           <span>Secure & Private</span>
           <span>•</span>
-          <span>Real-time Processing</span>
+          <span>{messageCount}/{MESSAGE_LIMIT} messages</span>
         </div>
       </div>
     </div>
+
+    <UpgradeToPremiumDialog 
+      open={showUpgrade} 
+      onOpenChange={setShowUpgrade}
+      feature="studysage"
+    />
+    </>
   );
 }
