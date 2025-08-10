@@ -175,21 +175,14 @@ export default function Assignments() {
               <p>No assignments yet. Click “Add Assignment”.</p>
             </div>
           ) : (
-            <div className="divide-y divide-border">
+            <div className="space-y-2">
               {assignments.slice(0, 8).map((a) => (
-                <div key={a.id} className="flex items-center justify-between py-3">
-                  <div>
-                    <p className="font-medium text-foreground">{a.title}</p>
-                    <p className="text-sm text-muted-foreground">
-                      Due {format(new Date(a.due_date), "PPP")} • {courseMap[a.course_id] || "Course"}
-                    </p>
-                  </div>
-                  {a.is_completed ? (
-                    <span className="text-success text-sm">Completed</span>
-                  ) : (
-                    <span className="text-warning text-sm">Pending</span>
-                  )}
-                </div>
+                <AssignmentRow 
+                  key={a.id} 
+                  assignment={a} 
+                  onUpdate={updateAssignment}
+                  onToggleComplete={toggleComplete}
+                />
               ))}
             </div>
           )}
