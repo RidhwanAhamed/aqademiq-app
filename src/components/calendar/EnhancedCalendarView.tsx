@@ -571,10 +571,9 @@ export function EnhancedCalendarView({
                   onValueChange={(value) => setQuickAddData(prev => ({ ...prev, course_id: value }))}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select course" />
+                    <SelectValue placeholder="Select course (optional)" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">No course</SelectItem>
                     {courses.map(course => (
                       <SelectItem key={course.id} value={course.id}>
                         {course.name}
