@@ -134,6 +134,36 @@ export type Database = {
           },
         ]
       }
+      chat_messages: {
+        Row: {
+          created_at: string
+          file_upload_id: string | null
+          id: string
+          is_user: boolean
+          message: string
+          metadata: Json | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          file_upload_id?: string | null
+          id?: string
+          is_user?: boolean
+          message: string
+          metadata?: Json | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          file_upload_id?: string | null
+          id?: string
+          is_user?: boolean
+          message?: string
+          metadata?: Json | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       courses: {
         Row: {
           code: string | null
@@ -254,6 +284,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      file_uploads: {
+        Row: {
+          created_at: string
+          file_name: string
+          file_type: string
+          file_url: string | null
+          id: string
+          ocr_text: string | null
+          parsed_data: Json | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          file_name: string
+          file_type: string
+          file_url?: string | null
+          id?: string
+          ocr_text?: string | null
+          parsed_data?: Json | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          file_name?: string
+          file_type?: string
+          file_url?: string | null
+          id?: string
+          ocr_text?: string | null
+          parsed_data?: Json | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       holiday_periods: {
         Row: {
@@ -799,6 +868,21 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      detect_schedule_conflicts: {
+        Args: {
+          p_user_id: string
+          p_start_time: string
+          p_end_time: string
+          p_exclude_id?: string
+        }
+        Returns: {
+          conflict_type: string
+          conflict_id: string
+          conflict_title: string
+          conflict_start: string
+          conflict_end: string
+        }[]
+      }
       generate_recurring_assignments: {
         Args: Record<PropertyKey, never>
         Returns: undefined
