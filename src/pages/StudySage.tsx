@@ -3,13 +3,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Bot, Upload, MessageSquare, Calendar, Zap, Sparkles, FileText, Users, Lightbulb, ChevronRight, ChevronDown } from "lucide-react";
+import { Bot, Upload, MessageSquare, Calendar, Zap, Sparkles, FileText, Users, Lightbulb, ChevronRight, ChevronDown, RefreshCw } from "lucide-react";
 import { useState } from "react";
 
 const StudySage = () => {
   const [capabilitiesOpen, setCapabilitiesOpen] = useState(true);
   const [tipsOpen, setTipsOpen] = useState(false);
   const [formatsOpen, setFormatsOpen] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const handleRefreshChat = () => {
+    setRefreshKey(prev => prev + 1);
+  };
   const features = [
     {
       icon: Upload,
@@ -116,7 +121,25 @@ const StudySage = () => {
           {/* Main Chat Interface */}
           <div className="xl:col-span-8">
             <Card className="h-[700px] flex flex-col bg-gradient-to-br from-card to-card/80 border-2 shadow-2xl">
-              <StudySageChat />
+              <CardHeader className="pb-3 border-b">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2">
+                    <Bot className="w-5 h-5 text-primary" />
+                    StudySage Chat
+                  </CardTitle>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleRefreshChat}
+                    className="h-8 w-8 p-0"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                  </Button>
+                </div>
+              </CardHeader>
+              <div className="flex-1 overflow-hidden">
+                <StudySageChat key={refreshKey} />
+              </div>
             </Card>
           </div>
 

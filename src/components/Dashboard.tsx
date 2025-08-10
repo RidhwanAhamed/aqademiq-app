@@ -13,6 +13,7 @@ import { useAssignments } from "@/hooks/useAssignments";
 import { useExams } from "@/hooks/useExams";
 import { useUserStats } from "@/hooks/useUserStats";
 import { RemindersPanel } from "./RemindersPanel";
+import { RevisionTasksPanel } from "./RevisionTasksPanel";
 import { format, isAfter, isBefore, addDays } from "date-fns";
 
 export function Dashboard() {
@@ -208,7 +209,10 @@ export function Dashboard() {
               </div>
             </CardContent>
           </Card>
-          
+           
+           {/* Revision Tasks */}
+           <RevisionTasksPanel />
+           
            {/* Reminders Panel */}
            <RemindersPanel />
         </div>
