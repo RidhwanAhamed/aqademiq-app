@@ -131,11 +131,21 @@ export function AddStudySessionDialog({ open, onOpenChange }: AddStudySessionDia
       // Calculate duration for user stats update
       const durationHours = (endDateTime.getTime() - startDateTime.getTime()) / (1000 * 60 * 60);
       
-      // Update user stats
-      await supabase.rpc('update_user_study_stats', {
-        p_user_id: user.id,
-        p_study_hours: durationHours
-      });
+      // Update user stats directly
+      const { data: currentStats } = await supabase
+        .from('user_stats')
+        .select('total_study_hours')
+        .eq('user_id', user.id)
+        .single();
+
+      await supabase
+        .from('user_stats')
+        .upsert({
+          user_id: user.id,
+          total_study_hours: (currentStats?.total_study_hours || 0) + durationHours,
+          last_study_date: new Date().toISOString().split('T')[0],
+          updated_at: new Date().toISOString()
+        });
       
       // Update study streak
       await updateStudyStreak();

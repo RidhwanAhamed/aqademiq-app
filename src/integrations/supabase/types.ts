@@ -918,6 +918,10 @@ export type Database = {
         Args: { p_schedule_id: string; p_target_date: string }
         Returns: boolean
       }
+      update_user_study_stats: {
+        Args: { p_user_id: string; p_study_hours: number }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
