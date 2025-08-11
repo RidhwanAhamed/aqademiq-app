@@ -6,20 +6,20 @@ import { Dashboard } from "@/components/Dashboard";
 
 const Index = () => {
   const { user, loading: authLoading } = useAuth();
-  const { loading: onboardingLoading, needsOnboarding } = useOnboardingFlow();
+  const { loading: onboardingLoading, needsOnboarding, isAuthenticated } = useOnboardingFlow();
   const navigate = useNavigate();
   
   const loading = authLoading || onboardingLoading;
 
   useEffect(() => {
     if (!loading) {
-      if (!user) {
+      if (!isAuthenticated) {
         navigate('/welcome');
       } else if (needsOnboarding) {
         navigate('/onboarding');
       }
     }
-  }, [user, loading, needsOnboarding, navigate]);
+  }, [loading, isAuthenticated, needsOnboarding, navigate]);
 
   if (loading) {
     return (
@@ -32,7 +32,7 @@ const Index = () => {
     );
   }
 
-  if (!user) {
+  if (!isAuthenticated || needsOnboarding) {
     return null;
   }
 

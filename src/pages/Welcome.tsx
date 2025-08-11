@@ -1,10 +1,14 @@
 import { useNavigate } from "react-router-dom";
+import { useRouteProtection } from "@/hooks/useRouteProtection";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { GraduationCap, Brain, ArrowRight, BookOpen, Calendar, BarChart3 } from "lucide-react";
 
 export default function Welcome() {
   const navigate = useNavigate();
+  
+  // Use route protection
+  useRouteProtection();
 
   const features = [
     {

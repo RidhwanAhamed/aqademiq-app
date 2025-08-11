@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { useRouteProtection } from '@/hooks/useRouteProtection';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -21,6 +22,9 @@ export default function Onboarding() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { signUp, signIn } = useAuth();
+  
+  // Use route protection
+  useRouteProtection();
 
   // Account setup state
   const [email, setEmail] = useState('');

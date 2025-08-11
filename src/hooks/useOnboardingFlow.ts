@@ -1,22 +1,19 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { useNavigate } from 'react-router-dom';
 
 export function useOnboardingFlow() {
   const { user, loading: authLoading } = useAuth();
   const [hasProfile, setHasProfile] = useState<boolean | null>(null);
   const [hasSemester, setHasSemester] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
-  const navigate = useNavigate();
 
   useEffect(() => {
     if (authLoading) return;
 
     const checkOnboardingStatus = async () => {
       if (!user) {
-        // No user, go to welcome
-        navigate('/welcome');
+        setLoading(false);
         return;
       }
 
@@ -41,27 +38,24 @@ export function useOnboardingFlow() {
 
         const semesterComplete = !!semester;
         setHasSemester(semesterComplete);
-
-        // Redirect logic
-        if (!profileComplete || !semesterComplete) {
-          navigate('/onboarding');
-        }
       } catch (error) {
         console.error('Error checking onboarding status:', error);
-        // On error, assume onboarding is needed
-        navigate('/onboarding');
+        // On error, assume onboarding is needed for new users
+        setHasProfile(false);
+        setHasSemester(false);
       } finally {
         setLoading(false);
       }
     };
 
     checkOnboardingStatus();
-  }, [user, authLoading, navigate]);
+  }, [user, authLoading]);
 
   return {
     loading: authLoading || loading,
     hasProfile,
     hasSemester,
-    needsOnboarding: hasProfile === false || hasSemester === false
+    needsOnboarding: user ? (hasProfile === false || hasSemester === false) : false,
+    isAuthenticated: !!user
   };
 }

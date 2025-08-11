@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { useRouteProtection } from '@/hooks/useRouteProtection';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,6 +16,9 @@ export default function Auth() {
   const [loading, setLoading] = useState(false);
   const { signIn, signUp } = useAuth();
   const navigate = useNavigate();
+  
+  // Use route protection
+  useRouteProtection();
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,7 +33,8 @@ export default function Auth() {
         variant: "destructive",
       });
     } else {
-      navigate('/');
+      // For sign-in, let the route protection handle the redirect
+      // It will check if user needs onboarding or can go to dashboard
     }
     
     setLoading(false);
@@ -49,9 +54,11 @@ export default function Auth() {
       });
     } else {
       toast({
-        title: "Check your email",
-        description: "We've sent you a confirmation link.",
+        title: "Account created successfully!",
+        description: "Please complete your profile setup.",
       });
+      // For sign-up, redirect to onboarding
+      navigate('/onboarding');
     }
     
     setLoading(false);
