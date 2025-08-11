@@ -136,7 +136,7 @@ export function AddStudySessionDialog({ open, onOpenChange }: AddStudySessionDia
         .from('user_stats')
         .select('total_study_hours')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
       await supabase
         .from('user_stats')
