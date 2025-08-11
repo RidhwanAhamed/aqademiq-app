@@ -68,11 +68,11 @@ export default function Auth() {
             <GraduationCap className="h-8 w-8 text-primary" />
           </div>
           <div>
-            <CardTitle className="text-2xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-              StudyFlow AI
+            <CardTitle className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">
+              Aqademiq
             </CardTitle>
             <CardDescription className="text-muted-foreground">
-              Your intelligent academic life manager
+              Your intelligent academic planner and productivity companion
             </CardDescription>
           </div>
         </CardHeader>

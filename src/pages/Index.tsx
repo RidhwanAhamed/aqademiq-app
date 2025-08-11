@@ -1,17 +1,25 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { useOnboardingFlow } from "@/hooks/useOnboardingFlow";
 import { Dashboard } from "@/components/Dashboard";
 
 const Index = () => {
-  const { user, loading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
+  const { loading: onboardingLoading, needsOnboarding } = useOnboardingFlow();
   const navigate = useNavigate();
+  
+  const loading = authLoading || onboardingLoading;
 
   useEffect(() => {
-    if (!loading && !user) {
-      navigate('/auth');
+    if (!loading) {
+      if (!user) {
+        navigate('/welcome');
+      } else if (needsOnboarding) {
+        navigate('/onboarding');
+      }
     }
-  }, [user, loading, navigate]);
+  }, [user, loading, needsOnboarding, navigate]);
 
   if (loading) {
     return (

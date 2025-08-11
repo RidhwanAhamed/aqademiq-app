@@ -7,6 +7,8 @@ import { AuthProvider } from "@/hooks/useAuth";
 import { AppLayout } from "@/components/AppLayout";
 import { ThemeProvider } from "next-themes";
 import Index from "./pages/Index";
+import Welcome from "./pages/Welcome";
+import Onboarding from "./pages/Onboarding";
 import Auth from "./pages/Auth";
 import Calendar from "./pages/Calendar";
 import Ada from "./pages/Ada";
@@ -28,6 +30,8 @@ const App = () => (
           <Sonner />
           <BrowserRouter>
           <Routes>
+            <Route path="/welcome" element={<Welcome />} />
+            <Route path="/onboarding" element={<Onboarding />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/" element={<AppLayout />}>
               <Route index element={<Index />} />
