@@ -45,10 +45,32 @@ export function useUserStats() {
         .from('user_stats')
         .select('*')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
-      setStats(data);
+      
+      if (!data) {
+        // Create user stats if they don't exist
+        const { data: newStats, error: createError } = await supabase
+          .from('user_stats')
+          .insert({
+            user_id: user.id,
+            total_study_hours: 0,
+            current_streak: 0,
+            longest_streak: 0,
+            total_assignments_completed: 0,
+            total_exams_taken: 0,
+            average_grade_points: 0,
+            weekly_study_goal: 20
+          })
+          .select()
+          .single();
+          
+        if (createError) throw createError;
+        setStats(newStats);
+      } else {
+        setStats(data);
+      }
     } catch (error) {
       console.error('Error fetching user stats:', error);
       setError('Failed to fetch user stats');

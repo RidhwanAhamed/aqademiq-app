@@ -65,7 +65,7 @@ export default function Timer() {
         
         // Save study session to database
         if (user) {
-          await supabase.from('study_sessions').insert({
+          const { error } = await supabase.from('study_sessions').insert({
             user_id: user.id,
             title: 'Pomodoro Focus Session',
             scheduled_start: currentSessionStart.toISOString(),
@@ -74,6 +74,15 @@ export default function Timer() {
             actual_end: new Date().toISOString(),
             status: 'completed'
           });
+          
+          if (!error) {
+            // Update user stats with the study session duration
+            const durationHours = sessionDuration / 60; // Convert minutes to hours
+            await supabase.rpc('update_user_study_stats', {
+              p_user_id: user.id,
+              p_study_hours: durationHours
+            });
+          }
         }
       }
       

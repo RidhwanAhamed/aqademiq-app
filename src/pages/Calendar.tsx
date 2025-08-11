@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { CalendarDays, Clock, Users, GraduationCap } from "lucide-react";
+import { CalendarDays, Clock, Users, GraduationCap, Calendar as CalendarIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { CalendarView } from '@/components/calendar/CalendarView';
 import { EnhancedCalendarView } from '@/components/calendar/EnhancedCalendarView';
 import { AddClassDialog } from '@/components/calendar/AddClassDialog';
+import { HolidayManager } from '@/components/HolidayManager';
 import { useSchedule, type ScheduleBlock } from '@/hooks/useSchedule';
 import { useAssignments } from '@/hooks/useAssignments';
 import { useExams } from '@/hooks/useExams';
@@ -11,6 +13,7 @@ import { format, isToday } from 'date-fns';
 
 export default function Calendar() {
   const [view, setView] = useState<'week' | 'month'>('week');
+  const [showHolidayManager, setShowHolidayManager] = useState(false);
   const { scheduleBlocks, exams, loading: scheduleLoading, addScheduleBlock, updateScheduleBlock } = useSchedule();
   const { assignments, loading: assignmentsLoading } = useAssignments();
   const { exams: examsList, loading: examsLoading } = useExams();
@@ -66,8 +69,22 @@ export default function Calendar() {
           <h1 className="text-3xl font-bold text-foreground">Calendar</h1>
           <p className="text-muted-foreground">Manage your academic schedule</p>
         </div>
-        <AddClassDialog />
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            onClick={() => setShowHolidayManager(!showHolidayManager)}
+          >
+            <CalendarIcon className="w-4 h-4 mr-2" />
+            Holidays
+          </Button>
+          <AddClassDialog />
+        </div>
       </div>
+
+      {/* Holiday Manager */}
+      {showHolidayManager && (
+        <HolidayManager />
+      )}
 
       {/* Quick Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

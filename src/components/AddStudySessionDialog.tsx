@@ -128,6 +128,15 @@ export function AddStudySessionDialog({ open, onOpenChange }: AddStudySessionDia
 
       if (error) throw error;
 
+      // Calculate duration for user stats update
+      const durationHours = (endDateTime.getTime() - startDateTime.getTime()) / (1000 * 60 * 60);
+      
+      // Update user stats
+      await supabase.rpc('update_user_study_stats', {
+        p_user_id: user.id,
+        p_study_hours: durationHours
+      });
+      
       // Update study streak
       await updateStudyStreak();
       

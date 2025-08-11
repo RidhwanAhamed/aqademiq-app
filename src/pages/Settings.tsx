@@ -200,49 +200,6 @@ export default function Settings() {
 
           <ThemeCustomizer />
 
-        {/* Appearance Settings */}
-        <Card className="bg-gradient-card">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Palette className="w-5 h-5" />
-              Appearance
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="space-y-4">
-              <Label className="text-base font-medium">Theme</Label>
-              <div className="grid grid-cols-3 gap-3">
-                <Button
-                  variant={theme === 'light' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setTheme('light')}
-                  className="flex flex-col items-center gap-2 h-auto py-3"
-                >
-                  <Sun className="w-4 h-4" />
-                  Light
-                </Button>
-                <Button
-                  variant={theme === 'dark' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setTheme('dark')}
-                  className="flex flex-col items-center gap-2 h-auto py-3"
-                >
-                  <Moon className="w-4 h-4" />
-                  Dark
-                </Button>
-                <Button
-                  variant={theme === 'system' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setTheme('system')}
-                  className="flex flex-col items-center gap-2 h-auto py-3"
-                >
-                  <Monitor className="w-4 h-4" />
-                  System
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
 
         {/* Account Actions */}
         <Card className="bg-gradient-card">
