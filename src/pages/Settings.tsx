@@ -1,16 +1,20 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { ThemeCustomizer } from "@/components/ThemeCustomizer";
 import { NotificationSettings } from "@/components/NotificationSettings";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Settings as SettingsIcon, User } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Settings as SettingsIcon, User, Bell, Palette, Moon, Sun, Monitor } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useTheme } from "next-themes";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
 export default function Settings() {
   const { user, signOut } = useAuth();
+  const { theme, setTheme } = useTheme();
   const { toast } = useToast();
   const [profile, setProfile] = useState({
     full_name: "",
@@ -193,6 +197,9 @@ export default function Settings() {
             </Button>
           </CardContent>
         </Card>
+
+          <ThemeCustomizer />
+
 
         {/* Account Actions */}
         <Card className="bg-gradient-card">
