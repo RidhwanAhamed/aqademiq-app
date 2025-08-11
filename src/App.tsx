@@ -9,7 +9,7 @@ import { ThemeProvider } from "next-themes";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Calendar from "./pages/Calendar";
-import StudySage from "./pages/StudySage";
+import Ada from "./pages/Ada";
 import Courses from "./pages/Courses";
 import Assignments from "./pages/Assignments";
 import Timer from "./pages/Timer";
@@ -32,7 +32,7 @@ const App = () => (
             <Route path="/" element={<AppLayout />}>
               <Route index element={<Index />} />
               <Route path="calendar" element={<Calendar />} />
-              <Route path="studysage" element={<StudySage />} />
+              <Route path="studysage" element={<Ada />} />
               <Route path="courses" element={<Courses />} />
               <Route path="assignments" element={<Assignments />} />
               <Route path="timer" element={<Timer />} />

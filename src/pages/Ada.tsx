@@ -6,7 +6,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Bot, Upload, MessageSquare, Calendar, Zap, Sparkles, FileText, Users, Lightbulb, ChevronRight, ChevronDown, RefreshCw } from "lucide-react";
 import { useState } from "react";
 
-const StudySage = () => {
+const Ada = () => {
   const [capabilitiesOpen, setCapabilitiesOpen] = useState(true);
   const [tipsOpen, setTipsOpen] = useState(false);
   const [formatsOpen, setFormatsOpen] = useState(false);
@@ -279,4 +279,4 @@ const StudySage = () => {
   );
 };
 
-export default StudySage;
+export default Ada;

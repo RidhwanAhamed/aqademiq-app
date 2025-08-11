@@ -6,6 +6,7 @@ import { useUserStats } from "@/hooks/useUserStats";
 import { StudyTimeChart } from "@/components/analytics/StudyTimeChart";
 import { GradeChart } from "@/components/analytics/GradeChart";
 import { StreakCard } from "@/components/analytics/StreakCard";
+import { GPACard } from "@/components/GPACard";
 import { AddStudySessionDialog } from "@/components/AddStudySessionDialog";
 
 export default function Analytics() {
@@ -107,13 +108,14 @@ export default function Analytics() {
         </Card>
       </div>
 
-      {/* Charts and Streak */}
+      {/* Charts and Analytics */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
           <StudyTimeChart data={studyTimeData} />
           <GradeChart data={gradeData} />
         </div>
-        <div>
+        <div className="space-y-6">
+          <GPACard />
           <StreakCard stats={stats} />
         </div>
       </div>

@@ -18,7 +18,7 @@ const Index = () => {
       <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/10 flex items-center justify-center">
         <div className="text-center space-y-4">
           <div className="h-8 w-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="text-muted-foreground">Loading StudyFlow AI...</p>
+          <p className="text-muted-foreground">Loading Aqademiq...</p>
         </div>
       </div>
     );

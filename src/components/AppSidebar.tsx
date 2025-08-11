@@ -39,7 +39,7 @@ interface NavItem {
 const mainItems: NavItem[] = [
   { title: "Dashboard", url: "/", icon: Home },
   { title: "Calendar", url: "/calendar", icon: Calendar },
-  { title: "StudySage", url: "/studysage", icon: Bot, badge: "Beta" },
+  { title: "Ada", url: "/studysage", icon: Bot, badge: "Beta" },
   { title: "Courses", url: "/courses", icon: BookOpen },
   { title: "Assignments", url: "/assignments", icon: Target },
   { title: "Study Timer", url: "/timer", icon: Clock },
@@ -81,7 +81,7 @@ export function AppSidebar() {
                 <BookOpen className="w-4 h-4 text-white" />
               </div>
               <span className="font-bold text-lg bg-gradient-primary bg-clip-text text-transparent">
-                StudyFlow
+                Aqademiq
               </span>
             </div>
           )}

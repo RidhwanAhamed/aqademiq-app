@@ -51,6 +51,7 @@ export type Database = {
           exam_id: string | null
           grade_points: number | null
           grade_received: string | null
+          grade_total: number | null
           id: string
           is_completed: boolean | null
           is_recurring: boolean | null
@@ -77,6 +78,7 @@ export type Database = {
           exam_id?: string | null
           grade_points?: number | null
           grade_received?: string | null
+          grade_total?: number | null
           id?: string
           is_completed?: boolean | null
           is_recurring?: boolean | null
@@ -103,6 +105,7 @@ export type Database = {
           exam_id?: string | null
           grade_points?: number | null
           grade_received?: string | null
+          grade_total?: number | null
           id?: string
           is_completed?: boolean | null
           is_recurring?: boolean | null
@@ -235,6 +238,7 @@ export type Database = {
           exam_type: string | null
           grade_points: number | null
           grade_received: string | null
+          grade_total: number | null
           id: string
           location: string | null
           notes: string | null
@@ -252,6 +256,7 @@ export type Database = {
           exam_type?: string | null
           grade_points?: number | null
           grade_received?: string | null
+          grade_total?: number | null
           id?: string
           location?: string | null
           notes?: string | null
@@ -269,6 +274,7 @@ export type Database = {
           exam_type?: string | null
           grade_points?: number | null
           grade_received?: string | null
+          grade_total?: number | null
           id?: string
           location?: string | null
           notes?: string | null
@@ -871,6 +877,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      calculate_user_gpa: {
+        Args: { p_user_id: string }
+        Returns: number
+      }
       detect_schedule_conflicts: {
         Args: {
           p_user_id: string
@@ -917,6 +927,10 @@ export type Database = {
       should_class_occur_on_date: {
         Args: { p_schedule_id: string; p_target_date: string }
         Returns: boolean
+      }
+      update_course_progress: {
+        Args: { p_course_id: string }
+        Returns: undefined
       }
       update_user_study_stats: {
         Args: { p_user_id: string; p_study_hours: number }

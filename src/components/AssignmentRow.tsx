@@ -8,11 +8,12 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { CalendarIcon, Edit2, Save, X, Clock, Repeat } from "lucide-react";
+import { CalendarIcon, Edit2, Save, X, Clock, Repeat, Award } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useCourses } from "@/hooks/useCourses";
 import { AIInsightButton } from "@/components/AIInsightButton";
+import { GradeDialog } from "@/components/GradeDialog";
 
 interface AssignmentRowProps {
   assignment: Assignment;
@@ -22,6 +23,7 @@ interface AssignmentRowProps {
 
 export function AssignmentRow({ assignment, onUpdate, onToggleComplete }: AssignmentRowProps) {
   const [isEditing, setIsEditing] = useState(false);
+  const [showGradeDialog, setShowGradeDialog] = useState(false);
   const [title, setTitle] = useState(assignment.title);
   const [description, setDescription] = useState(assignment.description || "");
   const [courseId, setCourseId] = useState(assignment.course_id);
@@ -139,78 +141,102 @@ export function AssignmentRow({ assignment, onUpdate, onToggleComplete }: Assign
   }
 
   return (
-    <div className={cn(
-      "flex items-center justify-between p-4 border-b border-border last:border-b-0 hover:bg-muted/50 transition-colors",
-      assignment.is_completed && "opacity-60"
-    )}>
-      <div className="flex items-center gap-3 flex-1">
-        <Checkbox
-          checked={assignment.is_completed || false}
-          onCheckedChange={handleToggle}
-          className="mt-0.5"
-        />
-        
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <h3 className={cn(
-              "font-medium",
-              assignment.is_completed && "line-through text-muted-foreground"
-            )}>
-              {assignment.title}
-            </h3>
-            {assignment.is_completed && (
-              <Badge variant="outline" className="text-success border-success">
-                Completed
-              </Badge>
-            )}
-            {(assignment.is_recurring || assignment.parent_assignment_id) && (
-              <Badge variant="outline" className="text-primary border-primary">
-                <Repeat className="w-3 h-3 mr-1" />
-                {assignment.is_recurring ? "Recurring" : "Instance"}
-              </Badge>
+    <>
+      <div className={cn(
+        "flex items-center justify-between p-4 border-b border-border last:border-b-0 hover:bg-muted/50 transition-colors",
+        assignment.is_completed && "opacity-60"
+      )}>
+        <div className="flex items-center gap-3 flex-1">
+          <Checkbox
+            checked={assignment.is_completed || false}
+            onCheckedChange={handleToggle}
+            className="mt-0.5"
+          />
+          
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <h3 className={cn(
+                "font-medium",
+                assignment.is_completed && "line-through text-muted-foreground"
+              )}>
+                {assignment.title}
+              </h3>
+              {assignment.is_completed && (
+                <Badge variant="outline" className="text-success border-success">
+                  Completed
+                </Badge>
+              )}
+              {(assignment.is_recurring || assignment.parent_assignment_id) && (
+                <Badge variant="outline" className="text-primary border-primary">
+                  <Repeat className="w-3 h-3 mr-1" />
+                  {assignment.is_recurring ? "Recurring" : "Instance"}
+                </Badge>
+              )}
+            </div>
+            
+            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+              <span>Due {format(new Date(assignment.due_date), "MMM d, yyyy")}</span>
+              <span>•</span>
+              <span>{course?.name || "Unknown Course"}</span>
+              {assignment.estimated_hours && (
+                <>
+                  <span>•</span>
+                  <span>{assignment.estimated_hours}h estimated</span>
+                </>
+              )}
+              {assignment.grade_received && (
+                <>
+                  <span>•</span>
+                  <span className="text-success font-medium">Grade: {assignment.grade_received}</span>
+                </>
+              )}
+            </div>
+            
+            {assignment.description && (
+              <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                {assignment.description}
+              </p>
             )}
           </div>
-          
-          <div className="flex items-center gap-4 text-sm text-muted-foreground">
-            <span>Due {format(new Date(assignment.due_date), "MMM d, yyyy")}</span>
-            <span>•</span>
-            <span>{course?.name || "Unknown Course"}</span>
-            {assignment.estimated_hours && (
-              <>
-                <span>•</span>
-                <span>{assignment.estimated_hours}h estimated</span>
-              </>
-            )}
-          </div>
-          
-          {assignment.description && (
-            <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
-              {assignment.description}
-            </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {!assignment.is_completed && (
+            <AIInsightButton
+              type="assignment"
+              title={assignment.title}
+              dueDate={assignment.due_date}
+              estimatedHours={assignment.estimated_hours}
+              description={assignment.description || undefined}
+              isCompleted={assignment.is_completed}
+            />
           )}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowGradeDialog(true)}
+            className="text-blue-600 hover:text-blue-700"
+          >
+            <Award className="w-4 h-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setIsEditing(true)}
+            className="ml-2"
+          >
+            <Edit2 className="w-4 h-4" />
+          </Button>
         </div>
       </div>
 
-      <div className="flex items-center gap-2">
-        {!assignment.is_completed && (
-          <AIInsightButton
-            type="assignment"
-            title={assignment.title}
-            dueDate={assignment.due_date}
-            estimatedHours={assignment.estimated_hours}
-            description={assignment.description || undefined}
-            isCompleted={assignment.is_completed}
-          />
-        )}
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setIsEditing(true)}
-          className="ml-2"
-        >
-          <Edit2 className="w-4 h-4" />
-        </Button>
-      </div>
-    </div>
+      <GradeDialog
+        open={showGradeDialog}
+        onOpenChange={setShowGradeDialog}
+        item={assignment}
+        type="assignment"
+        onGradeUpdated={() => window.location.reload()}
+      />
+    </>
   );
 }

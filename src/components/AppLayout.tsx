@@ -21,7 +21,7 @@ export function AppLayout() {
                 <Menu className="h-4 w-4" />
               </SidebarTrigger>
               <span className="font-bold text-lg bg-gradient-primary bg-clip-text text-transparent">
-                StudyFlow AI
+                Aqademiq
               </span>
             </div>
             <Button 
