@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { CalendarDays, Clock, Users, GraduationCap, Calendar as CalendarIcon } from "lucide-react";
+import { CalendarDays, Clock, Users, GraduationCap, Calendar as CalendarIcon, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CalendarView } from '@/components/calendar/CalendarView';
 import { EnhancedCalendarView } from '@/components/calendar/EnhancedCalendarView';
 import { AddClassDialog } from '@/components/calendar/AddClassDialog';
@@ -9,14 +10,16 @@ import { HolidayManager } from '@/components/HolidayManager';
 import { useSchedule, type ScheduleBlock } from '@/hooks/useSchedule';
 import { useAssignments } from '@/hooks/useAssignments';
 import { useExams } from '@/hooks/useExams';
-import { format, isToday } from 'date-fns';
+import { useHolidays } from '@/hooks/useHolidays';
+import { format, isToday, isWithinInterval, parseISO } from 'date-fns';
 
 export default function Calendar() {
   const [view, setView] = useState<'week' | 'month'>('week');
-  const [showHolidayManager, setShowHolidayManager] = useState(false);
+  const [activeTab, setActiveTab] = useState('calendar');
   const { scheduleBlocks, exams, loading: scheduleLoading, addScheduleBlock, updateScheduleBlock } = useSchedule();
   const { assignments, loading: assignmentsLoading } = useAssignments();
   const { exams: examsList, loading: examsLoading } = useExams();
+  const { holidays } = useHolidays();
 
   const loading = scheduleLoading || assignmentsLoading || examsLoading;
 
@@ -41,6 +44,14 @@ export default function Calendar() {
   const upcomingExams = examsList.filter(exam => 
     new Date(exam.exam_date) > new Date()
   ).length;
+
+  // Calculate active holidays
+  const activeHolidays = holidays.filter(holiday => {
+    const today = new Date();
+    const startDate = parseISO(holiday.start_date);
+    const endDate = parseISO(holiday.end_date);
+    return isWithinInterval(today, { start: startDate, end: endDate });
+  });
 
   // Wrapper functions to match the expected interface
   const handleAddScheduleBlock = async (data: Omit<ScheduleBlock, 'id' | 'user_id' | 'created_at' | 'updated_at'>): Promise<boolean> => {
@@ -67,27 +78,23 @@ export default function Calendar() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Calendar</h1>
-          <p className="text-muted-foreground">Manage your academic schedule</p>
+          <p className="text-muted-foreground">Manage your academic schedule and holidays</p>
+          {activeHolidays.length > 0 && (
+            <div className="flex items-center gap-2 mt-2">
+              <MapPin className="w-4 h-4 text-primary" />
+              <span className="text-sm text-primary font-medium">
+                Currently on holiday: {activeHolidays[0].name}
+              </span>
+            </div>
+          )}
         </div>
         <div className="flex gap-2">
-          <Button 
-            variant="outline" 
-            onClick={() => setShowHolidayManager(!showHolidayManager)}
-          >
-            <CalendarIcon className="w-4 h-4 mr-2" />
-            Holidays
-          </Button>
           <AddClassDialog />
         </div>
       </div>
 
-      {/* Holiday Manager */}
-      {showHolidayManager && (
-        <HolidayManager />
-      )}
-
       {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <Card className="bg-gradient-card">
           <CardContent className="p-4">
             <div className="flex items-center space-x-3">
@@ -133,6 +140,20 @@ export default function Calendar() {
         <Card className="bg-gradient-card">
           <CardContent className="p-4">
             <div className="flex items-center space-x-3">
+              <div className="p-2 bg-info/10 rounded-lg">
+                <MapPin className="w-5 h-5 text-info" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Active Holidays</p>
+                <p className="text-2xl font-bold">{activeHolidays.length}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-card">
+          <CardContent className="p-4">
+            <div className="flex items-center space-x-3">
               <div className="p-2 bg-success/10 rounded-lg">
                 <GraduationCap className="w-5 h-5 text-success" />
               </div>
@@ -145,27 +166,47 @@ export default function Calendar() {
         </Card>
       </div>
 
-      {/* Calendar View */}
-      {loading ? (
-        <Card className="bg-gradient-card">
-          <CardContent className="p-12">
-            <div className="text-center text-muted-foreground">
-              <Clock className="w-8 h-8 mx-auto mb-4 animate-spin" />
-              <p>Loading your schedule...</p>
-            </div>
-          </CardContent>
-        </Card>
-      ) : (
-        <EnhancedCalendarView
-          scheduleBlocks={scheduleBlocks}
-          exams={examsList}
-          assignments={assignments}
-          view={view}
-          onViewChange={setView}
-          onUpdateScheduleBlock={handleUpdateScheduleBlock}
-          onAddScheduleBlock={handleAddScheduleBlock}
-        />
-      )}
+      {/* Main Content with Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="calendar">
+            <CalendarIcon className="w-4 h-4 mr-2" />
+            Calendar View
+          </TabsTrigger>
+          <TabsTrigger value="holidays">
+            <MapPin className="w-4 h-4 mr-2" />
+            Holiday Management
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="calendar" className="space-y-4">
+          {/* Calendar View */}
+          {loading ? (
+            <Card className="bg-gradient-card">
+              <CardContent className="p-12">
+                <div className="text-center text-muted-foreground">
+                  <Clock className="w-8 h-8 mx-auto mb-4 animate-spin" />
+                  <p>Loading your schedule...</p>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <EnhancedCalendarView
+              scheduleBlocks={scheduleBlocks}
+              exams={examsList}
+              assignments={assignments}
+              view={view}
+              onViewChange={setView}
+              onUpdateScheduleBlock={handleUpdateScheduleBlock}
+              onAddScheduleBlock={handleAddScheduleBlock}
+            />
+          )}
+        </TabsContent>
+
+        <TabsContent value="holidays" className="space-y-4">
+          <HolidayManager />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
