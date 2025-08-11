@@ -191,13 +191,13 @@ export function AddStudySessionDialog({ open, onOpenChange }: AddStudySessionDia
     return ((end.getTime() - start.getTime()) / (1000 * 60 * 60)).toFixed(1);
   };
 
-  const filteredAssignments = assignments.filter(a => 
+  const filteredAssignments = assignments?.filter(a => 
     formData.courseId ? a.course_id === formData.courseId : true
-  );
+  ) || [];
 
-  const filteredExams = exams.filter(e => 
+  const filteredExams = exams?.filter(e => 
     formData.courseId ? e.course_id === formData.courseId : true
-  );
+  ) || [];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -312,11 +312,11 @@ export function AddStudySessionDialog({ open, onOpenChange }: AddStudySessionDia
                     <SelectValue placeholder="Select a course" />
                   </SelectTrigger>
                   <SelectContent>
-                    {courses.map((course) => (
-                      <SelectItem key={course.id} value={course.id}>
-                        {course.name}
-                      </SelectItem>
-                    ))}
+                     {courses?.map((course) => (
+                       <SelectItem key={course.id} value={course.id}>
+                         {course.name}
+                       </SelectItem>
+                     )) || []}
                   </SelectContent>
                 </Select>
               </div>
@@ -332,11 +332,11 @@ export function AddStudySessionDialog({ open, onOpenChange }: AddStudySessionDia
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="">All courses</SelectItem>
-                      {courses.map((course) => (
-                        <SelectItem key={course.id} value={course.id}>
-                          {course.name}
-                        </SelectItem>
-                      ))}
+                       {courses?.map((course) => (
+                         <SelectItem key={course.id} value={course.id}>
+                           {course.name}
+                         </SelectItem>
+                       )) || []}
                     </SelectContent>
                   </Select>
                 </div>
@@ -347,11 +347,15 @@ export function AddStudySessionDialog({ open, onOpenChange }: AddStudySessionDia
                       <SelectValue placeholder="Select an assignment" />
                     </SelectTrigger>
                     <SelectContent>
-                      {filteredAssignments.map((assignment) => (
-                        <SelectItem key={assignment.id} value={assignment.id}>
-                          {assignment.title}
-                        </SelectItem>
-                      ))}
+                       {filteredAssignments.length > 0 ? (
+                         filteredAssignments.map((assignment) => (
+                           <SelectItem key={assignment.id} value={assignment.id}>
+                             {assignment.title}
+                           </SelectItem>
+                         ))
+                       ) : (
+                         <SelectItem value="" disabled>No assignments available</SelectItem>
+                       )}
                     </SelectContent>
                   </Select>
                 </div>
@@ -368,11 +372,11 @@ export function AddStudySessionDialog({ open, onOpenChange }: AddStudySessionDia
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="">All courses</SelectItem>
-                      {courses.map((course) => (
-                        <SelectItem key={course.id} value={course.id}>
-                          {course.name}
-                        </SelectItem>
-                      ))}
+                       {courses?.map((course) => (
+                         <SelectItem key={course.id} value={course.id}>
+                           {course.name}
+                         </SelectItem>
+                       )) || []}
                     </SelectContent>
                   </Select>
                 </div>
@@ -383,11 +387,15 @@ export function AddStudySessionDialog({ open, onOpenChange }: AddStudySessionDia
                       <SelectValue placeholder="Select an exam" />
                     </SelectTrigger>
                     <SelectContent>
-                      {filteredExams.map((exam) => (
-                        <SelectItem key={exam.id} value={exam.id}>
-                          {exam.title}
-                        </SelectItem>
-                      ))}
+                       {filteredExams.length > 0 ? (
+                         filteredExams.map((exam) => (
+                           <SelectItem key={exam.id} value={exam.id}>
+                             {exam.title}
+                           </SelectItem>
+                         ))
+                       ) : (
+                         <SelectItem value="" disabled>No exams available</SelectItem>
+                       )}
                     </SelectContent>
                   </Select>
                 </div>
