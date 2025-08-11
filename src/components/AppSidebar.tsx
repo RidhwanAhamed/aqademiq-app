@@ -9,7 +9,8 @@ import {
   Plus,
   ChevronLeft,
   ChevronRight,
-  Bot
+  Bot,
+  LogOut
 } from "lucide-react";
 import { useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
@@ -27,6 +28,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/hooks/useAuth";
 import { AddCourseDialog } from "@/components/AddCourseDialog";
 
 interface NavItem {
@@ -52,6 +54,7 @@ const bottomItems = [
 
 export function AppSidebar() {
   const { state } = useSidebar();
+  const { signOut } = useAuth();
   const collapsed = state === "collapsed";
   const location = useLocation();
   const currentPath = location.pathname;
@@ -154,6 +157,19 @@ export function AppSidebar() {
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>
+            
+            {/* Sign Out Button */}
+            <div className="mt-4 p-2">
+              <Button
+                onClick={() => signOut()}
+                variant="outline"
+                size={collapsed ? "icon" : "default"}
+                className="w-full text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/20"
+              >
+                <LogOut className="w-4 h-4" />
+                {!collapsed && <span className="ml-2">Sign Out</span>}
+              </Button>
+            </div>
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
