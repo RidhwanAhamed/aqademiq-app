@@ -23,9 +23,9 @@ export function useOnboardingFlow() {
           .from('profiles')
           .select('full_name')
           .eq('user_id', user.id)
-          .single();
+          .maybeSingle();
 
-        const profileComplete = profile?.full_name && profile.full_name.trim() !== '';
+        const profileComplete = profile?.full_name && profile.full_name.trim() !== '' && profile.full_name !== user.email;
         setHasProfile(profileComplete);
 
         // Check if user has an active semester
@@ -34,7 +34,7 @@ export function useOnboardingFlow() {
           .select('id')
           .eq('user_id', user.id)
           .eq('is_active', true)
-          .single();
+          .maybeSingle();
 
         const semesterComplete = !!semester;
         setHasSemester(semesterComplete);

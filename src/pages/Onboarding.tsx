@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useRouteProtection } from '@/hooks/useRouteProtection';
@@ -11,7 +11,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { GraduationCap, Brain, ArrowLeft, ArrowRight, CalendarIcon, User, School } from 'lucide-react';
+import { GraduationCap, Brain, ArrowLeft, ArrowRight, CalendarIcon, User, School, CheckCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
@@ -20,11 +20,17 @@ type OnboardingStep = 'account' | 'profile' | 'semester';
 export default function Onboarding() {
   const [currentStep, setCurrentStep] = useState<OnboardingStep>('account');
   const [loading, setLoading] = useState(false);
+  const [completedSteps, setCompletedSteps] = useState<OnboardingStep[]>([]);
   const navigate = useNavigate();
   const { signUp, signIn } = useAuth();
   
   // Use route protection
   useRouteProtection();
+
+  // Auto-fill timezone on load
+  useEffect(() => {
+    setTimezone(Intl.DateTimeFormat().resolvedOptions().timeZone);
+  }, []);
 
   // Account setup state
   const [email, setEmail] = useState('');
@@ -87,6 +93,9 @@ export default function Onboarding() {
       return;
     }
 
+    // Wait a moment for the profile trigger to complete
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
     // Automatically sign in the user
     const { error: signInError } = await signIn(email, password);
     
@@ -100,6 +109,7 @@ export default function Onboarding() {
       return;
     }
 
+    setCompletedSteps(['account']);
     setLoading(false);
     setCurrentStep('profile');
   };
@@ -109,20 +119,37 @@ export default function Onboarding() {
     setLoading(true);
 
     try {
-      const { error } = await supabase
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) throw new Error('No user found');
+
+      // First try to update existing profile
+      const { error: updateError } = await supabase
         .from('profiles')
         .update({
           full_name: fullName,
           timezone: timezone
         })
-        .eq('user_id', (await supabase.auth.getUser()).data.user?.id);
+        .eq('user_id', userData.user.id);
 
-      if (error) throw error;
+      // If update fails, try to insert a new profile (in case trigger failed)
+      if (updateError) {
+        const { error: insertError } = await supabase
+          .from('profiles')
+          .insert({
+            user_id: userData.user.id,
+            email: userData.user.email,
+            full_name: fullName,
+            timezone: timezone
+          });
 
+        if (insertError) throw insertError;
+      }
+
+      setCompletedSteps(prev => [...prev, 'profile']);
       setCurrentStep('semester');
     } catch (error: any) {
       toast({
-        title: "Profile update failed",
+        title: "Profile setup failed",
         description: error.message,
         variant: "destructive",
       });
@@ -162,12 +189,15 @@ export default function Onboarding() {
 
       if (error) throw error;
 
+      setCompletedSteps(prev => [...prev, 'semester']);
+      
       toast({
-        title: "Welcome to Aqademiq!",
-        description: "Your account has been set up successfully.",
+        title: "🎉 Welcome to Aqademiq!",
+        description: "Your account has been set up successfully. Let's get started!",
       });
 
-      navigate('/');
+      // Short delay before navigation for better UX
+      setTimeout(() => navigate('/'), 1500);
     } catch (error: any) {
       toast({
         title: "Semester setup failed",
@@ -205,7 +235,11 @@ export default function Onboarding() {
           {/* Step Info */}
           <div className="space-y-2">
             <div className="flex items-center justify-center space-x-2">
-              <IconComponent className="h-5 w-5 text-primary" />
+              {completedSteps.includes(currentStep) ? (
+                <CheckCircle className="h-5 w-5 text-green-500" />
+              ) : (
+                <IconComponent className="h-5 w-5 text-primary" />
+              )}
               <CardTitle className="text-xl font-semibold">{currentConfig.title}</CardTitle>
             </div>
             <CardDescription className="text-sm">
@@ -276,6 +310,8 @@ export default function Onboarding() {
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   required
+                  autoComplete="name"
+                  autoFocus
                 />
               </div>
               
@@ -326,6 +362,7 @@ export default function Onboarding() {
                   value={semesterName}
                   onChange={(e) => setSemesterName(e.target.value)}
                   required
+                  autoFocus
                 />
               </div>
               
