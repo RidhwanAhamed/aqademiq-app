@@ -23,9 +23,7 @@ export default function Onboarding() {
   const [completedSteps, setCompletedSteps] = useState<OnboardingStep[]>([]);
   const navigate = useNavigate();
   const { signUp, signIn } = useAuth();
-  
-  // Use route protection
-  useRouteProtection();
+  const { allowNavigation } = useRouteProtection();
 
   // Auto-fill timezone on load
   useEffect(() => {
@@ -84,11 +82,30 @@ export default function Onboarding() {
     const { error } = await signUp(email, password);
     
     if (error) {
+      let description = error.message;
+      let isUserExists = false;
+      
+      // Check if user already exists
+      if (error.message.includes('already') || error.message.includes('User already registered')) {
+        description = "An account with this email already exists. Please sign in instead.";
+        isUserExists = true;
+      }
+      
       toast({
         title: "Account creation failed",
-        description: error.message,
+        description,
         variant: "destructive",
       });
+      
+      // If user exists, make the sign-in link more prominent
+      if (isUserExists) {
+        toast({
+          title: "Ready to sign in?",
+          description: "Click 'Sign in here' below to access your existing account.",
+          variant: "default",
+        });
+      }
+      
       setLoading(false);
       return;
     }
@@ -448,7 +465,10 @@ export default function Onboarding() {
             <p className="text-xs text-muted-foreground">
               Already have an account?{" "}
               <button 
-                onClick={() => navigate('/auth')}
+                onClick={() => {
+                  allowNavigation('/auth');
+                  navigate('/auth');
+                }}
                 className="text-primary hover:underline font-medium"
               >
                 Sign in here
