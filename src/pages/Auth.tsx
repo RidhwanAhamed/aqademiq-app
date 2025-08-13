@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { useRouteProtection } from '@/hooks/useRouteProtection';
+import { useOnboardingFlow } from '@/hooks/useOnboardingFlow';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,11 +14,20 @@ export default function Auth() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, user } = useAuth();
+  const { isAuthenticated, needsOnboarding } = useOnboardingFlow();
   const navigate = useNavigate();
-  
-  // Use route protection
-  useRouteProtection();
+
+  // Handle authenticated users - redirect them appropriately
+  useEffect(() => {
+    if (user && isAuthenticated) {
+      if (needsOnboarding) {
+        navigate('/onboarding');
+      } else {
+        navigate('/');
+      }
+    }
+  }, [user, isAuthenticated, needsOnboarding, navigate]);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
