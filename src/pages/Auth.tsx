@@ -18,7 +18,7 @@ export default function Auth() {
   const { isAuthenticated, needsOnboarding } = useOnboardingFlow();
   const navigate = useNavigate();
 
-  // Handle authenticated users - redirect them appropriately
+  // Redirect authenticated users
   useEffect(() => {
     if (user && isAuthenticated) {
       if (needsOnboarding) {
@@ -100,38 +100,17 @@ export default function Auth() {
             </TabsList>
             
             <TabsContent value="signin">
-              <form onSubmit={handleSignIn} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="your@email.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="password">Password</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                  />
-                </div>
+              <div className="text-center space-y-4">
+                <p className="text-muted-foreground">
+                  Sign in to your existing account
+                </p>
                 <Button 
-                  type="submit" 
-                  className="w-full" 
-                  disabled={loading}
-                  variant="default"
+                  onClick={() => navigate('/auth/signin')}
+                  className="w-full bg-gradient-primary hover:opacity-90 transition-opacity"
                 >
-                  {loading ? "Signing in..." : "Sign In"}
+                  Go to Sign In
                 </Button>
-              </form>
+              </div>
             </TabsContent>
             
             <TabsContent value="signup">

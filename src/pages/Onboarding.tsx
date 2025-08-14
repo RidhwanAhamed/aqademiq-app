@@ -11,7 +11,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { GraduationCap, Brain, ArrowLeft, ArrowRight, CalendarIcon, User, School, CheckCircle } from 'lucide-react';
+import { GraduationCap, Brain, ArrowLeft, ArrowRight, CalendarIcon, User, School, CheckCircle, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
@@ -65,6 +65,9 @@ export default function Onboarding() {
     }
   };
 
+  const [emailSent, setEmailSent] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
+
   const handleAccountSetup = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -83,52 +86,81 @@ export default function Onboarding() {
     
     if (error) {
       let description = error.message;
-      let isUserExists = false;
       
       // Check if user already exists
       if (error.message.includes('already') || error.message.includes('User already registered')) {
-        description = "An account with this email already exists. Please sign in instead.";
-        isUserExists = true;
+        description = "An account with this email already exists.";
+        toast({
+          title: "Account exists",
+          description,
+          variant: "destructive",
+        });
+        toast({
+          title: "Ready to sign in?",
+          description: "Use the 'Sign in here' link below to access your account.",
+        });
+        setLoading(false);
+        return;
       }
       
       toast({
-        title: "Account creation failed",
+        title: "Account creation failed", 
         description,
         variant: "destructive",
       });
-      
-      // If user exists, make the sign-in link more prominent
-      if (isUserExists) {
-        toast({
-          title: "Ready to sign in?",
-          description: "Click 'Sign in here' below to access your existing account.",
-          variant: "default",
-        });
-      }
-      
       setLoading(false);
       return;
     }
 
-    // Wait a moment for the profile trigger to complete
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    // Automatically sign in the user
-    const { error: signInError } = await signIn(email, password);
+    // Show success state
+    setEmailSent(true);
+    setLoading(false);
     
-    if (signInError) {
+    toast({
+      title: "🎉 Account created successfully!",
+      description: "Check your email to verify your account and continue.",
+    });
+  };
+
+  const handleResendEmail = async () => {
+    if (resendCooldown > 0) return;
+    
+    setLoading(true);
+    setResendCooldown(60); // 60 second cooldown
+    
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email: email,
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback`
+      }
+    });
+
+    if (error) {
       toast({
-        title: "Sign in failed",
-        description: "Account created but couldn't sign you in. Please try signing in manually.",
+        title: "Resend failed",
+        description: error.message,
         variant: "destructive",
       });
-      setLoading(false);
-      return;
+    } else {
+      toast({
+        title: "Email sent!",
+        description: "Check your inbox for the verification link.",
+      });
     }
-
-    setCompletedSteps(['account']);
+    
     setLoading(false);
-    setCurrentStep('profile');
+    
+    // Countdown timer
+    const timer = setInterval(() => {
+      setResendCooldown((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
   };
 
   const handleProfileSetup = async (e: React.FormEvent) => {
@@ -266,7 +298,7 @@ export default function Onboarding() {
         </CardHeader>
 
         <CardContent className="space-y-6">
-          {currentStep === 'account' && (
+          {currentStep === 'account' && !emailSent && (
             <form onSubmit={handleAccountSetup} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Email Address</Label>
@@ -277,6 +309,7 @@ export default function Onboarding() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
+                  autoFocus
                 />
               </div>
               
@@ -285,7 +318,7 @@ export default function Onboarding() {
                 <Input
                   id="password"
                   type="password"
-                  placeholder="Create a secure password"
+                  placeholder="Create a secure password (min 6 characters)"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
@@ -314,6 +347,49 @@ export default function Onboarding() {
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </form>
+          )}
+
+          {currentStep === 'account' && emailSent && (
+            <div className="space-y-6 text-center">
+              <div className="space-y-4">
+                <div className="h-16 w-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
+                  <CheckCircle className="h-8 w-8 text-primary" />
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-lg font-semibold">Check your email!</h3>
+                  <p className="text-sm text-muted-foreground">
+                    We sent a verification link to <strong>{email}</strong>
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Click the link in your email to verify your account and continue setup.
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <Button
+                  variant="outline"
+                  onClick={handleResendEmail}
+                  disabled={loading || resendCooldown > 0}
+                  className="w-full"
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Sending...
+                    </>
+                  ) : resendCooldown > 0 ? (
+                    `Resend in ${resendCooldown}s`
+                  ) : (
+                    'Resend verification email'
+                  )}
+                </Button>
+                
+                <p className="text-xs text-muted-foreground">
+                  Didn't receive the email? Check your spam folder or try a different email address.
+                </p>
+              </div>
+            </div>
           )}
 
           {currentStep === 'profile' && (
@@ -465,10 +541,7 @@ export default function Onboarding() {
             <p className="text-xs text-muted-foreground">
               Already have an account?{" "}
               <button 
-                onClick={() => {
-                  allowNavigation('/auth');
-                  navigate('/auth');
-                }}
+                onClick={() => navigate('/auth/signin')}
                 className="text-primary hover:underline font-medium"
               >
                 Sign in here
