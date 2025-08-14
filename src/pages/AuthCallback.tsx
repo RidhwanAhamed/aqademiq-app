@@ -27,7 +27,7 @@ export default function AuthCallback() {
           setStatus('success');
           setMessage('Email verified successfully! Redirecting...');
           
-          // Short delay for better UX, then redirect to onboarding
+          // Redirect to onboarding profile step since email is verified
           setTimeout(() => {
             navigate('/onboarding');
           }, 1500);

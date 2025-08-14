@@ -44,6 +44,35 @@ export default function Onboarding() {
   const [startDate, setStartDate] = useState<Date>();
   const [endDate, setEndDate] = useState<Date>();
 
+  // Email verification state
+  const [emailSent, setEmailSent] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
+
+  // Add real-time auth state detection for email verification
+  useEffect(() => {
+    if (!emailSent) return;
+
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (event === 'SIGNED_IN' && session?.user?.email_confirmed_at) {
+          // User just verified email - show success and redirect
+          toast({
+            title: "🎉 Email verified successfully!",
+            description: "Continuing to profile setup...",
+          });
+          
+          // Small delay for better UX
+          setTimeout(() => {
+            setEmailSent(false);
+            setCurrentStep('profile');
+          }, 1500);
+        }
+      }
+    );
+
+    return () => authListener?.subscription?.unsubscribe();
+  }, [emailSent]);
+
   const stepConfig = {
     account: { 
       title: 'Create Your Account', 
@@ -65,8 +94,6 @@ export default function Onboarding() {
     }
   };
 
-  const [emailSent, setEmailSent] = useState(false);
-  const [resendCooldown, setResendCooldown] = useState(0);
 
   const handleAccountSetup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -352,7 +379,7 @@ export default function Onboarding() {
           {currentStep === 'account' && emailSent && (
             <div className="space-y-6 text-center">
               <div className="space-y-4">
-                <div className="h-16 w-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
+                <div className="h-16 w-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto animate-pulse">
                   <CheckCircle className="h-8 w-8 text-primary" />
                 </div>
                 <div className="space-y-2">
@@ -361,8 +388,14 @@ export default function Onboarding() {
                     We sent a verification link to <strong>{email}</strong>
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Click the link in your email to verify your account and continue setup.
+                    Click the link in your email to verify your account and automatically continue setup.
                   </p>
+                  <div className="mt-3 p-3 bg-muted/50 rounded-lg">
+                    <p className="text-xs text-muted-foreground flex items-center gap-2">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      Waiting for email verification...
+                    </p>
+                  </div>
                 </div>
               </div>
 
