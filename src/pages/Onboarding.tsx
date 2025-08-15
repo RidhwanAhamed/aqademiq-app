@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -34,6 +34,7 @@ type OnboardingStep = 'account' | 'profile' | 'semester';
 
 export default function Onboarding() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { signUp, signIn } = useAuth();
 
   // State variables
@@ -61,7 +62,49 @@ export default function Onboarding() {
   const [emailSent, setEmailSent] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
 
-  // 1. Redirect away if already completed onboarding
+  // 1. Handle auth callback tokens from URL
+  useEffect(() => {
+    async function handleAuthCallback() {
+      const accessToken = searchParams.get('access_token');
+      const refreshToken = searchParams.get('refresh_token');
+
+      if (accessToken && refreshToken) {
+        try {
+          // Set the session with tokens from URL
+          await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken
+          });
+
+          // Clean up URL params
+          const newUrl = window.location.pathname;
+          window.history.replaceState({}, document.title, newUrl);
+
+          toast({
+            title: '🎉 Email verified successfully!',
+            description: 'Continuing to profile setup...'
+          });
+
+          // Move to profile step
+          setTimeout(() => {
+            setEmailSent(false);
+            setCurrentStep('profile');
+          }, 1500);
+
+        } catch (error: any) {
+          toast({
+            title: 'Verification failed',
+            description: error.message,
+            variant: 'destructive'
+          });
+        }
+      }
+    }
+
+    handleAuthCallback();
+  }, [searchParams]);
+
+  // 2. Redirect away if already completed onboarding
   useEffect(() => {
     async function checkOnboarding() {
       const {
@@ -81,12 +124,12 @@ export default function Onboarding() {
     checkOnboarding();
   }, [navigate]);
 
-  // 2. Auto-fill timezone on load
+  // 3. Auto-fill timezone on load
   useEffect(() => {
     setTimezone(Intl.DateTimeFormat().resolvedOptions().timeZone);
   }, []);
 
-  // 3. Real-time auth state detection for email verification
+  // 4. Real-time auth state detection for email verification (fallback)
   useEffect(() => {
     if (!emailSent) return;
     const { data: authListener } = supabase.auth.onAuthStateChange(
@@ -141,7 +184,17 @@ export default function Onboarding() {
       return;
     }
     setLoading(true);
-    const { error } = await signUp(email, password);
+
+    // Call signUp with redirect URL
+    const { error } = await supabase.auth.signUp(
+      { email, password },
+      {
+        options: {
+          emailRedirectTo: `${window.location.origin}/onboarding`
+        }
+      }
+    );
+
     if (error) {
       let description = error.message;
       if (
@@ -169,6 +222,7 @@ export default function Onboarding() {
       setLoading(false);
       return;
     }
+
     setEmailSent(true);
     setLoading(false);
     toast({
@@ -185,7 +239,7 @@ export default function Onboarding() {
       type: 'signup',
       email,
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`
+        emailRedirectTo: `${window.location.origin}/onboarding`
       }
     });
     if (error) {
@@ -325,7 +379,6 @@ export default function Onboarding() {
         <CardContent className="space-y-6">
           {currentStep === 'account' && !emailSent && (
             <form onSubmit={handleAccountSetup} className="space-y-4">
-              {/* Account Setup Form */}
               <div className="space-y-2">
                 <Label htmlFor="email">Email Address</Label>
                 <Input
@@ -371,7 +424,205 @@ export default function Onboarding() {
               </Button>
             </form>
           )}
-          {/* ...remaining JSX unchanged */}
+
+          {currentStep === 'account' && emailSent && (
+            <div className="space-y-6 text-center">
+              <div className="space-y-4">
+                <div className="h-16 w-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto animate-pulse">
+                  <CheckCircle className="h-8 w-8 text-primary" />
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-lg font-semibold">Check your email!</h3>
+                  <p className="text-sm text-muted-foreground">
+                    We sent a verification link to <strong>{email}</strong>
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Click the link in your email to verify your account and automatically continue setup.
+                  </p>
+                  <div className="mt-3 p-3 bg-muted/50 rounded-lg">
+                    <p className="text-xs text-muted-foreground flex items-center gap-2">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      Waiting for email verification...
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-3">
+                <Button
+                  variant="outline"
+                  onClick={handleResendEmail}
+                  disabled={loading || resendCooldown > 0}
+                  className="w-full"
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Sending...
+                    </>
+                  ) : resendCooldown > 0 ? (
+                    `Resend in ${resendCooldown}s`
+                  ) : (
+                    'Resend verification email'
+                  )}
+                </Button>
+                <p className="text-xs text-muted-foreground">
+                  Didn't receive the email? Check your spam folder or try a different email address.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {currentStep === 'profile' && (
+            <form onSubmit={handleProfileSetup} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="fullName">Full Name</Label>
+                <Input
+                  id="fullName"
+                  type="text"
+                  placeholder="Enter your full name"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  required
+                  autoComplete="name"
+                  autoFocus
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="timezone">Timezone</Label>
+                <Input
+                  id="timezone"
+                  type="text"
+                  value={timezone}
+                  onChange={(e) => setTimezone(e.target.value)}
+                  placeholder="Your timezone"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Auto-detected: {Intl.DateTimeFormat().resolvedOptions().timeZone}
+                </p>
+              </div>
+              <div className="flex space-x-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setCurrentStep('account')}
+                  className="flex-1"
+                >
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  Back
+                </Button>
+                <Button
+                  type="submit"
+                  className="flex-1 bg-gradient-primary hover:opacity-90 transition-opacity"
+                  disabled={loading}
+                >
+                  {loading ? 'Saving...' : 'Continue'}
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </div>
+            </form>
+          )}
+
+          {currentStep === 'semester' && (
+            <form onSubmit={handleSemesterSetup} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="semesterName">Semester/Term Name</Label>
+                <Input
+                  id="semesterName"
+                  type="text"
+                  placeholder="e.g., Fall 2025, Spring 2025"
+                  value={semesterName}
+                  onChange={(e) => setSemesterName(e.target.value)}
+                  required
+                  autoFocus
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Start Date</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !startDate && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {startDate ? format(startDate, "MMM dd, yyyy") : "Select date"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={startDate}
+                        onSelect={setStartDate}
+                        initialFocus
+                        className="pointer-events-auto"
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <div className="space-y-2">
+                  <Label>End Date</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !endDate && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {endDate ? format(endDate, "MMM dd, yyyy") : "Select date"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={endDate}
+                        onSelect={setEndDate}
+                        initialFocus
+                        className="pointer-events-auto"
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              </div>
+              <div className="flex space-x-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setCurrentStep('profile')}
+                  className="flex-1"
+                >
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  Back
+                </Button>
+                <Button
+                  type="submit"
+                  className="flex-1 bg-gradient-primary hover:opacity-90 transition-opacity"
+                  disabled={loading}
+                >
+                  {loading ? 'Setting up...' : 'Complete Setup'}
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </div>
+            </form>
+          )}
+
+          <div className="text-center">
+            <p className="text-xs text-muted-foreground">
+              Already have an account?{" "}
+              <button
+                onClick={() => navigate('/auth/signin')}
+                className="text-primary hover:underline font-medium"
+              >
+                Sign in here
+              </button>
+            </p>
+          </div>
         </CardContent>
       </Card>
     </div>
