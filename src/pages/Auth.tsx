@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { useOnboardingFlow } from '@/hooks/useOnboardingFlow';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,46 +14,45 @@ export default function Auth() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const { signIn, signUp, user } = useAuth();
-  const { isAuthenticated, needsOnboarding } = useOnboardingFlow();
   const navigate = useNavigate();
 
-  // Redirect authenticated users
+  // Redirect authenticated users after login/signup
   useEffect(() => {
-    if (user && isAuthenticated) {
-      if (needsOnboarding) {
-        navigate('/onboarding');
-      } else {
-        navigate('/');
-      }
+    if (user && user.email_confirmed_at) {
+      // User email verified
+      // TODO: Replace checkOnboardingStatus with your actual check
+      checkOnboardingStatus(user.id).then(needsOnboarding => {
+        if (needsOnboarding) navigate('/onboarding');
+        else navigate('/dashboard');
+      });
     }
-  }, [user, isAuthenticated, needsOnboarding, navigate]);
+  }, [user, navigate]);
+
+  // Helper stub - implement as per your onboarding flow logic
+  async function checkOnboardingStatus(uid: string) {
+    // Call your API or Supabase to check if onboarding is needed
+    // Return `true` if user needs onboarding, else false
+    return false;
+  }
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    
     const { error } = await signIn(email, password);
-    
     if (error) {
       toast({
         title: "Sign in failed",
         description: error.message,
         variant: "destructive",
       });
-    } else {
-      // For sign-in, let the route protection handle the redirect
-      // It will check if user needs onboarding or can go to dashboard
     }
-    
     setLoading(false);
   };
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    
     const { error } = await signUp(email, password);
-    
     if (error) {
       toast({
         title: "Sign up failed",
@@ -64,12 +62,11 @@ export default function Auth() {
     } else {
       toast({
         title: "Account created successfully!",
-        description: "Please complete your profile setup.",
+        description: "Please check your email and verify before continuing.",
       });
-      // For sign-up, redirect to onboarding
-      navigate('/onboarding');
+      // The onboarding shouldn't trigger until verified; wait for callback
+      navigate('/auth/callback');
     }
-    
     setLoading(false);
   };
 
@@ -98,21 +95,37 @@ export default function Auth() {
               <TabsTrigger value="signin">Sign In</TabsTrigger>
               <TabsTrigger value="signup">Sign Up</TabsTrigger>
             </TabsList>
-            
             <TabsContent value="signin">
-              <div className="text-center space-y-4">
-                <p className="text-muted-foreground">
-                  Sign in to your existing account
-                </p>
+              <form onSubmit={handleSignIn} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="signin-email">Email</Label>
+                  <Input
+                    id="signin-email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="signin-password">Password</Label>
+                  <Input
+                    id="signin-password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                  />
+                </div>
                 <Button 
-                  onClick={() => navigate('/auth/signin')}
+                  type="submit" 
                   className="w-full bg-gradient-primary hover:opacity-90 transition-opacity"
+                  disabled={loading}
                 >
-                  Go to Sign In
+                  {loading ? "Signing in..." : "Sign In"}
                 </Button>
-              </div>
+              </form>
             </TabsContent>
-            
             <TabsContent value="signup">
               <form onSubmit={handleSignUp} className="space-y-4">
                 <div className="space-y-2">
@@ -120,7 +133,6 @@ export default function Auth() {
                   <Input
                     id="signup-email"
                     type="email"
-                    placeholder="your@email.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
@@ -131,7 +143,6 @@ export default function Auth() {
                   <Input
                     id="signup-password"
                     type="password"
-                    placeholder="••••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
@@ -139,9 +150,8 @@ export default function Auth() {
                 </div>
                 <Button 
                   type="submit" 
-                  className="w-full" 
+                  className="w-full bg-gradient-primary hover:opacity-90 transition-opacity"
                   disabled={loading}
-                  variant="default"
                 >
                   {loading ? "Creating account..." : "Create Account"}
                 </Button>
