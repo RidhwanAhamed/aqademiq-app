@@ -15,10 +15,15 @@ import { GraduationCap, Brain, ArrowLeft, ArrowRight, CalendarIcon, User, School
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
-// Import your profile creation helper if exists
-// import { createUserProfile } from '@/lib/user';
-
 type OnboardingStep = 'account' | 'profile' | 'semester';
+
+// Profile creation helper function
+async function createUserProfile(user: { id: string; email: string }) {
+  const { error } = await supabase
+    .from('profiles')
+    .insert({ user_id: user.id, email: user.email });
+  if (error) throw error;
+}
 
 export default function Onboarding() {
   const [currentStep, setCurrentStep] = useState<OnboardingStep>('account');
@@ -56,7 +61,6 @@ export default function Onboarding() {
 
           // Create profile AFTER verification
           try {
-            // Replace this with your actual profile creation method
             await createUserProfile(session.user); 
           } catch (err: any) {
             toast({
@@ -212,7 +216,7 @@ export default function Onboarding() {
       if (error) throw error;
       setCompletedSteps((prev) => [...prev, 'semester']);
       toast({ title: '🎉 Welcome to Aqademiq!', description: "Your account has been set up successfully. Let's get started!" });
-      setTimeout(() => navigate('/'), 1500);
+      setTimeout(() => navigate('/dashboard'), 1500);
     } catch (error: any) {
       toast({ title: 'Semester setup failed', description: error.message, variant: 'destructive' });
     }
@@ -224,16 +228,296 @@ export default function Onboarding() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/10 flex items-center justify-center p-4">
-      {/* ... (rest of your UI JSX unchanged) ... */}
-      {/* Just paste your existing JSX here without change from your original */}
+      <Card className="w-full max-w-md bg-card/50 backdrop-blur-sm border-border/50 shadow-elevated">
+        <CardHeader className="space-y-4 text-center">
+          {/* Logo */}
+          <div className="flex items-center justify-center space-x-2">
+            <div className="h-10 w-10 rounded-xl bg-gradient-primary flex items-center justify-center shadow-primary">
+              <Brain className="h-6 w-6 text-white" />
+            </div>
+            <GraduationCap className="h-8 w-8 text-primary" />
+          </div>
+          
+          {/* Progress */}
+          <div className="space-y-2">
+            <Progress value={currentConfig.progress} className="h-2" />
+            <p className="text-xs text-muted-foreground">
+              Step {Object.keys(stepConfig).indexOf(currentStep) + 1} of {Object.keys(stepConfig).length}
+            </p>
+          </div>
+          
+          {/* Step Info */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-center space-x-2">
+              {completedSteps.includes(currentStep) ? (
+                <CheckCircle className="h-5 w-5 text-green-500" />
+              ) : (
+                <IconComponent className="h-5 w-5 text-primary" />
+              )}
+              <CardTitle className="text-xl font-semibold">{currentConfig.title}</CardTitle>
+            </div>
+            <CardDescription className="text-sm">
+              {currentConfig.description}
+            </CardDescription>
+          </div>
+        </CardHeader>
+
+        <CardContent className="space-y-6">
+          {currentStep === 'account' && !emailSent && (
+            <form onSubmit={handleAccountSetup} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">Email Address</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="your@email.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  autoFocus
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="Create a secure password (min 6 characters)"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  minLength={6}
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="confirmPassword">Confirm Password</Label>
+                <Input
+                  id="confirmPassword"
+                  type="password"
+                  placeholder="Confirm your password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                />
+              </div>
+              
+              <Button 
+                type="submit" 
+                className="w-full bg-gradient-primary hover:opacity-90 transition-opacity" 
+                disabled={loading}
+              >
+                {loading ? "Creating Account..." : "Create Account"}
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </form>
+          )}
+
+          {currentStep === 'account' && emailSent && (
+            <div className="space-y-6 text-center">
+              <div className="space-y-4">
+                <div className="h-16 w-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto animate-pulse">
+                  <CheckCircle className="h-8 w-8 text-primary" />
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-lg font-semibold">Check your email!</h3>
+                  <p className="text-sm text-muted-foreground">
+                    We sent a verification link to <strong>{email}</strong>
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Click the link in your email to verify your account and automatically continue setup.
+                  </p>
+                  <div className="mt-3 p-3 bg-muted/50 rounded-lg">
+                    <p className="text-xs text-muted-foreground flex items-center gap-2">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      Waiting for email verification...
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-3">
+                <Button
+                  variant="outline"
+                  onClick={handleResendEmail}
+                  disabled={loading || resendCooldown > 0}
+                  className="w-full"
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Sending...
+                    </>
+                  ) : resendCooldown > 0 ? (
+                    `Resend in ${resendCooldown}s`
+                  ) : (
+                    'Resend verification email'
+                  )}
+                </Button>
+                
+                <p className="text-xs text-muted-foreground">
+                  Didn't receive the email? Check your spam folder or try a different email address.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {currentStep === 'profile' && (
+            <form onSubmit={handleProfileSetup} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="fullName">Full Name</Label>
+                <Input
+                  id="fullName"
+                  type="text"
+                  placeholder="Enter your full name"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  required
+                  autoComplete="name"
+                  autoFocus
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="timezone">Timezone</Label>
+                <Input
+                  id="timezone"
+                  type="text"
+                  value={timezone}
+                  onChange={(e) => setTimezone(e.target.value)}
+                  placeholder="Your timezone"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Auto-detected: {Intl.DateTimeFormat().resolvedOptions().timeZone}
+                </p>
+              </div>
+              
+              <div className="flex space-x-3">
+                <Button 
+                  type="button"
+                  variant="outline" 
+                  onClick={() => setCurrentStep('account')}
+                  className="flex-1"
+                >
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  Back
+                </Button>
+                <Button 
+                  type="submit" 
+                  className="flex-1 bg-gradient-primary hover:opacity-90 transition-opacity" 
+                  disabled={loading}
+                >
+                  {loading ? "Saving..." : "Continue"}
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </div>
+            </form>
+          )}
+
+          {currentStep === 'semester' && (
+            <form onSubmit={handleSemesterSetup} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="semesterName">Semester/Term Name</Label>
+                <Input
+                  id="semesterName"
+                  type="text"
+                  placeholder="e.g., Fall 2025, Spring 2025"
+                  value={semesterName}
+                  onChange={(e) => setSemesterName(e.target.value)}
+                  required
+                  autoFocus
+                />
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Start Date</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !startDate && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {startDate ? format(startDate, "MMM dd, yyyy") : "Select date"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={startDate}
+                        onSelect={setStartDate}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label>End Date</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !endDate && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {endDate ? format(endDate, "MMM dd, yyyy") : "Select date"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={endDate}
+                        onSelect={setEndDate}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              </div>
+              
+              <div className="flex space-x-3">
+                <Button 
+                  type="button"
+                  variant="outline" 
+                  onClick={() => setCurrentStep('profile')}
+                  className="flex-1"
+                >
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  Back
+                </Button>
+                <Button 
+                  type="submit" 
+                  className="flex-1 bg-gradient-primary hover:opacity-90 transition-opacity" 
+                  disabled={loading}
+                >
+                  {loading ? "Setting up..." : "Complete Setup"}
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </div>
+            </form>
+          )}
+
+          <div className="text-center">
+            <p className="text-xs text-muted-foreground">
+              Already have an account?{" "}
+              <button 
+                onClick={() => navigate('/auth/signin')}
+                className="text-primary hover:underline font-medium"
+              >
+                Sign in here
+              </button>
+            </p>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
-}
-
-// NOTE: Implement this function somewhere or import it
-async function createUserProfile(user: { id: string; email: string }) {
-  const { error } = await supabase
-    .from('profiles')
-    .insert({ user_id: user.id, email: user.email });
-  if (error) throw error;
 }
