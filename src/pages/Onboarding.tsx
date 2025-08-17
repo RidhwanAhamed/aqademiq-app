@@ -186,13 +186,13 @@ export default function Onboarding() {
     setLoading(true);
 
     // Call signUp with redirect URL
-    const { error } = await supabase.auth.signUp(
-      { email, password },
-      {
-        options: {
-          emailRedirectTo: `${window.location.origin}/onboarding`
-        }
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: `${window.location.origin}/onboarding`
       }
+    }
     );
 
     if (error) {
