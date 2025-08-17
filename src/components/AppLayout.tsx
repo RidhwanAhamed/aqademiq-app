@@ -1,14 +1,21 @@
-import { Outlet } from "react-router-dom";
+import { Outlet, useNavigate } from "react-router-dom";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { useAuth } from "@/hooks/useAuth";
-import { useAuthStateManager } from "@/hooks/useAuthStateManager";
 import { Button } from "@/components/ui/button";
 import { LogOut, Menu, Loader2 } from "lucide-react";
+import { useEffect } from "react";
 
 export function AppLayout() {
-  const { signOut } = useAuth();
-  const { loading } = useAuthStateManager();
+  const { signOut, user, loading } = useAuth();
+  const navigate = useNavigate();
+
+  // Redirect to auth if not authenticated
+  useEffect(() => {
+    if (!loading && !user) {
+      navigate('/auth');
+    }
+  }, [user, loading, navigate]);
 
   if (loading) {
     return (
@@ -19,6 +26,10 @@ export function AppLayout() {
         </div>
       </div>
     );
+  }
+
+  if (!user) {
+    return null; // Will redirect via useEffect
   }
 
   return (

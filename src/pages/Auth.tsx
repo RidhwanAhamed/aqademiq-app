@@ -1,165 +1,536 @@
 import { useState, useEffect } from 'react';
-import { useAuth } from '@/hooks/useAuth';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { toast } from '@/hooks/use-toast';
-import { GraduationCap, Brain } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
+import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/hooks/use-toast';
+import { GraduationCap, Brain, Eye, EyeOff, Mail, Lock, Loader2, CheckCircle, RefreshCw } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+
+const signInSchema = z.object({
+  email: z.string().email('Please enter a valid email address'),
+  password: z.string().min(1, 'Password is required'),
+});
+
+const signUpSchema = z.object({
+  email: z.string().email('Please enter a valid email address'),
+  password: z.string()
+    .min(8, 'Password must be at least 8 characters')
+    .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
+    .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
+    .regex(/[0-9]/, 'Password must contain at least one number'),
+  confirmPassword: z.string(),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"],
+});
+
+type SignInFormData = z.infer<typeof signInSchema>;
+type SignUpFormData = z.infer<typeof signUpSchema>;
 
 export default function Auth() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [activeTab, setActiveTab] = useState<'signin' | 'signup' | 'verify' | 'forgot'>('signin');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [verificationEmail, setVerificationEmail] = useState('');
+  const [canResendEmail, setCanResendEmail] = useState(true);
+  const [resendCooldown, setResendCooldown] = useState(0);
+  
   const { signIn, signUp, user } = useAuth();
+  const { toast } = useToast();
   const navigate = useNavigate();
+  const location = useLocation();
 
-  // Redirect authenticated users after login/signup
+  // If user is already authenticated, redirect them
   useEffect(() => {
-    if (user && user.email_confirmed_at) {
-      // User email verified
-      // TODO: Replace checkOnboardingStatus with your actual check
-      checkOnboardingStatus(user.id).then(needsOnboarding => {
-        if (needsOnboarding) navigate('/onboarding');
-        else navigate('/dashboard');
-      });
+    if (user && !loading) {
+      navigate('/');
     }
-  }, [user, navigate]);
+  }, [user, loading, navigate]);
 
-  // Helper stub - implement as per your onboarding flow logic
-  async function checkOnboardingStatus(uid: string) {
-    // Call your API or Supabase to check if onboarding is needed
-    // Return `true` if user needs onboarding, else false
-    return false;
-  }
-
-  const handleSignIn = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    const { error } = await signIn(email, password);
-    if (error) {
-      toast({
-        title: "Sign in failed",
-        description: error.message,
-        variant: "destructive",
-      });
-    }
-    setLoading(false);
-  };
-
-  const handleSignUp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    const { error } = await signUp(email, password);
-    if (error) {
-      toast({
-        title: "Sign up failed",
-        description: error.message,
-        variant: "destructive",
-      });
+  // Handle cooldown timer
+  useEffect(() => {
+    if (resendCooldown > 0) {
+      const timer = setTimeout(() => setResendCooldown(resendCooldown - 1), 1000);
+      return () => clearTimeout(timer);
     } else {
-      toast({
-        title: "Account created successfully!",
-        description: "Please check your email and verify before continuing.",
-      });
-      // The onboarding shouldn't trigger until verified; wait for callback
-      navigate('/auth/callback');
+      setCanResendEmail(true);
     }
-    setLoading(false);
+  }, [resendCooldown]);
+
+  const signInForm = useForm<SignInFormData>({
+    resolver: zodResolver(signInSchema),
+    defaultValues: { email: '', password: '' },
+  });
+
+  const signUpForm = useForm<SignUpFormData>({
+    resolver: zodResolver(signUpSchema),
+    defaultValues: { email: '', password: '', confirmPassword: '' },
+  });
+
+  const onSignIn = async (data: SignInFormData) => {
+    setLoading(true);
+    try {
+      const { error } = await signIn(data.email, data.password);
+      
+      if (error) {
+        toast({
+          title: "Sign in failed",
+          description: error.message,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Welcome back!",
+          description: "You've been successfully signed in.",
+        });
+        // Navigation will happen automatically via auth state change
+      }
+    } catch (error) {
+      toast({
+        title: "Something went wrong",
+        description: "Please try again later.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
+
+  const onSignUp = async (data: SignUpFormData) => {
+    setLoading(true);
+    try {
+      const { error } = await signUp(data.email, data.password);
+      
+      if (error) {
+        toast({
+          title: "Sign up failed",
+          description: error.message,
+          variant: "destructive",
+        });
+      } else {
+        setVerificationEmail(data.email);
+        setActiveTab('verify');
+        toast({
+          title: "Account created!",
+          description: "Check your email to verify your account.",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Something went wrong",
+        description: "Please try again later.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResendEmail = async () => {
+    if (!canResendEmail || !verificationEmail) return;
+    
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: verificationEmail,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+        }
+      });
+
+      if (error) {
+        toast({
+          title: "Failed to resend email",
+          description: error.message,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Email sent!",
+          description: "Check your inbox for the verification email.",
+        });
+        setCanResendEmail(false);
+        setResendCooldown(60);
+      }
+    } catch (error) {
+      toast({
+        title: "Something went wrong",
+        description: "Please try again later.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    const email = signInForm.getValues('email');
+    if (!email) {
+      toast({
+        title: "Email required",
+        description: "Please enter your email address first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth/callback?type=recovery`,
+      });
+
+      if (error) {
+        toast({
+          title: "Password reset failed",
+          description: error.message,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Password reset email sent",
+          description: "Check your email for password reset instructions.",
+        });
+        setActiveTab('signin');
+      }
+    } catch (error) {
+      toast({
+        title: "Something went wrong",
+        description: "Please try again later.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getPasswordStrength = (password: string) => {
+    let strength = 0;
+    if (password.length >= 8) strength += 25;
+    if (/[A-Z]/.test(password)) strength += 25;
+    if (/[a-z]/.test(password)) strength += 25;
+    if (/[0-9]/.test(password)) strength += 25;
+    return strength;
+  };
+
+  const passwordStrength = getPasswordStrength(signUpForm.watch('password') || '');
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/10 flex items-center justify-center p-4">
-      <Card className="w-full max-w-md bg-card/50 backdrop-blur-sm border-border/50">
-        <CardHeader className="space-y-4 text-center">
-          <div className="flex items-center justify-center space-x-2">
-            <div className="h-10 w-10 rounded-xl bg-gradient-primary flex items-center justify-center">
-              <Brain className="h-6 w-6 text-white" />
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/10 flex items-center justify-center p-4 relative overflow-hidden">
+      {/* Background decoration */}
+      <div className="absolute inset-0 bg-grid-pattern opacity-5" />
+      <div className="absolute top-20 left-20 w-32 h-32 bg-primary/20 rounded-full blur-3xl" />
+      <div className="absolute bottom-20 right-20 w-40 h-40 bg-accent/20 rounded-full blur-3xl" />
+      
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6 }}
+        className="w-full max-w-md relative z-10"
+      >
+        <Card className="backdrop-blur-xl bg-card/80 border-border/50 shadow-2xl">
+          <CardHeader className="space-y-4 text-center">
+            <div className="flex items-center justify-center space-x-2">
+              <div className="h-10 w-10 rounded-xl bg-gradient-primary flex items-center justify-center">
+                <Brain className="h-6 w-6 text-white" />
+              </div>
+              <GraduationCap className="h-8 w-8 text-primary" />
             </div>
-            <GraduationCap className="h-8 w-8 text-primary" />
-          </div>
-          <div>
-            <CardTitle className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-              Aqademiq
-            </CardTitle>
-            <CardDescription className="text-muted-foreground">
-              Your intelligent academic planner and productivity companion
-            </CardDescription>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <Tabs defaultValue="signin" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="signin">Sign In</TabsTrigger>
-              <TabsTrigger value="signup">Sign Up</TabsTrigger>
-            </TabsList>
-            <TabsContent value="signin">
-              <form onSubmit={handleSignIn} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="signin-email">Email</Label>
-                  <Input
-                    id="signin-email"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="signin-password">Password</Label>
-                  <Input
-                    id="signin-password"
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                  />
-                </div>
-                <Button 
-                  type="submit" 
-                  className="w-full bg-gradient-primary hover:opacity-90 transition-opacity"
-                  disabled={loading}
+            <div>
+              <CardTitle className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">
+                Aqademiq
+              </CardTitle>
+              <p className="text-muted-foreground">
+                {activeTab === 'signin' ? 'Welcome back to your academic journey' :
+                 activeTab === 'signup' ? 'Start your academic journey today' :
+                 activeTab === 'verify' ? 'Verify your email address' :
+                 'Reset your password'}
+              </p>
+            </div>
+          </CardHeader>
+
+          <CardContent>
+            <AnimatePresence mode="wait">
+              {activeTab === 'verify' ? (
+                <motion.div
+                  key="verify"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  className="space-y-6 text-center"
                 >
-                  {loading ? "Signing in..." : "Sign In"}
-                </Button>
-              </form>
-            </TabsContent>
-            <TabsContent value="signup">
-              <form onSubmit={handleSignUp} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="signup-email">Email</Label>
-                  <Input
-                    id="signup-email"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="signup-password">Password</Label>
-                  <Input
-                    id="signup-password"
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                  />
-                </div>
-                <Button 
-                  type="submit" 
-                  className="w-full bg-gradient-primary hover:opacity-90 transition-opacity"
-                  disabled={loading}
+                  <div className="space-y-4">
+                    <div className="flex justify-center">
+                      <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
+                        <Mail className="h-8 w-8 text-primary" />
+                      </div>
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold">Check your email!</h3>
+                      <p className="text-sm text-muted-foreground">
+                        We've sent a verification link to:
+                      </p>
+                      <p className="font-medium text-primary">{verificationEmail}</p>
+                    </div>
+                    <div className="p-4 bg-muted/50 rounded-lg text-left">
+                      <p className="text-sm text-muted-foreground">
+                        <strong>Didn't receive the email?</strong>
+                      </p>
+                      <ul className="text-xs text-muted-foreground mt-2 space-y-1">
+                        <li>• Check your spam/junk folder</li>
+                        <li>• Wait a few minutes for delivery</li>
+                        <li>• Click the resend button below</li>
+                      </ul>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <Button
+                      onClick={handleResendEmail}
+                      disabled={!canResendEmail || loading}
+                      variant="outline"
+                      className="w-full"
+                    >
+                      {loading ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <RefreshCw className="mr-2 h-4 w-4" />
+                      )}
+                      {canResendEmail ? 'Resend Email' : `Resend in ${resendCooldown}s`}
+                    </Button>
+                    
+                    <Button
+                      onClick={() => setActiveTab('signup')}
+                      variant="ghost"
+                      className="w-full"
+                    >
+                      ← Back to sign up
+                    </Button>
+                  </div>
+                </motion.div>
+              ) : (
+                <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="space-y-4">
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="signin">Sign In</TabsTrigger>
+                    <TabsTrigger value="signup">Sign Up</TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent value="signin">
+                    <motion.form
+                      onSubmit={signInForm.handleSubmit(onSignIn)}
+                      className="space-y-4"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      <div className="space-y-2">
+                        <Label htmlFor="signin-email">Email address</Label>
+                        <div className="relative">
+                          <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            id="signin-email"
+                            type="email"
+                            placeholder="Enter your email"
+                            className="pl-10"
+                            {...signInForm.register('email')}
+                            disabled={loading}
+                          />
+                        </div>
+                        {signInForm.formState.errors.email && (
+                          <p className="text-sm text-destructive">{signInForm.formState.errors.email.message}</p>
+                        )}
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="signin-password">Password</Label>
+                        <div className="relative">
+                          <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            id="signin-password"
+                            type={showPassword ? 'text' : 'password'}
+                            placeholder="Enter your password"
+                            className="pl-10 pr-10"
+                            {...signInForm.register('password')}
+                            disabled={loading}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                            disabled={loading}
+                          >
+                            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          </button>
+                        </div>
+                        {signInForm.formState.errors.password && (
+                          <p className="text-sm text-destructive">{signInForm.formState.errors.password.message}</p>
+                        )}
+                      </div>
+
+                      <div className="text-right">
+                        <button
+                          type="button"
+                          onClick={handleForgotPassword}
+                          className="text-sm text-primary hover:text-primary/80 transition-colors"
+                          disabled={loading}
+                        >
+                          Forgot password?
+                        </button>
+                      </div>
+
+                      <Button
+                        type="submit"
+                        className="w-full bg-gradient-primary hover:opacity-90 transition-all duration-200"
+                        disabled={loading}
+                      >
+                        {loading ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Signing in...
+                          </>
+                        ) : (
+                          'Sign In'
+                        )}
+                      </Button>
+                    </motion.form>
+                  </TabsContent>
+
+                  <TabsContent value="signup">
+                    <motion.form
+                      onSubmit={signUpForm.handleSubmit(onSignUp)}
+                      className="space-y-4"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      <div className="space-y-2">
+                        <Label htmlFor="signup-email">Email address</Label>
+                        <div className="relative">
+                          <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            id="signup-email"
+                            type="email"
+                            placeholder="Enter your email"
+                            className="pl-10"
+                            {...signUpForm.register('email')}
+                            disabled={loading}
+                          />
+                        </div>
+                        {signUpForm.formState.errors.email && (
+                          <p className="text-sm text-destructive">{signUpForm.formState.errors.email.message}</p>
+                        )}
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="signup-password">Password</Label>
+                        <div className="relative">
+                          <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            id="signup-password"
+                            type={showPassword ? 'text' : 'password'}
+                            placeholder="Create a strong password"
+                            className="pl-10 pr-10"
+                            {...signUpForm.register('password')}
+                            disabled={loading}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                            disabled={loading}
+                          >
+                            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          </button>
+                        </div>
+                        {signUpForm.formState.errors.password && (
+                          <p className="text-sm text-destructive">{signUpForm.formState.errors.password.message}</p>
+                        )}
+                        
+                        {/* Password strength indicator */}
+                        {signUpForm.watch('password') && (
+                          <div className="space-y-2">
+                            <div className="flex items-center space-x-2">
+                              <div className="flex-1">
+                                <Progress value={passwordStrength} className="h-2" />
+                              </div>
+                              <span className="text-xs text-muted-foreground">
+                                {passwordStrength < 50 ? 'Weak' : passwordStrength < 75 ? 'Good' : 'Strong'}
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="signup-confirm-password">Confirm Password</Label>
+                        <div className="relative">
+                          <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            id="signup-confirm-password"
+                            type={showConfirmPassword ? 'text' : 'password'}
+                            placeholder="Confirm your password"
+                            className="pl-10 pr-10"
+                            {...signUpForm.register('confirmPassword')}
+                            disabled={loading}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                            disabled={loading}
+                          >
+                            {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          </button>
+                        </div>
+                        {signUpForm.formState.errors.confirmPassword && (
+                          <p className="text-sm text-destructive">{signUpForm.formState.errors.confirmPassword.message}</p>
+                        )}
+                      </div>
+
+                      <Button
+                        type="submit"
+                        className="w-full bg-gradient-primary hover:opacity-90 transition-all duration-200"
+                        disabled={loading}
+                      >
+                        {loading ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Creating account...
+                          </>
+                        ) : (
+                          'Create Account'
+                        )}
+                      </Button>
+                    </motion.form>
+                  </TabsContent>
+                </Tabs>
+              )}
+            </AnimatePresence>
+
+            {activeTab !== 'verify' && (
+              <div className="mt-6 text-center">
+                <button
+                  onClick={() => navigate('/welcome')}
+                  className="text-sm text-muted-foreground hover:text-primary transition-colors"
                 >
-                  {loading ? "Creating account..." : "Create Account"}
-                </Button>
-              </form>
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
+                  ← Back to welcome
+                </button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </motion.div>
     </div>
   );
 }

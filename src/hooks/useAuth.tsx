@@ -25,6 +25,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
+        
+        // Handle successful sign in - redirect to dashboard
+        if (event === 'SIGNED_IN' && session?.user) {
+          // Small delay to ensure state updates
+          setTimeout(() => {
+            const currentPath = window.location.pathname;
+            // Only redirect if we're on an auth page
+            if (currentPath.includes('/auth') || currentPath === '/welcome') {
+              window.location.href = '/';
+            }
+          }, 100);
+        }
       }
     );
 
