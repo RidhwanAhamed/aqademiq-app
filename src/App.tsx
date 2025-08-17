@@ -10,7 +10,7 @@ import Index from "./pages/Index";
 import Welcome from "./pages/Welcome";
 import Onboarding from "./pages/Onboarding";
 import Auth from "./pages/Auth";
-import SignIn from "./pages/SignIn";
+
 import AuthCallback from "./pages/AuthCallback";
 import Calendar from "./pages/Calendar";
 import Ada from "./pages/Ada";
@@ -32,9 +32,9 @@ const App = () => (
           <Sonner />
           <BrowserRouter>
           <Routes>
+            <Route path="/welcome" element={<Welcome />} />
             <Route path="/onboarding" element={<Onboarding />} />
             <Route path="/auth" element={<Auth />} />
-            <Route path="/auth/signin" element={<SignIn />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="/" element={<AppLayout />}>
               <Route index element={<Index />} />
