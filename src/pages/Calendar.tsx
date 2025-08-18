@@ -192,7 +192,7 @@ export default function Calendar() {
               </CardContent>
             </Card>
           ) : (
-            <ReactFlowCalendar
+            <NativeCalendarView
               selectedDate={new Date()}
               onDateChange={(date) => console.log('Date changed:', date)}
             />
