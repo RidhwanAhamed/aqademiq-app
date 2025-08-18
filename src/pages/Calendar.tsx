@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CalendarView } from '@/components/calendar/CalendarView';
 import { EnhancedCalendarView } from '@/components/calendar/EnhancedCalendarView';
+import { ReactFlowCalendar } from '@/components/calendar/ReactFlowCalendar';
 import { AddClassDialog } from '@/components/calendar/AddClassDialog';
 import { HolidayManager } from '@/components/HolidayManager';
 import { useSchedule, type ScheduleBlock } from '@/hooks/useSchedule';
@@ -191,14 +192,9 @@ export default function Calendar() {
               </CardContent>
             </Card>
           ) : (
-            <EnhancedCalendarView
-              scheduleBlocks={scheduleBlocks}
-              exams={examsList}
-              assignments={assignments}
-              view={view}
-              onViewChange={setView}
-              onUpdateScheduleBlock={handleUpdateScheduleBlock}
-              onAddScheduleBlock={handleAddScheduleBlock}
+            <ReactFlowCalendar
+              selectedDate={new Date()}
+              onDateChange={(date) => console.log('Date changed:', date)}
             />
           )}
         </TabsContent>
