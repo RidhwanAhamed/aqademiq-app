@@ -264,19 +264,31 @@ export function EnhancedStudySageChat() {
           .eq('id', fileId);
       }
 
-      // Parse extracted text with AI
-      const { data: parseResult, error: parseError } = await supabase.functions.invoke('ai-schedule-parser', {
-        body: { file_id: fileId }
+      // Parse extracted text with enhanced AI
+      const { data: parseResult, error: parseError } = await supabase.functions.invoke('enhanced-schedule-parser', {
+        body: { 
+          file_id: fileId,
+          user_id: user.id,
+          auto_add_to_calendar: true,
+          sync_to_google: false
+        }
       });
 
       if (parseError) throw parseError;
 
-      // Save AI response
+      // Save AI response with enhanced metadata
       const aiMessage = await saveChatMessage(
         parseResult.response,
         false,
         fileId,
-        { parsed_data: parseResult.schedule_data, conflicts: parseResult.conflicts, can_add_to_calendar: true }
+        { 
+          parsed_data: parseResult.schedule_data, 
+          conflicts: parseResult.conflicts, 
+          can_add_to_calendar: !parseResult.calendar_results,
+          can_sync_to_google: !parseResult.google_sync_results,
+          calendar_results: parseResult.calendar_results,
+          google_sync_results: parseResult.google_sync_results
+        }
       );
 
       if (aiMessage) {
@@ -497,6 +509,51 @@ export function EnhancedStudySageChat() {
     }
   };
 
+  const syncToGoogleCalendar = async (scheduleData: any) => {
+    if (!user) return;
+
+    setIsProcessing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('enhanced-google-calendar-sync', {
+        body: {
+          action: 'sync-schedule',
+          userId: user.id,
+          scheduleData: scheduleData
+        }
+      });
+
+      if (error) throw error;
+
+      if (data.success) {
+        toast({
+          title: 'Google Calendar Sync Complete! 🔄',
+          description: `Synced ${data.results.synced} items to Google Calendar`,
+        });
+
+        // Send confirmation message
+        const confirmationMessage = await saveChatMessage(
+          `🔄 **Google Calendar Sync Complete!**\n\n✅ Successfully synced ${data.results.synced} items:\n• ${data.results.details.classes || 0} class sessions\n• ${data.results.details.assignments || 0} assignments\n• ${data.results.details.exams || 0} exams\n\nYour academic schedule is now available across all your Google Calendar devices!`,
+          false
+        );
+
+        if (confirmationMessage) {
+          setMessages(prev => [...prev, confirmationMessage]);
+        }
+      } else {
+        throw new Error(data.error || 'Sync failed');
+      }
+    } catch (error) {
+      console.error('Error syncing to Google Calendar:', error);
+      toast({
+        title: 'Google Calendar Sync Error',
+        description: error.message || 'Failed to sync to Google Calendar. Please try again.',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const MessageBubble = ({ message, isLast }: { message: ChatMessage; isLast: boolean }) => {
     const isUser = message.is_user;
     const hasCalendarData = message.metadata?.can_add_to_calendar;
@@ -580,16 +637,31 @@ export function EnhancedStudySageChat() {
             )}
           </div>
           
-          {/* Add to calendar button */}
+          {/* Enhanced action buttons */}
           {hasCalendarData && (
-            <Button
-              size="sm"
-              onClick={() => addToCalendar(message.metadata.parsed_data)}
-              className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-md"
-            >
-              <CalendarPlus className="w-4 h-4 mr-2" />
-              Add to Calendar
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              {message.metadata?.can_add_to_calendar && (
+                <Button
+                  size="sm"
+                  onClick={() => addToCalendar(message.metadata.parsed_data)}
+                  className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-md"
+                >
+                  <CalendarPlus className="w-4 h-4 mr-2" />
+                  Add to Calendar
+                </Button>
+              )}
+              {message.metadata?.can_sync_to_google && (
+                <Button
+                  size="sm"
+                  onClick={() => syncToGoogleCalendar(message.metadata.parsed_data)}
+                  variant="outline"
+                  className="border-blue-300 text-blue-600 hover:bg-blue-50"
+                >
+                  <Calendar className="w-4 h-4 mr-2" />
+                  Sync to Google
+                </Button>
+              )}
+            </div>
           )}
           
           {/* Timestamp */}
@@ -950,7 +1022,7 @@ export function EnhancedStudySageChat() {
       <UpgradeToPremiumDialog 
         open={showUpgrade} 
         onOpenChange={setShowUpgrade}
-        feature="Enhanced Chat"
+        feature="studysage"
       />
     </>
   );
