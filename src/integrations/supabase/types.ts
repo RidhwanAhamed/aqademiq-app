@@ -7,7 +7,7 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
+  // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "12.2.12 (cd3cf9e)"
@@ -372,6 +372,7 @@ export type Database = {
           email: string | null
           full_name: string | null
           id: string
+          onboarding_completed: boolean | null
           study_streak: number | null
           timezone: string | null
           updated_at: string | null
@@ -382,6 +383,7 @@ export type Database = {
           email?: string | null
           full_name?: string | null
           id?: string
+          onboarding_completed?: boolean | null
           study_streak?: number | null
           timezone?: string | null
           updated_at?: string | null
@@ -392,6 +394,7 @@ export type Database = {
           email?: string | null
           full_name?: string | null
           id?: string
+          onboarding_completed?: boolean | null
           study_streak?: number | null
           timezone?: string | null
           updated_at?: string | null
@@ -883,17 +886,17 @@ export type Database = {
       }
       detect_schedule_conflicts: {
         Args: {
-          p_user_id: string
-          p_start_time: string
           p_end_time: string
           p_exclude_id?: string
+          p_start_time: string
+          p_user_id: string
         }
         Returns: {
-          conflict_type: string
-          conflict_id: string
-          conflict_title: string
-          conflict_start: string
           conflict_end: string
+          conflict_id: string
+          conflict_start: string
+          conflict_title: string
+          conflict_type: string
         }[]
       }
       generate_recurring_assignments: {
@@ -905,23 +908,23 @@ export type Database = {
         Returns: undefined
       }
       get_schedule_for_date_range: {
-        Args: { p_user_id: string; p_start_date: string; p_end_date: string }
+        Args: { p_end_date: string; p_start_date: string; p_user_id: string }
         Returns: {
-          schedule_id: string
+          course_color: string
           course_id: string
           course_name: string
-          course_color: string
-          title: string
-          location: string
-          start_time: string
-          end_time: string
-          occurs_on: string
           day_of_week: number
+          end_time: string
+          location: string
+          occurs_on: string
           rotation_info: string
+          schedule_id: string
+          start_time: string
+          title: string
         }[]
       }
       is_holiday_period: {
-        Args: { p_user_id: string; p_date: string }
+        Args: { p_date: string; p_user_id: string }
         Returns: boolean
       }
       should_class_occur_on_date: {
@@ -933,7 +936,7 @@ export type Database = {
         Returns: undefined
       }
       update_user_study_stats: {
-        Args: { p_user_id: string; p_study_hours: number }
+        Args: { p_study_hours: number; p_user_id: string }
         Returns: undefined
       }
     }
