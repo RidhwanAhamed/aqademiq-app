@@ -25,10 +25,14 @@ serve(async (req) => {
 
     console.log('Google OAuth action:', action);
 
-    switch (action) {
+    switch (action || 'authorize') {
       case 'authorize': {
         // Generate Google OAuth URL
         const { redirectUri } = await req.json();
+        
+        if (!redirectUri) {
+          throw new Error('Missing redirectUri');
+        }
         
         const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
         authUrl.searchParams.set('client_id', googleClientId);
@@ -45,11 +49,14 @@ serve(async (req) => {
 
       case 'callback': {
         // Handle OAuth callback
-        const { code, userId } = await req.json();
+        const { code, userId, redirectUri } = await req.json();
         
         if (!code || !userId) {
           throw new Error('Missing code or userId');
         }
+
+        // Use the provided redirect URI or fall back to a default
+        const finalRedirectUri = redirectUri || `${url.origin}/auth/callback`;
 
         // Exchange code for tokens
         const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
@@ -60,7 +67,7 @@ serve(async (req) => {
             client_secret: googleClientSecret,
             code,
             grant_type: 'authorization_code',
-            redirect_uri: `${url.origin}/settings`, // This should match the redirect URI from authorize
+            redirect_uri: finalRedirectUri,
           }),
         });
 
@@ -68,7 +75,7 @@ serve(async (req) => {
         console.log('Token response:', { ...tokens, access_token: '[REDACTED]', refresh_token: '[REDACTED]' });
 
         if (!tokens.access_token) {
-          throw new Error('Failed to get access token');
+          throw new Error('Failed to get access token: ' + (tokens.error_description || tokens.error || 'Unknown error'));
         }
 
         // Calculate expiry time

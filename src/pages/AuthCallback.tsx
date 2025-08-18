@@ -1,133 +1,84 @@
-import { useEffect, useState } from 'react';
-import { useAuth } from '@/hooks/useAuth';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
-import { Card, CardContent } from '@/components/ui/card';
-import { Loader2, CheckCircle } from 'lucide-react';
+import { useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Loader2, CheckCircle, XCircle } from 'lucide-react';
 
 export default function AuthCallback() {
-  const { user } = useAuth();
+  const location = useLocation();
   const navigate = useNavigate();
-  const { toast } = useToast();
-  const [searchParams] = useSearchParams();
-  const [isProcessing, setIsProcessing] = useState(true);
 
   useEffect(() => {
-    const handleAuthCallback = async () => {
-      try {
-        // Get the auth hash from URL
-        const hashParams = new URLSearchParams(window.location.hash.substring(1));
-        const accessToken = hashParams.get('access_token');
-        const type = searchParams.get('type');
+    const handleCallback = () => {
+      const params = new URLSearchParams(location.search);
+      const code = params.get('code');
+      const error = params.get('error');
+      const state = params.get('state');
 
-        if (accessToken) {
-          // Handle email verification
-          if (type === 'signup' || (!type && user?.email_confirmed_at)) {
-            toast({
-              title: "Email verified!",
-              description: "Continuing with your account setup...",
-            });
-            
-            // Redirect to onboarding with verification flag
-            setTimeout(() => {
-              navigate('/onboarding?email_verified=true');
-            }, 1500);
-            return;
-          }
-
-          // Handle password recovery
-          if (type === 'recovery') {
-            toast({
-              title: "Password reset",
-              description: "You can now set a new password.",
-            });
-            
-            setTimeout(() => {
-              navigate('/auth?type=recovery');
-            }, 1500);
-            return;
-          }
-        }
-
-        // Check if user is already authenticated and verified
-        if (user?.email_confirmed_at) {
-          // Check if onboarding is complete
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('onboarding_completed')
-            .eq('user_id', user.id)
-            .single();
-
-          if (profile?.onboarding_completed) {
-            toast({
-              title: "Welcome back!",
-              description: "Redirecting to your dashboard...",
-            });
-            setTimeout(() => navigate('/'), 1500);
+      // Check if this is a Google OAuth callback
+      if (code || error) {
+        // If opened in popup, send message to parent
+        if (window.opener) {
+          if (code) {
+            window.opener.postMessage({
+              type: 'GOOGLE_AUTH_SUCCESS',
+              code: code,
+              state: state
+            }, window.location.origin);
           } else {
-            toast({
-              title: "Continue setup",
-              description: "Let's finish setting up your account...",
-            });
-            setTimeout(() => navigate('/onboarding'), 1500);
+            window.opener.postMessage({
+              type: 'GOOGLE_AUTH_ERROR',
+              error: error || 'unknown_error'
+            }, window.location.origin);
           }
-        } else {
-          // No valid auth state, redirect to sign in
-          toast({
-            title: "Please sign in",
-            description: "Redirecting to sign in page...",
-            variant: "destructive",
-          });
-          setTimeout(() => navigate('/auth'), 2000);
+          window.close();
+          return;
         }
-      } catch (error) {
-        console.error('Auth callback error:', error);
-        toast({
-          title: "Authentication error",
-          description: "Please try signing in again.",
-          variant: "destructive",
-        });
-        setTimeout(() => navigate('/auth'), 2000);
-      } finally {
-        setIsProcessing(false);
+
+        // If not in popup, handle differently
+        if (error) {
+          console.error('OAuth error:', error);
+          navigate('/settings?auth_error=' + encodeURIComponent(error));
+        } else if (code) {
+          // Store code temporarily and redirect to settings
+          sessionStorage.setItem('google_auth_code', code);
+          navigate('/settings?auth_success=true');
+        }
+      } else {
+        // No OAuth params, redirect to settings
+        navigate('/settings');
       }
     };
 
-    // Small delay to ensure auth state is updated
-    const timer = setTimeout(handleAuthCallback, 500);
+    // Small delay to ensure URL is fully loaded
+    const timer = setTimeout(handleCallback, 100);
+    
     return () => clearTimeout(timer);
-  }, [user, navigate, toast, searchParams]);
+  }, [location, navigate]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/10 flex items-center justify-center p-4">
-      <Card className="w-full max-w-md backdrop-blur-xl bg-card/80 border-border/50 shadow-2xl">
-        <CardContent className="p-8">
-          <div className="text-center space-y-4">
-            <div className="flex justify-center">
-              {isProcessing ? (
-                <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
-                  <Loader2 className="h-8 w-8 text-primary animate-spin" />
-                </div>
-              ) : (
-                <div className="h-16 w-16 rounded-full bg-green-100 dark:bg-green-900/20 flex items-center justify-center">
-                  <CheckCircle className="h-8 w-8 text-green-600" />
-                </div>
-              )}
-            </div>
-            
-            <div className="space-y-2">
-              <h2 className="text-lg font-semibold">
-                {isProcessing ? 'Processing...' : 'Success!'}
-              </h2>
-              <p className="text-sm text-muted-foreground">
-                {isProcessing 
-                  ? 'Please wait while we verify your authentication...'
-                  : 'Redirecting you now...'
-                }
-              </p>
-            </div>
+    <div className="min-h-screen flex items-center justify-center bg-background">
+      <Card className="w-full max-w-md">
+        <CardHeader className="text-center">
+          <CardTitle className="flex items-center justify-center gap-2">
+            <Loader2 className="h-5 w-5 animate-spin" />
+            Processing Authentication
+          </CardTitle>
+          <CardDescription>
+            Completing your Google Calendar connection...
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="text-center space-y-4">
+          <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+            <CheckCircle className="h-4 w-4 text-green-500" />
+            Verifying credentials
           </div>
+          <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Setting up calendar sync
+          </div>
+          <p className="text-xs text-muted-foreground">
+            This should only take a moment. You'll be redirected automatically.
+          </p>
         </CardContent>
       </Card>
     </div>
