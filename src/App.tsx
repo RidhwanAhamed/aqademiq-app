@@ -19,6 +19,7 @@ import Courses from "./pages/Courses";
 import Assignments from "./pages/Assignments";
 import Timer from "./pages/Timer";
 import Analytics from "./pages/Analytics";
+import AdvancedAnalytics from "./pages/AdvancedAnalytics";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
@@ -46,6 +47,7 @@ const App = () => (
               <Route path="assignments" element={<Assignments />} />
               <Route path="timer" element={<Timer />} />
               <Route path="analytics" element={<Analytics />} />
+              <Route path="advanced-analytics" element={<AdvancedAnalytics />} />
               <Route path="settings" element={<Settings />} />
             </Route>
             {/* Catch-all route for 404 page */}

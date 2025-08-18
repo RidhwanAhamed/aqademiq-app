@@ -10,7 +10,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Bot,
-  LogOut
+  LogOut,
+  TrendingUp
 } from "lucide-react";
 import { useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
@@ -46,6 +47,7 @@ const mainItems: NavItem[] = [
   { title: "Assignments", url: "/assignments", icon: Target },
   { title: "Study Timer", url: "/timer", icon: Clock },
   { title: "Analytics", url: "/analytics", icon: BarChart3 },
+  { title: "Advanced Analytics", url: "/advanced-analytics", icon: TrendingUp },
 ];
 
 const bottomItems = [
