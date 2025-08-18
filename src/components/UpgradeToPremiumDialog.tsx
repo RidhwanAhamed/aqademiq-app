@@ -6,7 +6,7 @@ import { Crown, Sparkles, MessageCircle, Zap, Star } from 'lucide-react';
 interface UpgradeToPremiumDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  feature: 'ai-insights' | 'studysage';
+  feature: 'ai-insights' | 'ada-ai';
 }
 
 export function UpgradeToPremiumDialog({ open, onOpenChange, feature }: UpgradeToPremiumDialogProps) {
@@ -29,9 +29,9 @@ export function UpgradeToPremiumDialog({ open, onOpenChange, feature }: UpgradeT
           ],
           icon: <Sparkles className="w-6 h-6" />
         };
-      case 'studysage':
+      case 'ada-ai':
         return {
-          title: 'Unlimited StudySage Chat',
+          title: 'Unlimited Ada AI Chat',
           subtitle: 'Free token limit reached',
           features: [
             'Unlimited token usage',

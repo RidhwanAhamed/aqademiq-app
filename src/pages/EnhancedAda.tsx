@@ -1,4 +1,4 @@
-import { EnhancedStudySageChat } from "@/components/EnhancedStudySageChat";
+import { AdaAIChat } from "@/components/AdaAIChat";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -179,7 +179,7 @@ const Ada = () => {
                 </div>
               </CardHeader>
               <div className="flex-1 overflow-hidden">
-                <EnhancedStudySageChat key={refreshKey} />
+                <AdaAIChat key={refreshKey} />
               </div>
             </Card>
           </div>
