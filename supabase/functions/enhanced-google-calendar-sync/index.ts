@@ -6,7 +6,15 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+interface SyncRequest {
+  action: 'webhook' | 'setup-webhook' | 'full-sync' | 'incremental-sync' | 'conflict-resolution';
+  userId?: string;
+  webhookData?: any;
+  conflictData?: any;
+}
+
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -16,20 +24,30 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const body = await req.json();
+    const body = await req.json() as SyncRequest;
     console.log('Enhanced Google Calendar sync request:', body);
 
     switch (body.action) {
       case 'webhook':
         return await handleWebhook(req, supabase);
+      
       case 'setup-webhook':
-        return await setupWebhook(body.userId, supabase);
+        return await setupWebhook(body.userId!, supabase);
+      
       case 'full-sync':
-        return await performFullSync(body.userId, supabase);
+        return await performFullBidirectionalSync(body.userId!, supabase);
+      
       case 'incremental-sync':
-        return await performIncrementalSync(body.userId, supabase);
+        return await performIncrementalSync(body.userId!, supabase);
+      
+      case 'conflict-resolution':
+        return await resolveConflicts(body.userId!, body.conflictData, supabase);
+      
       default:
-        return new Response('Invalid action', { status: 400 });
+        return new Response(
+          JSON.stringify({ error: 'Invalid action' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
     }
   } catch (error) {
     console.error('Enhanced sync error:', error);
@@ -41,30 +59,43 @@ serve(async (req) => {
 });
 
 async function handleWebhook(req: Request, supabase: any) {
-  console.log('Google Calendar webhook received');
+  const channelId = req.headers.get('x-goog-channel-id');
+  const resourceState = req.headers.get('x-goog-resource-state');
+  const resourceId = req.headers.get('x-goog-resource-id');
+
+  console.log('Google Calendar webhook received:', {
+    channelId,
+    resourceState,
+    resourceId
+  });
+
+  if (!channelId || !resourceState) {
+    return new Response('Invalid webhook', { status: 400 });
+  }
+
+  // Find the user associated with this channel
+  const { data: channel } = await supabase
+    .from('google_calendar_channels')
+    .select('user_id, calendar_id')
+    .eq('channel_id', channelId)
+    .eq('is_active', true)
+    .single();
+
+  if (!channel) {
+    console.log('Channel not found:', channelId);
+    return new Response('Channel not found', { status: 404 });
+  }
+
+  if (resourceState === 'exists') {
+    // Calendar has been updated - trigger incremental sync
+    console.log(`Triggering incremental sync for user ${channel.user_id}`);
+    
+    // Use background task to avoid blocking webhook response
+    EdgeRuntime.waitUntil(performIncrementalSync(channel.user_id, supabase));
+  }
+
   return new Response('OK', { status: 200 });
 }
 
-async function setupWebhook(userId: string, supabase: any) {
-  console.log('Setting up webhook for user:', userId);
-  return new Response(
-    JSON.stringify({ success: true }),
-    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-  );
-}
-
-async function performFullSync(userId: string, supabase: any) {
-  console.log('Performing full sync for user:', userId);
-  return new Response(
-    JSON.stringify({ success: true, message: 'Full sync completed' }),
-    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-  );
-}
-
-async function performIncrementalSync(userId: string, supabase: any) {
-  console.log('Performing incremental sync for user:', userId);
-  return new Response(
-    JSON.stringify({ success: true, message: 'Incremental sync completed' }),
-    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-  );
-}
+// Import all the function implementations
+const functionsModule = await import('./functions.ts');
