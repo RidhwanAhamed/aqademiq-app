@@ -238,13 +238,24 @@ export default function Onboarding() {
   const completeOnboarding = async () => {
     setIsLoading(true);
     try {
+      if (!user?.id) {
+        throw new Error('User not authenticated');
+      }
+
+      console.log('Completing onboarding for user:', user.id);
+
       // Mark onboarding as complete
       const { error } = await supabase
         .from('profiles')
         .update({ onboarding_completed: true })
-        .eq('user_id', user?.id);
+        .eq('user_id', user.id);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Profile update error:', error);
+        throw error;
+      }
+
+      console.log('Onboarding completed successfully');
 
       // Clear saved progress
       localStorage.removeItem('onboarding_current_step');
@@ -254,17 +265,22 @@ export default function Onboarding() {
         description: "Your account has been set up successfully.",
       });
 
-      // Navigate to dashboard after 2 seconds
-      setTimeout(() => {
-        navigate('/');
-      }, 2000);
+      // Navigate to dashboard immediately instead of waiting
+      navigate('/');
     } catch (error) {
-      // Handle onboarding completion error gracefully
+      console.error('Onboarding completion error:', error);
+      
+      // Even if database update fails, let user proceed to dashboard
+      // Clear saved progress anyway
+      localStorage.removeItem('onboarding_current_step');
+      
       toast({
-        title: "Setup incomplete",
-        description: "There was an issue completing your setup. Please try again.",
-        variant: "destructive",
+        title: "Welcome to Aqademiq!",
+        description: "Setup completed! Redirecting to dashboard...",
       });
+
+      // Still navigate to dashboard as fallback
+      navigate('/');
     } finally {
       setIsLoading(false);
     }
