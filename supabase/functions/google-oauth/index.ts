@@ -21,14 +21,35 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     
     const url = new URL(req.url);
-    const action = url.pathname.split('/').pop();
+    let action = url.pathname.split('/').pop();
+    
+    console.log('Google OAuth request URL:', req.url);
+    console.log('Google OAuth method:', req.method);
+    console.log('Google OAuth action from URL:', action);
 
-    console.log('Google OAuth action:', action);
+    // Try to get action from request body if not in URL
+    let requestBody = null;
+    if (req.method === 'POST' && req.headers.get('content-type')?.includes('application/json')) {
+      try {
+        requestBody = await req.json();
+        action = requestBody.action || action;
+        console.log('Google OAuth action from body:', action);
+        console.log('Request body:', requestBody);
+      } catch (e) {
+        console.log('No JSON body found, continuing...');
+      }
+    }
+
+    // Validate environment variables
+    if (!googleClientId || !googleClientSecret) {
+      console.error('Missing Google OAuth credentials');
+      throw new Error('Google OAuth not configured properly');
+    }
 
     switch (action || 'authorize') {
       case 'authorize': {
         // Generate Google OAuth URL
-        const { redirectUri } = await req.json();
+        const redirectUri = requestBody?.redirectUri;
         
         if (!redirectUri) {
           throw new Error('Missing redirectUri');
@@ -49,7 +70,7 @@ serve(async (req) => {
 
       case 'callback': {
         // Handle OAuth callback
-        const { code, userId, redirectUri } = await req.json();
+        const { code, userId, redirectUri } = requestBody || {};
         
         if (!code || !userId) {
           throw new Error('Missing code or userId');
@@ -121,7 +142,7 @@ serve(async (req) => {
 
       case 'refresh': {
         // Refresh access token
-        const { userId } = await req.json();
+        const { userId } = requestBody || {};
         
         if (!userId) {
           throw new Error('Missing userId');
@@ -183,7 +204,7 @@ serve(async (req) => {
 
       case 'revoke': {
         // Revoke access and delete tokens
-        const { userId } = await req.json();
+        const { userId } = requestBody || {};
         
         if (!userId) {
           throw new Error('Missing userId');
