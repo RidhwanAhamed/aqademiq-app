@@ -13,19 +13,27 @@ import {
 import '@xyflow/react/dist/style.css';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, List, Grid3x3 } from 'lucide-react';
 import { format, startOfWeek, addDays, addWeeks, subWeeks, isSameDay } from 'date-fns';
 import { useRealtimeCalendar, CalendarEvent } from '@/hooks/useRealtimeCalendar';
+import { useConflictDetection } from '@/hooks/useConflictDetection';
+import { EventContextMenu } from './EventContextMenu';
+import { MonthView } from './MonthView';
+import { AgendaView } from './AgendaView';
+import { useToast } from '@/hooks/use-toast';
 
 interface CalendarEventNodeData {
   event: CalendarEvent;
   onUpdate: (updates: Partial<CalendarEvent>) => void;
   onResize: (width: number, height: number) => void;
+  hasConflict: boolean;
+  conflictSeverity?: 'minor' | 'major';
 }
 
 // Custom Event Node Component
 function CalendarEventNode({ data }: { data: CalendarEventNodeData }) {
-  const { event, onUpdate } = data;
+  const { event, onUpdate, hasConflict, conflictSeverity } = data;
   
   const handleTitleChange = (newTitle: string) => {
     onUpdate({ title: newTitle });
@@ -44,7 +52,15 @@ function CalendarEventNode({ data }: { data: CalendarEventNodeData }) {
         }}
       />
       <div 
-        className="rounded-md px-2 py-1 text-xs text-white shadow-md cursor-move border border-white/20"
+        className={`
+          rounded-md px-2 py-1 text-xs text-white shadow-md cursor-move border
+          ${hasConflict 
+            ? conflictSeverity === 'major' 
+              ? 'border-red-500 border-2 animate-pulse' 
+              : 'border-yellow-500 border-2'
+            : 'border-white/20'
+          }
+        `}
         style={{ 
           backgroundColor: `hsl(var(--${event.color}))`,
           minWidth: '120px',
@@ -62,6 +78,9 @@ function CalendarEventNode({ data }: { data: CalendarEventNodeData }) {
         <div className="text-white/60 text-[10px]">
           {format(event.start, 'HH:mm')} - {format(event.end, 'HH:mm')}
         </div>
+        {hasConflict && (
+          <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-red-500 border border-white"></div>
+        )}
       </div>
     </div>
   );
@@ -111,6 +130,8 @@ interface ReactFlowCalendarProps {
 
 export function ReactFlowCalendar({ selectedDate, onDateChange }: ReactFlowCalendarProps) {
   const [currentWeek, setCurrentWeek] = useState(startOfWeek(selectedDate, { weekStartsOn: 1 }));
+  const [activeView, setActiveView] = useState<'week' | 'month' | 'agenda'>('week');
+  const { toast } = useToast();
   const { 
     events, 
     loading, 
@@ -120,6 +141,18 @@ export function ReactFlowCalendar({ selectedDate, onDateChange }: ReactFlowCalen
     applyOptimisticUpdate,
     clearOptimisticUpdate 
   } = useRealtimeCalendar();
+
+  const { 
+    conflicts, 
+    detectConflicts, 
+    hasConflict, 
+    getConflictInfo 
+  } = useConflictDetection();
+
+  // Detect conflicts whenever events change
+  useMemo(() => {
+    detectConflicts(events);
+  }, [events, detectConflicts]);
 
   // Generate week days
   const weekDays = useMemo(() => {
@@ -209,6 +242,8 @@ export function ReactFlowCalendar({ selectedDate, onDateChange }: ReactFlowCalen
           position: { x, y },
           data: {
             event,
+            hasConflict: hasConflict(event.id),
+            conflictSeverity: getConflictInfo(event.id)?.severity,
             onUpdate: (updates: Partial<CalendarEvent>) => {
               applyOptimisticUpdate(event.id, updates);
               handleEventUpdate(event, updates);
@@ -226,7 +261,7 @@ export function ReactFlowCalendar({ selectedDate, onDateChange }: ReactFlowCalen
       });
 
       return nodes;
-    }, [weekDays, timeSlots, events, applyOptimisticUpdate])
+    }, [weekDays, timeSlots, events, applyOptimisticUpdate, hasConflict, getConflictInfo])
   );
 
   const [edges] = useEdgesState([]);
@@ -318,6 +353,39 @@ export function ReactFlowCalendar({ selectedDate, onDateChange }: ReactFlowCalen
     }
   }, [currentWeek, events, handleEventUpdate]);
 
+  // Event action handlers
+  const handleEventEdit = useCallback((event: CalendarEvent) => {
+    toast({
+      title: "Edit Event",
+      description: `Editing ${event.title}`,
+    });
+  }, [toast]);
+
+  const handleEventDelete = useCallback((event: CalendarEvent) => {
+    toast({
+      title: "Delete Event", 
+      description: `Deleted ${event.title}`,
+    });
+  }, [toast]);
+
+  const handleEventDuplicate = useCallback((event: CalendarEvent) => {
+    toast({
+      title: "Duplicate Event",
+      description: `Duplicated ${event.title}`,
+    });
+  }, [toast]);
+
+  const handleEventReschedule = useCallback((event: CalendarEvent) => {
+    toast({
+      title: "Reschedule Event",
+      description: `Rescheduling ${event.title}`,
+    });
+  }, [toast]);
+
+  const handleEventClick = useCallback((event: CalendarEvent) => {
+    handleEventEdit(event);
+  }, [handleEventEdit]);
+
   // Navigation
   const handlePrevWeek = () => setCurrentWeek(prev => subWeeks(prev, 1));
   const handleNextWeek = () => setCurrentWeek(prev => addWeeks(prev, 1));
@@ -326,6 +394,30 @@ export function ReactFlowCalendar({ selectedDate, onDateChange }: ReactFlowCalen
     setCurrentWeek(startOfWeek(today, { weekStartsOn: 1 }));
     onDateChange(today);
   };
+
+  // Render different views
+  const renderWeekView = () => (
+    <div className="flex-1">
+      <ReactFlow
+        nodes={nodes}
+        edges={edges}
+        onNodesChange={onNodesChange}
+        onNodeDragStop={handleNodeDragStop}
+        nodeTypes={nodeTypes}
+        fitView={false}
+        attributionPosition="bottom-left"
+        proOptions={{ hideAttribution: true }}
+        defaultViewport={{ x: 0, y: 0, zoom: 1 }}
+        minZoom={0.5}
+        maxZoom={2}
+        snapToGrid
+        snapGrid={[20, 20]}
+      >
+        <Background gap={20} size={1} />
+        <Controls showInteractive={false} />
+      </ReactFlow>
+    </div>
+  );
 
   if (loading) {
     return (
@@ -347,9 +439,31 @@ export function ReactFlowCalendar({ selectedDate, onDateChange }: ReactFlowCalen
           <h2 className="text-lg font-semibold">
             {format(currentWeek, 'MMMM yyyy')}
           </h2>
+          {conflicts.length > 0 && (
+            <div className="text-xs text-red-500 bg-red-50 px-2 py-1 rounded">
+              {conflicts.length} conflict{conflicts.length > 1 ? 's' : ''}
+            </div>
+          )}
         </div>
         
         <div className="flex items-center gap-2">
+          <Tabs value={activeView} onValueChange={(v) => setActiveView(v as any)}>
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="week" className="flex items-center gap-1">
+                <Grid3x3 className="h-3 w-3" />
+                Week
+              </TabsTrigger>
+              <TabsTrigger value="month" className="flex items-center gap-1">
+                <CalendarIcon className="h-3 w-3" />
+                Month  
+              </TabsTrigger>
+              <TabsTrigger value="agenda" className="flex items-center gap-1">
+                <List className="h-3 w-3" />
+                Agenda
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+          
           <Button variant="outline" size="sm" onClick={handleToday}>
             Today
           </Button>
@@ -362,27 +476,28 @@ export function ReactFlowCalendar({ selectedDate, onDateChange }: ReactFlowCalen
         </div>
       </div>
 
-      {/* React Flow Calendar */}
-      <div className="flex-1">
-        <ReactFlow
-          nodes={nodes}
-          edges={edges}
-          onNodesChange={onNodesChange}
-          onNodeDragStop={handleNodeDragStop}
-          nodeTypes={nodeTypes}
-          fitView={false}
-          attributionPosition="bottom-left"
-          proOptions={{ hideAttribution: true }}
-          defaultViewport={{ x: 0, y: 0, zoom: 1 }}
-          minZoom={0.5}
-          maxZoom={2}
-          snapToGrid
-          snapGrid={[20, 20]}
-        >
-          <Background gap={20} size={1} />
-          <Controls showInteractive={false} />
-        </ReactFlow>
-      </div>
+      {/* Calendar Content */}
+      <Tabs value={activeView} className="flex-1 flex flex-col">
+        <TabsContent value="week" className="flex-1 flex flex-col m-0">
+          {renderWeekView()}
+        </TabsContent>
+        
+        <TabsContent value="month" className="flex-1 m-0">
+          <MonthView
+            events={events}
+            currentDate={selectedDate}
+            onDateChange={onDateChange}
+            onEventClick={handleEventClick}
+          />
+        </TabsContent>
+        
+        <TabsContent value="agenda" className="flex-1 m-0">
+          <AgendaView
+            events={events}
+            onEventClick={handleEventClick}
+          />
+        </TabsContent>
+      </Tabs>
     </Card>
   );
 }
