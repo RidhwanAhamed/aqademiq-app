@@ -1504,6 +1504,10 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: number
       }
+      delete_user_google_tokens: {
+        Args: { p_user_id: string }
+        Returns: boolean
+      }
       detect_schedule_conflicts: {
         Args: {
           p_end_time: string
@@ -1560,8 +1564,27 @@ export type Database = {
           title: string
         }[]
       }
+      get_user_google_tokens: {
+        Args: { p_user_id: string }
+        Returns: {
+          access_token: string
+          expires_at: string
+          refresh_token: string
+          scope: string
+        }[]
+      }
       has_google_tokens: {
         Args: { p_user_id?: string }
+        Returns: boolean
+      }
+      insert_user_google_tokens: {
+        Args: {
+          p_access_token: string
+          p_expires_at: string
+          p_refresh_token: string
+          p_scope: string
+          p_user_id: string
+        }
         Returns: boolean
       }
       is_holiday_period: {
@@ -1590,6 +1613,16 @@ export type Database = {
       update_course_progress: {
         Args: { p_course_id: string }
         Returns: undefined
+      }
+      update_user_google_tokens: {
+        Args: {
+          p_access_token: string
+          p_expires_at?: string
+          p_refresh_token?: string
+          p_scope?: string
+          p_user_id: string
+        }
+        Returns: boolean
       }
       update_user_study_stats: {
         Args: { p_study_hours: number; p_user_id: string }

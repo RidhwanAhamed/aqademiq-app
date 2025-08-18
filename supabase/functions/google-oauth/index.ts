@@ -1,6 +1,27 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+// Rate limiting store (in-memory, resets on function restart)
+const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
+
+function checkRateLimit(identifier: string, maxRequests = 10, windowMs = 60000): boolean {
+  const now = Date.now();
+  const key = identifier;
+  const record = rateLimitStore.get(key);
+
+  if (!record || now > record.resetTime) {
+    rateLimitStore.set(key, { count: 1, resetTime: now + windowMs });
+    return true;
+  }
+
+  if (record.count >= maxRequests) {
+    return false;
+  }
+
+  record.count++;
+  return true;
+}
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -112,17 +133,14 @@ serve(async (req) => {
         // Calculate expiry time
         const expiresAt = new Date(Date.now() + (tokens.expires_in * 1000));
 
-        // Store tokens in database
-        const { error: tokenError } = await supabase
-          .from('google_tokens')
-          .upsert({
-            user_id: userId,
-            access_token: tokens.access_token,
-            refresh_token: tokens.refresh_token,
-            expires_at: expiresAt.toISOString(),
-            scope: tokens.scope || 'https://www.googleapis.com/auth/calendar email profile',
-          }, {
-            onConflict: 'user_id'
+        // Store tokens using secure function
+        const { data: tokenStored, error: tokenError } = await supabase
+          .rpc('insert_user_google_tokens', {
+            p_user_id: userId,
+            p_access_token: tokens.access_token,
+            p_refresh_token: tokens.refresh_token,
+            p_expires_at: expiresAt.toISOString(),
+            p_scope: tokens.scope || 'https://www.googleapis.com/auth/calendar email profile'
           });
 
         if (tokenError) {
@@ -158,14 +176,16 @@ serve(async (req) => {
           throw new Error('Missing userId');
         }
 
-        // Get current tokens
-        const { data: tokenData, error: tokenError } = await supabase
-          .from('google_tokens')
-          .select('*')
-          .eq('user_id', userId)
-          .single();
+        // Get current tokens using secure function
+        const { data: tokens, error: tokenError } = await supabase
+          .rpc('get_user_google_tokens', { p_user_id: userId });
 
-        if (tokenError || !tokenData?.refresh_token) {
+        if (tokenError || !tokens || tokens.length === 0) {
+          throw new Error('No tokens found for user');
+        }
+
+        const tokenData = tokens[0];
+        if (!tokenData?.refresh_token) {
           throw new Error('No refresh token found');
         }
 
@@ -188,20 +208,19 @@ serve(async (req) => {
           throw new Error('Failed to refresh access token');
         }
 
-        // Update tokens in database
+        // Update tokens using secure function
         const expiresAt = new Date(Date.now() + (newTokens.expires_in * 1000));
-        const { error: updateError } = await supabase
-          .from('google_tokens')
-          .update({
-            access_token: newTokens.access_token,
-            expires_at: expiresAt.toISOString(),
-            ...(newTokens.refresh_token && { refresh_token: newTokens.refresh_token }),
-          })
-          .eq('user_id', userId);
+        const { data: updated, error: updateError } = await supabase
+          .rpc('update_user_google_tokens', {
+            p_user_id: userId,
+            p_access_token: newTokens.access_token,
+            p_refresh_token: newTokens.refresh_token || undefined,
+            p_expires_at: expiresAt.toISOString()
+          });
 
-        if (updateError) {
+        if (updateError || !updated) {
           console.error('Error updating tokens:', updateError);
-          throw updateError;
+          throw new Error('Failed to update tokens');
         }
 
         return new Response(JSON.stringify({ 
@@ -220,17 +239,14 @@ serve(async (req) => {
           throw new Error('Missing userId');
         }
 
-        // Get current tokens
-        const { data: tokenData } = await supabase
-          .from('google_tokens')
-          .select('access_token')
-          .eq('user_id', userId)
-          .single();
+        // Get current tokens using secure function
+        const { data: tokens, error: tokenError } = await supabase
+          .rpc('get_user_google_tokens', { p_user_id: userId });
 
-        // Revoke token with Google
-        if (tokenData?.access_token) {
+        // Revoke token with Google if it exists
+        if (!tokenError && tokens && tokens.length > 0 && tokens[0]?.access_token) {
           try {
-            await fetch(`https://oauth2.googleapis.com/revoke?token=${tokenData.access_token}`, {
+            await fetch(`https://oauth2.googleapis.com/revoke?token=${tokens[0].access_token}`, {
               method: 'POST',
             });
           } catch (error) {
@@ -238,11 +254,9 @@ serve(async (req) => {
           }
         }
 
-        // Delete tokens from database
-        const { error: deleteError } = await supabase
-          .from('google_tokens')
-          .delete()
-          .eq('user_id', userId);
+        // Delete tokens using secure function
+        const { data: deleted, error: deleteError } = await supabase
+          .rpc('delete_user_google_tokens', { p_user_id: userId });
 
         if (deleteError) {
           console.error('Error deleting tokens:', deleteError);
