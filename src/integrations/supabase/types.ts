@@ -1504,6 +1504,10 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: number
       }
+      decrypt_token: {
+        Args: { p_encrypted_token: string }
+        Returns: string
+      }
       delete_user_google_tokens: {
         Args: { p_user_id: string }
         Returns: boolean
@@ -1526,6 +1530,10 @@ export type Database = {
       email_exists: {
         Args: { p_email: string }
         Returns: boolean
+      }
+      encrypt_token: {
+        Args: { p_token: string }
+        Returns: string
       }
       generate_recurring_assignments: {
         Args: Record<PropertyKey, never>
