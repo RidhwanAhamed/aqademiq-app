@@ -2,214 +2,299 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Clock, CheckCircle, AlertCircle, RefreshCw, Settings } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useGoogleCalendar } from "@/hooks/useGoogleCalendar";
+import { useBidirectionalSync } from "@/hooks/useBidirectionalSync";
+import { Calendar, Cloud, AlertTriangle, CheckCircle, Clock, Wifi, WifiOff } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 export function GoogleCalendarSettings() {
-  const {
-    settings,
-    tokenStatus,
-    loading,
-    connectToGoogle,
-    disconnectFromGoogle,
-    updateSettings,
-    syncNow,
+  const { 
+    settings, 
+    tokenStatus, 
+    loading, 
+    connectToGoogle, 
+    disconnectFromGoogle, 
+    updateSettings, 
+    syncNow, 
+    setupWebhook 
   } = useGoogleCalendar();
+  
+  const {
+    syncStatus,
+    operations,
+    loading: syncLoading,
+    triggerIncrementalSync,
+    resolveConflict,
+    retryFailedOperation,
+    getConflictOperations,
+    getPendingOperations,
+    getFailedOperations,
+  } = useBidirectionalSync();
 
-  const formatLastSync = (lastSyncAt: string | null) => {
-    if (!lastSyncAt) return "Never";
-    return formatDistanceToNow(new Date(lastSyncAt), { addSuffix: true });
+  const formatLastSync = (lastSync: string | null) => {
+    if (!lastSync) return 'Never';
+    try {
+      return formatDistanceToNow(new Date(lastSync), { addSuffix: true });
+    } catch {
+      return 'Unknown';
+    }
   };
 
   const isTokenExpiringSoon = () => {
     if (!tokenStatus.expiresAt) return false;
-    const expiryDate = new Date(tokenStatus.expiresAt);
-    const now = new Date();
-    const hoursUntilExpiry = (expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60);
-    return hoursUntilExpiry < 24;
+    const expiresAt = new Date(tokenStatus.expiresAt);
+    const oneHourFromNow = new Date(Date.now() + 60 * 60 * 1000);
+    return expiresAt <= oneHourFromNow;
   };
 
+  const conflictOps = getConflictOperations();
+  const pendingOps = getPendingOperations();
+  const failedOps = getFailedOperations();
+
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center gap-2">
-          <Calendar className="h-5 w-5 text-primary" />
-          <CardTitle>Google Calendar Integration</CardTitle>
-        </div>
-        <CardDescription>
-          Sync your academic schedule, assignments, and exams with Google Calendar
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        {/* Connection Status */}
-        <div className="flex items-center justify-between">
-          <div className="space-y-1">
-            <Label className="text-base font-medium">Connection Status</Label>
-            <div className="flex items-center gap-2">
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Calendar className="h-5 w-5" />
+            Google Calendar Integration
+          </CardTitle>
+          <CardDescription>
+            Sync your academic schedule with Google Calendar in real-time
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Connection Status */}
+          <div className="flex items-center justify-between p-4 border rounded-lg">
+            <div className="flex items-center gap-3">
+              <div className={`w-3 h-3 rounded-full ${tokenStatus.isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
+              <div>
+                <p className="font-medium">
+                  {tokenStatus.isConnected ? 'Connected to Google Calendar' : 'Not Connected'}
+                </p>
+                {tokenStatus.isConnected && isTokenExpiringSoon() && (
+                  <p className="text-sm text-yellow-600">Token expires soon</p>
+                )}
+              </div>
+            </div>
+            <div className="flex gap-2">
               {tokenStatus.isConnected ? (
-                <>
-                  <CheckCircle className="h-4 w-4 text-green-500" />
-                  <span className="text-sm text-muted-foreground">Connected</span>
-                  {isTokenExpiringSoon() && (
-                    <Badge variant="outline" className="text-yellow-600 border-yellow-600">
-                      <AlertCircle className="h-3 w-3 mr-1" />
-                      Token expiring soon
-                    </Badge>
-                  )}
-                </>
+                <Button 
+                  variant="outline" 
+                  onClick={disconnectFromGoogle}
+                  disabled={loading}
+                >
+                  Disconnect
+                </Button>
               ) : (
-                <>
-                  <AlertCircle className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">Not connected</span>
-                </>
+                <Button 
+                  onClick={connectToGoogle}
+                  disabled={loading}
+                >
+                  {loading ? 'Connecting...' : 'Connect to Google'}
+                </Button>
               )}
             </div>
           </div>
-          <div className="flex gap-2">
-            {tokenStatus.isConnected ? (
-              <Button 
-                variant="outline" 
-                onClick={disconnectFromGoogle}
-                disabled={loading}
-              >
-                Disconnect
-              </Button>
-            ) : (
-              <Button 
-                onClick={connectToGoogle}
-                disabled={loading}
-              >
-                Connect Google Calendar
-              </Button>
-            )}
-          </div>
-        </div>
 
-        {tokenStatus.isConnected && settings && (
-          <>
-            <Separator />
-            
-            {/* Sync Settings */}
+          {/* Sync Status */}
+          {tokenStatus.isConnected && (
             <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <Settings className="h-4 w-4 text-muted-foreground" />
-                <Label className="text-base font-medium">Sync Preferences</Label>
-              </div>
-              
-              <div className="grid grid-cols-1 gap-4 pl-6">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label htmlFor="sync-enabled">Enable Auto Sync</Label>
+              <div className="flex items-center justify-between p-4 border rounded-lg">
+                <div className="flex items-center gap-3">
+                  {syncStatus.isOnline ? (
+                    <Wifi className="h-5 w-5 text-green-500" />
+                  ) : (
+                    <WifiOff className="h-5 w-5 text-red-500" />
+                  )}
+                  <div>
+                    <p className="font-medium">
+                      {syncStatus.isOnline ? 'Online' : 'Offline'}
+                    </p>
                     <p className="text-sm text-muted-foreground">
-                      Automatically sync your academic data to Google Calendar
+                      Last sync: {formatLastSync(syncStatus.lastSync)}
                     </p>
                   </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {syncStatus.pendingOperations > 0 && (
+                    <Badge variant="secondary">
+                      <Clock className="h-3 w-3 mr-1" />
+                      {syncStatus.pendingOperations} pending
+                    </Badge>
+                  )}
+                  {syncStatus.conflictsCount > 0 && (
+                    <Badge variant="destructive">
+                      <AlertTriangle className="h-3 w-3 mr-1" />
+                      {syncStatus.conflictsCount} conflicts
+                    </Badge>
+                  )}
+                </div>
+              </div>
+
+              {/* Sync Controls */}
+              <div className="flex gap-2">
+                <Button 
+                  onClick={syncNow}
+                  disabled={loading || syncLoading}
+                  className="flex-1"
+                >
+                  <Cloud className="h-4 w-4 mr-2" />
+                  {loading || syncLoading ? 'Syncing...' : 'Full Sync'}
+                </Button>
+                <Button 
+                  onClick={triggerIncrementalSync}
+                  disabled={loading || syncLoading || !syncStatus.isOnline}
+                  variant="outline"
+                  className="flex-1"
+                >
+                  Quick Sync
+                </Button>
+                <Button 
+                  onClick={setupWebhook}
+                  disabled={loading}
+                  variant="outline"
+                >
+                  Enable Real-Time
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Sync Preferences */}
+          {tokenStatus.isConnected && settings && (
+            <>
+              <Separator />
+              <div className="space-y-4">
+                <h4 className="font-medium">Sync Preferences</h4>
+                
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="auto-sync">Auto-sync enabled</Label>
                   <Switch
-                    id="sync-enabled"
+                    id="auto-sync"
                     checked={settings.sync_enabled}
                     onCheckedChange={(checked) => updateSettings({ sync_enabled: checked })}
                   />
                 </div>
 
-                {settings.sync_enabled && (
-                  <>
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label htmlFor="sync-schedule">Class Schedule</Label>
-                        <p className="text-sm text-muted-foreground">
-                          Sync your class schedule blocks
-                        </p>
-                      </div>
-                      <Switch
-                        id="sync-schedule"
-                        checked={settings.sync_schedule_blocks}
-                        onCheckedChange={(checked) => updateSettings({ sync_schedule_blocks: checked })}
-                      />
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label htmlFor="sync-assignments">Assignments</Label>
-                        <p className="text-sm text-muted-foreground">
-                          Sync assignment due dates and study time
-                        </p>
-                      </div>
-                      <Switch
-                        id="sync-assignments"
-                        checked={settings.sync_assignments}
-                        onCheckedChange={(checked) => updateSettings({ sync_assignments: checked })}
-                      />
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label htmlFor="sync-exams">Exams</Label>
-                        <p className="text-sm text-muted-foreground">
-                          Sync exam dates and locations
-                        </p>
-                      </div>
-                      <Switch
-                        id="sync-exams"
-                        checked={settings.sync_exams}
-                        onCheckedChange={(checked) => updateSettings({ sync_exams: checked })}
-                      />
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
-
-            <Separator />
-
-            {/* Manual Sync */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <RefreshCw className="h-4 w-4 text-muted-foreground" />
-                <Label className="text-base font-medium">Manual Sync</Label>
-              </div>
-              
-              <div className="flex items-center justify-between pl-6">
-                <div className="space-y-1">
-                  <p className="text-sm font-medium">Sync Now</p>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Clock className="h-3 w-3" />
-                    <span>Last synced: {formatLastSync(settings.last_sync_at)}</span>
-                  </div>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="sync-classes">Sync schedule blocks</Label>
+                  <Switch
+                    id="sync-classes"
+                    checked={settings.sync_schedule_blocks}
+                    onCheckedChange={(checked) => updateSettings({ sync_schedule_blocks: checked })}
+                  />
                 </div>
-                <Button 
-                  variant="outline"
-                  onClick={syncNow}
-                  disabled={loading || !settings.sync_enabled}
-                >
-                  {loading ? "Syncing..." : "Sync Now"}
-                </Button>
-              </div>
-              
-              <div className="pl-6">
-                <p className="text-xs text-muted-foreground">
-                  This will create calendar events for your upcoming schedule, assignments, and exams.
-                  Events from the past 30 days and next 30 days will be synced.
-                </p>
-              </div>
-            </div>
-          </>
-        )}
 
-        {!tokenStatus.isConnected && (
-          <div className="bg-muted/50 p-4 rounded-lg">
-            <h4 className="font-medium mb-2">Why connect Google Calendar?</h4>
-            <ul className="text-sm text-muted-foreground space-y-1">
-              <li>• View your academic schedule alongside personal events</li>
-              <li>• Get notifications for assignments and exams</li>
-              <li>• Access your schedule from any device</li>
-              <li>• Share your academic calendar with family or study groups</li>
-            </ul>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="sync-assignments">Sync assignments</Label>
+                  <Switch
+                    id="sync-assignments"
+                    checked={settings.sync_assignments}
+                    onCheckedChange={(checked) => updateSettings({ sync_assignments: checked })}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="sync-exams">Sync exams</Label>
+                  <Switch
+                    id="sync-exams"
+                    checked={settings.sync_exams}
+                    onCheckedChange={(checked) => updateSettings({ sync_exams: checked })}
+                  />
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Conflicts and Issues */}
+          {(conflictOps.length > 0 || failedOps.length > 0) && (
+            <>
+              <Separator />
+              <div className="space-y-4">
+                <h4 className="font-medium">Sync Issues</h4>
+                
+                {conflictOps.length > 0 && (
+                  <Alert>
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertDescription>
+                      {conflictOps.length} conflict(s) need resolution. Events were modified in both your app and Google Calendar.
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                {failedOps.length > 0 && (
+                  <Alert variant="destructive">
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertDescription>
+                      {failedOps.length} sync operation(s) failed. You can retry them below.
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                <div className="space-y-2">
+                  {conflictOps.slice(0, 3).map((op) => (
+                    <div key={op.id} className="flex items-center justify-between p-3 border rounded-lg">
+                      <div>
+                        <p className="font-medium text-sm">Conflict: {op.entity_type}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Created {formatDistanceToNow(new Date(op.created_at), { addSuffix: true })}
+                        </p>
+                      </div>
+                      <div className="flex gap-1">
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => resolveConflict(op.id, 'prefer_local')}
+                        >
+                          Keep App
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => resolveConflict(op.id, 'prefer_google')}
+                        >
+                          Keep Google
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+
+                  {failedOps.slice(0, 3).map((op) => (
+                    <div key={op.id} className="flex items-center justify-between p-3 border rounded-lg">
+                      <div>
+                        <p className="font-medium text-sm">Failed: {op.entity_type}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {op.error_message || 'Unknown error'}
+                        </p>
+                      </div>
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => retryFailedOperation(op.id)}
+                      >
+                        Retry
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+
+          {!tokenStatus.isConnected && (
+            <Alert>
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>
+                Connect to Google Calendar to enable bi-directional sync. Your events will automatically sync in both directions.
+              </AlertDescription>
+            </Alert>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 }
