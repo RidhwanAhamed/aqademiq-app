@@ -164,9 +164,8 @@ export function ReactFlowCalendar({ selectedDate, onDateChange }: ReactFlowCalen
     return Array.from({ length: 17 }, (_, i) => i + 6);
   }, []);
 
-  // Convert events to React Flow nodes
-  const [nodes, setNodes, onNodesChange] = useNodesState(
-    useMemo(() => {
+  // Memoize expensive calculations
+  const memoizedNodes = useMemo(() => {
       const nodes: Node[] = [];
       const SLOT_HEIGHT = 60;
       const SLOT_WIDTH = 140;
@@ -261,15 +260,21 @@ export function ReactFlowCalendar({ selectedDate, onDateChange }: ReactFlowCalen
       });
 
       return nodes;
-    }, [weekDays, timeSlots, events, applyOptimisticUpdate, hasConflict, getConflictInfo])
-  );
+    }, [weekDays, timeSlots, events, hasConflict, getConflictInfo]);
+
+  // Convert events to React Flow nodes with performance optimization
+  const [nodes, setNodes, onNodesChange] = useNodesState(memoizedNodes);
 
   const [edges] = useEdgesState([]);
 
-  // Handle event updates
+  // Handle event updates with error boundaries
   const handleEventUpdate = useCallback(async (event: CalendarEvent, updates: Partial<CalendarEvent>) => {
     try {
       const [type, id] = event.id.split('-');
+      
+      if (!type || !id) {
+        throw new Error('Invalid event ID format');
+      }
       
       switch (type) {
         case 'schedule':
@@ -311,6 +316,11 @@ export function ReactFlowCalendar({ selectedDate, onDateChange }: ReactFlowCalen
       clearOptimisticUpdate(event.id);
     } catch (error) {
       console.error('Error updating event:', error);
+      toast({
+        title: "Update Failed",
+        description: error instanceof Error ? error.message : "Failed to update event",
+        variant: "destructive"
+      });
       clearOptimisticUpdate(event.id);
     }
   }, [updateScheduleBlock, updateExam, updateAssignment, clearOptimisticUpdate]);
