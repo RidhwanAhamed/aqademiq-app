@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CalendarView } from '@/components/calendar/CalendarView';
 import { EnhancedCalendarView } from '@/components/calendar/EnhancedCalendarView';
-import { ReactFlowCalendar } from '@/components/calendar/ReactFlowCalendar';
+import { NativeCalendarView } from '@/components/calendar/NativeCalendarView';
 import { AddClassDialog } from '@/components/calendar/AddClassDialog';
 import { HolidayManager } from '@/components/HolidayManager';
 import { useSchedule, type ScheduleBlock } from '@/hooks/useSchedule';
