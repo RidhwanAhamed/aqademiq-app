@@ -229,6 +229,45 @@ export type Database = {
           },
         ]
       }
+      discord_settings: {
+        Row: {
+          assignment_notifications: boolean
+          created_at: string
+          exam_notifications: boolean
+          id: string
+          notifications_enabled: boolean
+          reminder_notifications: boolean
+          updated_at: string
+          user_id: string
+          username: string | null
+          webhook_url: string | null
+        }
+        Insert: {
+          assignment_notifications?: boolean
+          created_at?: string
+          exam_notifications?: boolean
+          id?: string
+          notifications_enabled?: boolean
+          reminder_notifications?: boolean
+          updated_at?: string
+          user_id: string
+          username?: string | null
+          webhook_url?: string | null
+        }
+        Update: {
+          assignment_notifications?: boolean
+          created_at?: string
+          exam_notifications?: boolean
+          id?: string
+          notifications_enabled?: boolean
+          reminder_notifications?: boolean
+          updated_at?: string
+          user_id?: string
+          username?: string | null
+          webhook_url?: string | null
+        }
+        Relationships: []
+      }
       exams: {
         Row: {
           course_id: string
@@ -434,6 +473,102 @@ export type Database = {
           name?: string
           start_date?: string
           updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      notification_preferences: {
+        Row: {
+          assignment_reminders: boolean
+          created_at: string
+          daily_summary: boolean
+          deadline_warnings: boolean
+          discord_enabled: boolean
+          email_enabled: boolean
+          exam_reminders: boolean
+          id: string
+          in_app_enabled: boolean
+          reminder_timing_minutes: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          assignment_reminders?: boolean
+          created_at?: string
+          daily_summary?: boolean
+          deadline_warnings?: boolean
+          discord_enabled?: boolean
+          email_enabled?: boolean
+          exam_reminders?: boolean
+          id?: string
+          in_app_enabled?: boolean
+          reminder_timing_minutes?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          assignment_reminders?: boolean
+          created_at?: string
+          daily_summary?: boolean
+          deadline_warnings?: boolean
+          discord_enabled?: boolean
+          email_enabled?: boolean
+          exam_reminders?: boolean
+          id?: string
+          in_app_enabled?: boolean
+          reminder_timing_minutes?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      notification_queue: {
+        Row: {
+          category: string
+          created_at: string
+          error_message: string | null
+          failed_at: string | null
+          id: string
+          max_retries: number
+          message: string
+          metadata: Json | null
+          retry_count: number
+          scheduled_for: string
+          sent_at: string | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          error_message?: string | null
+          failed_at?: string | null
+          id?: string
+          max_retries?: number
+          message: string
+          metadata?: Json | null
+          retry_count?: number
+          scheduled_for: string
+          sent_at?: string | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          error_message?: string | null
+          failed_at?: string | null
+          id?: string
+          max_retries?: number
+          message?: string
+          metadata?: Json | null
+          retry_count?: number
+          scheduled_for?: string
+          sent_at?: string | null
+          title?: string
+          type?: string
           user_id?: string
         }
         Relationships: []
