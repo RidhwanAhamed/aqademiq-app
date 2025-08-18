@@ -43,16 +43,13 @@ export function useGoogleCalendar() {
           setSettings(settingsData);
         }
 
-        // Check token status
-        const { data: tokenData } = await supabase
-          .from('google_tokens')
-          .select('expires_at')
-          .eq('user_id', user.id)
-          .maybeSingle();
+        // Check token status using secure function
+        const { data: hasTokens, error: tokenError } = await supabase
+          .rpc('has_google_tokens');
 
         setTokenStatus({
-          isConnected: !!tokenData,
-          expiresAt: tokenData?.expires_at || null,
+          isConnected: !tokenError && !!hasTokens,
+          expiresAt: null, // We don't expose expiry details for security
         });
       } catch (error) {
         console.error('Error loading Google Calendar data:', error);
@@ -160,24 +157,27 @@ export function useGoogleCalendar() {
         throw new Error(error.message || 'Failed to process authentication callback');
       }
 
-      // Refresh data
+      // Refresh settings data
       const { data: settingsData } = await supabase
         .from('google_calendar_settings')
         .select('*')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
-      const { data: tokenData } = await supabase
-        .from('google_tokens')
-        .select('expires_at')
-        .eq('user_id', user.id)
-        .single();
+      if (settingsData) {
+        setSettings(settingsData);
+      }
 
-      setSettings(settingsData);
-      setTokenStatus({
-        isConnected: true,
-        expiresAt: tokenData.expires_at,
-      });
+      // Check token status using secure function
+      const { data: hasTokens, error: tokenError } = await supabase
+        .rpc('has_google_tokens');
+
+      if (!tokenError && hasTokens) {
+        setTokenStatus({
+          isConnected: true,
+          expiresAt: null, // We don't expose expiry details for security
+        });
+      }
 
       toast({
         title: "Connected Successfully",
@@ -201,11 +201,11 @@ export function useGoogleCalendar() {
 
     setLoading(true);
     try {
-      const { error } = await supabase.functions.invoke('google-oauth', {
-        body: { action: 'revoke', userId: user.id }
-      });
+      // Use secure function to revoke tokens
+      const { data: revoked, error } = await supabase
+        .rpc('revoke_google_tokens');
 
-      if (error) throw error;
+      if (error || !revoked) throw new Error('Failed to revoke Google tokens');
 
       setTokenStatus({ isConnected: false, expiresAt: null });
       setSettings(prev => prev ? { ...prev, sync_enabled: false } : null);
