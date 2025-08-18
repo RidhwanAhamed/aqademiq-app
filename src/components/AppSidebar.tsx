@@ -43,13 +43,11 @@ interface NavItem {
 const mainItems: NavItem[] = [
   { title: "Dashboard", url: "/", icon: Home },
   { title: "Calendar", url: "/calendar", icon: Calendar },
-  { title: "Ada", url: "/studysage", icon: Bot, badge: "Beta" },
-  { title: "Enhanced Ada", url: "/ada", icon: Sparkles, badge: "New" },
+  { title: "Ada AI", url: "/ada", icon: Sparkles },
   { title: "Courses", url: "/courses", icon: BookOpen },
   { title: "Assignments", url: "/assignments", icon: Target },
   { title: "Study Timer", url: "/timer", icon: Clock },
   { title: "Analytics", url: "/analytics", icon: BarChart3 },
-  { title: "Advanced Analytics", url: "/advanced-analytics", icon: TrendingUp },
 ];
 
 const bottomItems = [

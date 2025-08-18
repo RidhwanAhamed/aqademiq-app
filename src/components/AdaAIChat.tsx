@@ -82,7 +82,7 @@ interface AccessibilitySettings {
   focusOutlines: boolean;
 }
 
-export function EnhancedStudySageChat() {
+export function AdaAIChat() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -1022,7 +1022,7 @@ export function EnhancedStudySageChat() {
       <UpgradeToPremiumDialog 
         open={showUpgrade} 
         onOpenChange={setShowUpgrade}
-        feature="studysage"
+        feature="ada-ai"
       />
     </>
   );
