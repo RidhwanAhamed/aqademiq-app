@@ -138,21 +138,33 @@ export default function Onboarding() {
   const onPersonalInfoSubmit = async (data: PersonalInfoData) => {
     setIsLoading(true);
     try {
+      if (!user?.id) {
+        throw new Error('User not authenticated');
+      }
+
+      // Use upsert with proper conflict resolution
       const { error } = await supabase
         .from('profiles')
         .upsert({
-          user_id: user?.id,
+          user_id: user.id,
           full_name: data.fullName,
           timezone: data.timezone,
+        }, {
+          onConflict: 'user_id'
         });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Profile upsert error:', error);
+        throw error;
+      }
+      
       nextStep();
     } catch (error) {
+      console.error('Profile submission error:', error);
       // Handle profile save error gracefully
       toast({
         title: "Error saving profile",
-        description: "Please try again.",
+        description: error instanceof Error ? error.message : "Please try again.",
         variant: "destructive",
       });
     } finally {
