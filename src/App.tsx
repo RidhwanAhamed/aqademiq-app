@@ -15,7 +15,6 @@ import Auth from "./pages/Auth";
 import AuthCallback from "./pages/AuthCallback";
 import Calendar from "./pages/Calendar";
 import Ada from "./pages/Ada";
-import AdaBeta from "./pages/AdaBeta";
 import Courses from "./pages/Courses";
 import Assignments from "./pages/Assignments";
 import Timer from "./pages/Timer";
@@ -43,7 +42,6 @@ const App = () => (
               <Route index element={<Index />} />
               <Route path="calendar" element={<Calendar />} />
               <Route path="ada" element={<Ada />} />
-              <Route path="ada-beta" element={<AdaBeta />} />
               <Route path="courses" element={<Courses />} />
               <Route path="assignments" element={<Assignments />} />
               <Route path="timer" element={<Timer />} />

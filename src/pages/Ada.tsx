@@ -129,9 +129,9 @@ const Ada = () => {
                 Ada AI Wizard
               </h1>
               <div className="flex flex-wrap items-center justify-center sm:justify-start gap-1 sm:gap-2 mt-1">
-                <Badge variant="secondary" className="text-xs font-medium">
+                <Badge variant="secondary" className="bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300">
                   <Sparkles className="w-3 h-3 mr-1" />
-                  AI Assistant
+                  Beta
                 </Badge>
                 <Badge variant="outline" className="text-xs bg-green-50 text-green-600 border-green-200 dark:bg-green-950/30 dark:text-green-400 dark:border-green-800">
                   <Accessibility className="w-3 h-3 mr-1" />
