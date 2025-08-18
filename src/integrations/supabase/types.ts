@@ -1519,6 +1519,10 @@ export type Database = {
           conflict_type: string
         }[]
       }
+      email_exists: {
+        Args: { p_email: string }
+        Returns: boolean
+      }
       generate_recurring_assignments: {
         Args: Record<PropertyKey, never>
         Returns: undefined
@@ -1530,6 +1534,15 @@ export type Database = {
       generate_sync_hash: {
         Args: { entity_data: Json; entity_type: string }
         Returns: string
+      }
+      get_public_profile: {
+        Args: { p_user_id: string }
+        Returns: {
+          created_at: string
+          full_name: string
+          study_streak: number
+          user_id: string
+        }[]
       }
       get_schedule_for_date_range: {
         Args: { p_end_date: string; p_start_date: string; p_user_id: string }
