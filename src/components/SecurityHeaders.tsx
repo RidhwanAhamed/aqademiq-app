@@ -10,9 +10,12 @@ export function SecurityHeaders() {
     if (!document.querySelector('meta[http-equiv="Content-Security-Policy"]')) {
       const cspMeta = document.createElement('meta');
       cspMeta.httpEquiv = 'Content-Security-Policy';
+      // Generate nonce for inline scripts
+      const nonce = Array.from(crypto.getRandomValues(new Uint8Array(16)), b => b.toString(16).padStart(2, '0')).join('');
+      
       cspMeta.content = [
         "default-src 'self'",
-        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://apis.google.com https://accounts.google.com",
+        `script-src 'self' 'nonce-${nonce}' https://apis.google.com https://accounts.google.com`,
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
         "font-src 'self' https://fonts.gstatic.com",
         "img-src 'self' data: https: blob:",
@@ -20,7 +23,8 @@ export function SecurityHeaders() {
         "frame-src 'self' https://accounts.google.com",
         "object-src 'none'",
         "base-uri 'self'",
-        "form-action 'self'"
+        "form-action 'self'",
+        "upgrade-insecure-requests"
       ].join('; ');
       document.head.appendChild(cspMeta);
     }
