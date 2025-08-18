@@ -67,10 +67,10 @@ export function useGoogleCalendar() {
 
     setLoading(true);
     try {
-      const redirectUri = `${window.location.origin}/settings`;
+      const redirectUri = `${window.location.origin}/auth/callback`;
       
       const { data, error } = await supabase.functions.invoke('google-oauth', {
-        body: { action: 'authorize', redirectUri }
+        body: { redirectUri }
       });
 
       if (error) throw error;
@@ -82,6 +82,10 @@ export function useGoogleCalendar() {
         'width=500,height=600,scrollbars=yes,resizable=yes'
       );
 
+      if (!authWindow) {
+        throw new Error('Failed to open authentication window. Please allow popups for this site.');
+      }
+
       // Listen for the auth completion
       const handleAuthComplete = (event: MessageEvent) => {
         if (event.origin !== window.location.origin) return;
@@ -89,30 +93,47 @@ export function useGoogleCalendar() {
         if (event.data.type === 'GOOGLE_AUTH_SUCCESS') {
           authWindow?.close();
           window.removeEventListener('message', handleAuthComplete);
+          clearInterval(checkClosed);
           
           // Handle the auth code
           handleAuthCallback(event.data.code);
+        } else if (event.data.type === 'GOOGLE_AUTH_ERROR') {
+          authWindow?.close();
+          window.removeEventListener('message', handleAuthComplete);
+          clearInterval(checkClosed);
+          setLoading(false);
+          
+          toast({
+            title: "Authentication Failed",
+            description: `Google authentication failed: ${event.data.error}`,
+            variant: "destructive",
+          });
         }
       };
 
       window.addEventListener('message', handleAuthComplete);
 
-      // Fallback: Check if window was closed manually
+      // Check if window was closed manually
       const checkClosed = setInterval(() => {
         if (authWindow?.closed) {
           clearInterval(checkClosed);
           window.removeEventListener('message', handleAuthComplete);
           setLoading(false);
+          
+          toast({
+            title: "Authentication Cancelled",
+            description: "Google Calendar connection was cancelled.",
+            variant: "destructive",
+          });
         }
       }, 1000);
     } catch (error) {
       console.error('Error connecting to Google:', error);
       toast({
         title: "Connection Failed",
-        description: "Failed to connect to Google Calendar. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to connect to Google Calendar. Please try again.",
         variant: "destructive",
       });
-    } finally {
       setLoading(false);
     }
   };
@@ -122,7 +143,12 @@ export function useGoogleCalendar() {
 
     try {
       const { error } = await supabase.functions.invoke('google-oauth', {
-        body: { action: 'callback', code, userId: user.id }
+        body: { 
+          action: 'callback', 
+          code, 
+          userId: user.id,
+          redirectUri: `${window.location.origin}/auth/callback`
+        }
       });
 
       if (error) throw error;
