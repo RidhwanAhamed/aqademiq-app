@@ -1,4 +1,7 @@
 import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +18,20 @@ import { useCourses } from "@/hooks/useCourses";
 import { useAssignments, type Assignment } from "@/hooks/useAssignments";
 import { useExams } from "@/hooks/useExams";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useInputValidation } from "@/hooks/useInputValidation";
+
+const assignmentSchema = z.object({
+  title: z.string()
+    .min(1, "Assignment title is required")
+    .max(200, "Title too long")
+    .regex(/^[a-zA-Z0-9\s\-_&.()#:]+$/, "Title contains invalid characters"),
+  description: z.string()
+    .max(1000, "Description too long")
+    .optional(),
+  course_id: z.string().min(1, "Please select a course"),
+  due_date: z.date(),
+  estimated_hours: z.number().min(0.5).max(50),
+});
 
 interface AddAssignmentDialogProps {
   open: boolean;
