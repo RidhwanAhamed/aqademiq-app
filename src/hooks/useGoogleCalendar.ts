@@ -70,10 +70,13 @@ export function useGoogleCalendar() {
       const redirectUri = `${window.location.origin}/auth/callback`;
       
       const { data, error } = await supabase.functions.invoke('google-oauth', {
-        body: { redirectUri }
+        body: { action: 'authorize', redirectUri }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error from google-oauth function:', error);
+        throw new Error(error.message || 'Failed to get authorization URL');
+      }
 
       // Open Google OAuth in a new window
       const authWindow = window.open(
@@ -129,9 +132,10 @@ export function useGoogleCalendar() {
       }, 1000);
     } catch (error) {
       console.error('Error connecting to Google:', error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to connect to Google Calendar. Please try again.";
       toast({
         title: "Connection Failed",
-        description: error instanceof Error ? error.message : "Failed to connect to Google Calendar. Please try again.",
+        description: `Error: ${errorMessage}. Check if Google OAuth is properly configured.`,
         variant: "destructive",
       });
       setLoading(false);
@@ -142,7 +146,7 @@ export function useGoogleCalendar() {
     if (!user) return;
 
     try {
-      const { error } = await supabase.functions.invoke('google-oauth', {
+      const { data, error } = await supabase.functions.invoke('google-oauth', {
         body: { 
           action: 'callback', 
           code, 
@@ -151,7 +155,10 @@ export function useGoogleCalendar() {
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error from google-oauth callback:', error);
+        throw new Error(error.message || 'Failed to process authentication callback');
+      }
 
       // Refresh data
       const { data: settingsData } = await supabase
@@ -178,11 +185,14 @@ export function useGoogleCalendar() {
       });
     } catch (error) {
       console.error('Error handling auth callback:', error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to complete Google Calendar connection.";
       toast({
         title: "Connection Failed",
-        description: "Failed to complete Google Calendar connection.",
+        description: `Error: ${errorMessage}`,
         variant: "destructive",
       });
+    } finally {
+      setLoading(false);
     }
   };
 
