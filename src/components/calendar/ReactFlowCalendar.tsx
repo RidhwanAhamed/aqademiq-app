@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import {
   ReactFlow,
   Node,
@@ -149,8 +149,15 @@ export function ReactFlowCalendar({ selectedDate, onDateChange }: ReactFlowCalen
     getConflictInfo 
   } = useConflictDetection();
 
+  // Stable refs for callbacks
+  const handleEventUpdateRef = useRef<(event: CalendarEvent, updates: Partial<CalendarEvent>) => Promise<void>>();
+  const handleEventResizeRef = useRef<(event: CalendarEvent, newHeight: number) => void>();
+
+  // Initialize React Flow hooks with empty arrays
+  const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
+  
   // Detect conflicts whenever events change
-  useMemo(() => {
+  useEffect(() => {
     detectConflicts(events);
   }, [events, detectConflicts]);
 
@@ -164,8 +171,82 @@ export function ReactFlowCalendar({ selectedDate, onDateChange }: ReactFlowCalen
     return Array.from({ length: 17 }, (_, i) => i + 6);
   }, []);
 
-  // Memoize expensive calculations
-  const memoizedNodes = useMemo(() => {
+  // Stable callback for event updates
+  const stableHandleEventUpdate = useCallback(async (event: CalendarEvent, updates: Partial<CalendarEvent>) => {
+    try {
+      const [type, id] = event.id.split('-');
+      
+      if (!type || !id) {
+        throw new Error('Invalid event ID format');
+      }
+      
+      switch (type) {
+        case 'schedule':
+          if (updates.start || updates.end) {
+            const start_time = updates.start ? format(updates.start, 'HH:mm:ss') : undefined;
+            const end_time = updates.end ? format(updates.end, 'HH:mm:ss') : undefined;
+            const day_of_week = updates.start ? updates.start.getDay() : undefined;
+            
+            await updateScheduleBlock(id, {
+              start_time,
+              end_time,
+              day_of_week,
+              title: updates.title,
+              location: updates.location
+            });
+          }
+          break;
+          
+        case 'exam':
+          if (updates.start) {
+            await updateExam(id, {
+              exam_date: updates.start.toISOString(),
+              title: updates.title,
+              location: updates.location
+            });
+          }
+          break;
+          
+        case 'assignment':
+          if (updates.end) {
+            await updateAssignment(id, {
+              due_date: updates.end.toISOString(),
+              title: updates.title
+            });
+          }
+          break;
+      }
+      
+      clearOptimisticUpdate(event.id);
+    } catch (error) {
+      console.error('Error updating event:', error);
+      toast({
+        title: "Update Failed",
+        description: error instanceof Error ? error.message : "Failed to update event",
+        variant: "destructive"
+      });
+      clearOptimisticUpdate(event.id);
+    }
+  }, [updateScheduleBlock, updateExam, updateAssignment, clearOptimisticUpdate, toast]);
+
+  // Stable callback for event resizing
+  const stableHandleEventResize = useCallback((event: CalendarEvent, newHeight: number) => {
+    const SLOT_HEIGHT = 60;
+    const newDuration = newHeight / SLOT_HEIGHT;
+    const newEnd = new Date(event.start.getTime() + (newDuration * 60 * 60 * 1000));
+    
+    if (handleEventUpdateRef.current) {
+      handleEventUpdateRef.current(event, { end: newEnd });
+    }
+  }, []);
+
+  // Update refs
+  handleEventUpdateRef.current = stableHandleEventUpdate;
+  handleEventResizeRef.current = stableHandleEventResize;
+
+  // Generate nodes separately and update via useEffect
+  useEffect(() => {
+    const generateNodes = () => {
       const nodes: Node[] = [];
       const SLOT_HEIGHT = 60;
       const SLOT_WIDTH = 140;
@@ -245,10 +326,14 @@ export function ReactFlowCalendar({ selectedDate, onDateChange }: ReactFlowCalen
             conflictSeverity: getConflictInfo(event.id)?.severity,
             onUpdate: (updates: Partial<CalendarEvent>) => {
               applyOptimisticUpdate(event.id, updates);
-              handleEventUpdate(event, updates);
+              if (handleEventUpdateRef.current) {
+                handleEventUpdateRef.current(event, updates);
+              }
             },
             onResize: (width: number, height: number) => {
-              handleEventResize(event, height);
+              if (handleEventResizeRef.current) {
+                handleEventResizeRef.current(event, height);
+              }
             }
           },
           style: {
@@ -260,79 +345,14 @@ export function ReactFlowCalendar({ selectedDate, onDateChange }: ReactFlowCalen
       });
 
       return nodes;
-    }, [weekDays, timeSlots, events, hasConflict, getConflictInfo]);
+    };
 
-  // Convert events to React Flow nodes with performance optimization
-  const [nodes, setNodes, onNodesChange] = useNodesState(memoizedNodes);
+    const newNodes = generateNodes();
+    setNodes(newNodes);
+  }, [weekDays, timeSlots, events, hasConflict, getConflictInfo, applyOptimisticUpdate, setNodes]);
 
   const [edges] = useEdgesState([]);
 
-  // Handle event updates with error boundaries
-  const handleEventUpdate = useCallback(async (event: CalendarEvent, updates: Partial<CalendarEvent>) => {
-    try {
-      const [type, id] = event.id.split('-');
-      
-      if (!type || !id) {
-        throw new Error('Invalid event ID format');
-      }
-      
-      switch (type) {
-        case 'schedule':
-          if (updates.start || updates.end) {
-            const start_time = updates.start ? format(updates.start, 'HH:mm:ss') : undefined;
-            const end_time = updates.end ? format(updates.end, 'HH:mm:ss') : undefined;
-            const day_of_week = updates.start ? updates.start.getDay() : undefined;
-            
-            await updateScheduleBlock(id, {
-              start_time,
-              end_time,
-              day_of_week,
-              title: updates.title,
-              location: updates.location
-            });
-          }
-          break;
-          
-        case 'exam':
-          if (updates.start) {
-            await updateExam(id, {
-              exam_date: updates.start.toISOString(),
-              title: updates.title,
-              location: updates.location
-            });
-          }
-          break;
-          
-        case 'assignment':
-          if (updates.end) {
-            await updateAssignment(id, {
-              due_date: updates.end.toISOString(),
-              title: updates.title
-            });
-          }
-          break;
-      }
-      
-      clearOptimisticUpdate(event.id);
-    } catch (error) {
-      console.error('Error updating event:', error);
-      toast({
-        title: "Update Failed",
-        description: error instanceof Error ? error.message : "Failed to update event",
-        variant: "destructive"
-      });
-      clearOptimisticUpdate(event.id);
-    }
-  }, [updateScheduleBlock, updateExam, updateAssignment, clearOptimisticUpdate]);
-
-  // Handle event resizing
-  const handleEventResize = useCallback((event: CalendarEvent, newHeight: number) => {
-    const SLOT_HEIGHT = 60;
-    const newDuration = newHeight / SLOT_HEIGHT;
-    const newEnd = new Date(event.start.getTime() + (newDuration * 60 * 60 * 1000));
-    
-    handleEventUpdate(event, { end: newEnd });
-  }, [handleEventUpdate]);
 
   // Handle node drag end
   const handleNodeDragStop = useCallback((event: any, node: Node) => {
@@ -354,14 +374,14 @@ export function ReactFlowCalendar({ selectedDate, onDateChange }: ReactFlowCalen
       newStart.setHours(hour, minute, 0, 0);
 
       const calendarEvent = events.find(e => e.id === node.id);
-      if (calendarEvent) {
+      if (calendarEvent && handleEventUpdateRef.current) {
         const duration = calendarEvent.end.getTime() - calendarEvent.start.getTime();
         const newEnd = new Date(newStart.getTime() + duration);
         
-        handleEventUpdate(calendarEvent, { start: newStart, end: newEnd });
+        handleEventUpdateRef.current(calendarEvent, { start: newStart, end: newEnd });
       }
     }
-  }, [currentWeek, events, handleEventUpdate]);
+  }, [currentWeek, events]);
 
   // Event action handlers
   const handleEventEdit = useCallback((event: CalendarEvent) => {
