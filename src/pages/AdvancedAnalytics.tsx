@@ -10,7 +10,7 @@ import { AcademicInsightsPanel } from "@/components/analytics/AcademicInsightsPa
 import { BarChart3, Target, Lightbulb, RefreshCw, TrendingUp } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
-export default function AdvancedAnalytics() {
+export default function Analytics() {
   const { courses } = useCourses();
   const {
     performanceMetrics,
@@ -63,7 +63,7 @@ export default function AdvancedAnalytics() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Advanced Analytics</h1>
+          <h1 className="text-3xl font-bold text-foreground">Analytics</h1>
           <p className="text-muted-foreground">
             Deep insights into your academic performance and personalized recommendations
           </p>
