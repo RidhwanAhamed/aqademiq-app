@@ -14,11 +14,12 @@ import Auth from "./pages/Auth";
 
 import AuthCallback from "./pages/AuthCallback";
 import Calendar from "./pages/Calendar";
-import EnhancedAda from "./pages/EnhancedAda";
+import Ada from "./pages/Ada";
+import AdaBeta from "./pages/AdaBeta";
 import Courses from "./pages/Courses";
 import Assignments from "./pages/Assignments";
 import Timer from "./pages/Timer";
-import AdvancedAnalytics from "./pages/AdvancedAnalytics";
+import Analytics from "./pages/AdvancedAnalytics";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
@@ -41,11 +42,12 @@ const App = () => (
             <Route path="/" element={<AppLayout />}>
               <Route index element={<Index />} />
               <Route path="calendar" element={<Calendar />} />
-              <Route path="ada" element={<EnhancedAda />} />
+              <Route path="ada" element={<Ada />} />
+              <Route path="ada-beta" element={<AdaBeta />} />
               <Route path="courses" element={<Courses />} />
               <Route path="assignments" element={<Assignments />} />
               <Route path="timer" element={<Timer />} />
-              <Route path="analytics" element={<AdvancedAnalytics />} />
+              <Route path="analytics" element={<Analytics />} />
               <Route path="settings" element={<Settings />} />
             </Route>
             {/* Catch-all route for 404 page */}

@@ -37,8 +37,8 @@ const Ada = () => {
     },
     {
       icon: MessageSquare,
-      title: "Enhanced Chat Interface",
-      description: "New drag-and-drop file uploads, message reactions, copy functionality, and improved mobile experience.",
+      title: "Interactive Chat Interface",
+      description: "Drag-and-drop file uploads, message reactions, copy functionality, and mobile-optimized experience.",
       color: "text-green-600",
       bgColor: "bg-green-50",
       darkBgColor: "dark:bg-green-950/30"
@@ -89,7 +89,7 @@ const Ada = () => {
     {
       emoji: "⚫",
       title: "High Contrast Mode",
-      description: "Enhanced visual contrast for users with visual impairments or in bright environments."
+      description: "Improved visual contrast for users with visual impairments or in bright environments."
     },
     {
       emoji: "🔊",
@@ -131,7 +131,7 @@ const Ada = () => {
               <div className="flex flex-wrap items-center justify-center sm:justify-start gap-1 sm:gap-2 mt-1">
                 <Badge variant="secondary" className="text-xs font-medium">
                   <Sparkles className="w-3 h-3 mr-1" />
-                  Enhanced UI
+                  AI Assistant
                 </Badge>
                 <Badge variant="outline" className="text-xs bg-green-50 text-green-600 border-green-200 dark:bg-green-950/30 dark:text-green-400 dark:border-green-800">
                   <Accessibility className="w-3 h-3 mr-1" />
@@ -146,7 +146,7 @@ const Ada = () => {
           </div>
           
           <p className="text-base sm:text-lg lg:text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed px-4">
-            Experience the next generation of academic AI assistance with enhanced accessibility, 
+            Experience the next generation of academic AI assistance with accessibility features, 
             mobile-optimized interface, and intelligent interactions designed for everyone.
           </p>
         </div>
@@ -162,7 +162,7 @@ const Ada = () => {
                       <Bot className="w-5 h-5 text-primary" />
                       <div className="absolute -top-1 -right-1 w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                     </div>
-                    Enhanced Ada Chat
+                    Ada AI Chat
                     <Badge variant="secondary" className="text-xs">v2.0</Badge>
                   </CardTitle>
                   <div className="flex items-center gap-2">
@@ -194,7 +194,7 @@ const Ada = () => {
                     <CardTitle className="flex items-center justify-between text-lg">
                       <div className="flex items-center gap-2">
                         <Zap className="w-5 h-5 text-primary" />
-                        Enhanced Features
+                        AI Features
                       </div>
                       {capabilitiesOpen ? 
                         <ChevronDown className="w-4 h-4 text-muted-foreground" /> : 
@@ -330,7 +330,7 @@ const Ada = () => {
                             </div>
                           </div>
                           <Badge variant="outline" className="text-xs bg-green-50 text-green-600 border-green-200 dark:bg-green-950/30 dark:text-green-400 dark:border-green-800">
-                            Enhanced
+                            Supported
                           </Badge>
                         </div>
                       ))}
@@ -345,7 +345,7 @@ const Ada = () => {
               <CardContent className="p-6 text-center">
                 <div className="flex items-center justify-center gap-2 mb-3">
                   <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                  <span className="text-sm font-medium text-green-700 dark:text-green-400">Enhanced AI Ready</span>
+                  <span className="text-sm font-medium text-green-700 dark:text-green-400">AI Ready</span>
                 </div>
                 <div className="flex items-center justify-center gap-4 mb-3">
                   <div className="flex items-center gap-1">
@@ -358,7 +358,7 @@ const Ada = () => {
                   </div>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Experience next-generation AI assistance with accessibility-first design and enhanced mobile interactions.
+                  Experience next-generation AI assistance with accessibility-first design and mobile interactions.
                 </p>
               </CardContent>
             </Card>

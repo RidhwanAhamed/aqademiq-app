@@ -44,6 +44,7 @@ const mainItems: NavItem[] = [
   { title: "Dashboard", url: "/", icon: Home },
   { title: "Calendar", url: "/calendar", icon: Calendar },
   { title: "Ada AI", url: "/ada", icon: Sparkles },
+  { title: "Ada Beta", url: "/ada-beta", icon: Bot, badge: "Beta" },
   { title: "Courses", url: "/courses", icon: BookOpen },
   { title: "Assignments", url: "/assignments", icon: Target },
   { title: "Study Timer", url: "/timer", icon: Clock },
