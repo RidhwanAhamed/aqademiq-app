@@ -1547,6 +1547,10 @@ export type Database = {
           title: string
         }[]
       }
+      has_google_tokens: {
+        Args: { p_user_id?: string }
+        Returns: boolean
+      }
       is_holiday_period: {
         Args: { p_date: string; p_user_id: string }
         Returns: boolean
@@ -1561,6 +1565,10 @@ export type Database = {
           p_user_agent?: string
         }
         Returns: undefined
+      }
+      revoke_google_tokens: {
+        Args: { p_user_id?: string }
+        Returns: boolean
       }
       should_class_occur_on_date: {
         Args: { p_schedule_id: string; p_target_date: string }
