@@ -149,7 +149,7 @@ export default function Onboarding() {
       if (error) throw error;
       nextStep();
     } catch (error) {
-      console.error('Error saving profile:', error);
+      // Handle profile save error gracefully
       toast({
         title: "Error saving profile",
         description: "Please try again.",
@@ -176,7 +176,7 @@ export default function Onboarding() {
       if (error) throw error;
       nextStep();
     } catch (error) {
-      console.error('Error saving semester:', error);
+      // Handle semester save error gracefully
       toast({
         title: "Error saving semester",
         description: "Please try again.",
@@ -202,7 +202,7 @@ export default function Onboarding() {
       if (error) throw error;
       nextStep();
     } catch (error) {
-      console.error('Error saving preferences:', error);
+      // Handle preferences save error gracefully
       toast({
         title: "Error saving preferences",
         description: "Please try again.",
@@ -237,7 +237,7 @@ export default function Onboarding() {
         navigate('/');
       }, 2000);
     } catch (error) {
-      console.error('Onboarding completion error:', error);
+      // Handle onboarding completion error gracefully
       toast({
         title: "Setup incomplete",
         description: "There was an issue completing your setup. Please try again.",

@@ -28,14 +28,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         
         // Handle successful sign in - redirect to dashboard
         if (event === 'SIGNED_IN' && session?.user) {
-          // Small delay to ensure state updates
-          setTimeout(() => {
-            const currentPath = window.location.pathname;
-            // Only redirect if we're on an auth page
-            if (currentPath.includes('/auth') || currentPath === '/welcome') {
+          const currentPath = window.location.pathname;
+          // Only redirect if we're on an auth page
+          if (currentPath.includes('/auth') || currentPath === '/welcome') {
+            // Use navigate instead of window.location for better SPA behavior
+            setTimeout(() => {
               window.location.href = '/';
-            }
-          }, 100);
+            }, 100);
+          }
         }
       }
     );

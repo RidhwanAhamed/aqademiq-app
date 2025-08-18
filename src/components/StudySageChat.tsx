@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
+import { logger } from '@/utils/logger';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -93,7 +94,7 @@ export function StudySageChat() {
       .limit(50);
 
     if (error) {
-      console.error('Error loading chat history:', error);
+      logger.error('Failed to load chat history', error);
       return;
     }
 
@@ -119,7 +120,7 @@ export function StudySageChat() {
       .single();
 
     if (error) {
-      console.error('Error saving chat message:', error);
+      logger.error('Failed to save chat message', error);
       return null;
     }
 
@@ -357,7 +358,7 @@ export function StudySageChat() {
     try {
       if (!user || !scheduleData) return;
 
-      console.log('Adding to calendar:', scheduleData);
+      // Adding parsed schedule data to user's calendar
       
       const { courses = [], classes = [], assignments = [], exams = [] } = scheduleData;
       let addedItems = { courses: 0, assignments: 0, exams: 0, classes: 0 };
@@ -436,8 +437,7 @@ export function StudySageChat() {
               description: assignment.description || '',
               due_date: assignment.due_date,
               course_id: courseId,
-              assignment_type: assignment.type || 'homework',
-              status: 'todo'
+              assignment_type: assignment.type || 'homework'
             }]);
           
           if (!error) addedItems.assignments++;
