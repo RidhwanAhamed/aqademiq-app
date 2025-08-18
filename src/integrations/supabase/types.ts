@@ -500,6 +500,45 @@ export type Database = {
         }
         Relationships: []
       }
+      google_calendar_channels: {
+        Row: {
+          calendar_id: string
+          channel_id: string
+          created_at: string
+          expiration: string
+          id: string
+          is_active: boolean
+          resource_id: string
+          updated_at: string
+          user_id: string
+          webhook_url: string
+        }
+        Insert: {
+          calendar_id?: string
+          channel_id: string
+          created_at?: string
+          expiration: string
+          id?: string
+          is_active?: boolean
+          resource_id: string
+          updated_at?: string
+          user_id: string
+          webhook_url: string
+        }
+        Update: {
+          calendar_id?: string
+          channel_id?: string
+          created_at?: string
+          expiration?: string
+          id?: string
+          is_active?: boolean
+          resource_id?: string
+          updated_at?: string
+          user_id?: string
+          webhook_url?: string
+        }
+        Relationships: []
+      }
       google_calendar_settings: {
         Row: {
           calendar_id: string | null
@@ -534,6 +573,51 @@ export type Database = {
           sync_enabled?: boolean
           sync_exams?: boolean
           sync_schedule_blocks?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      google_event_mappings: {
+        Row: {
+          created_at: string
+          entity_id: string
+          entity_type: string
+          google_calendar_id: string
+          google_event_id: string
+          google_event_updated: string | null
+          id: string
+          last_synced_at: string
+          local_event_updated: string | null
+          sync_hash: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          entity_id: string
+          entity_type: string
+          google_calendar_id?: string
+          google_event_id: string
+          google_event_updated?: string | null
+          id?: string
+          last_synced_at?: string
+          local_event_updated?: string | null
+          sync_hash?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          entity_id?: string
+          entity_type?: string
+          google_calendar_id?: string
+          google_event_id?: string
+          google_event_updated?: string | null
+          id?: string
+          last_synced_at?: string
+          local_event_updated?: string | null
+          sync_hash?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -1196,6 +1280,57 @@ export type Database = {
           },
         ]
       }
+      sync_operations: {
+        Row: {
+          completed_at: string | null
+          conflict_data: Json | null
+          created_at: string
+          entity_id: string
+          entity_type: string
+          error_message: string | null
+          google_event_id: string | null
+          id: string
+          last_attempted_at: string | null
+          operation_status: string
+          operation_type: string
+          retry_count: number
+          sync_direction: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          conflict_data?: Json | null
+          created_at?: string
+          entity_id: string
+          entity_type: string
+          error_message?: string | null
+          google_event_id?: string | null
+          id?: string
+          last_attempted_at?: string | null
+          operation_status?: string
+          operation_type: string
+          retry_count?: number
+          sync_direction: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          conflict_data?: Json | null
+          created_at?: string
+          entity_id?: string
+          entity_type?: string
+          error_message?: string | null
+          google_event_id?: string | null
+          id?: string
+          last_attempted_at?: string | null
+          operation_status?: string
+          operation_type?: string
+          retry_count?: number
+          sync_direction?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       tasks: {
         Row: {
           assignment_id: string | null
@@ -1355,6 +1490,10 @@ export type Database = {
       generate_revision_tasks_for_exam: {
         Args: { p_exam_id: string; p_user_id: string }
         Returns: undefined
+      }
+      generate_sync_hash: {
+        Args: { entity_data: Json; entity_type: string }
+        Returns: string
       }
       get_schedule_for_date_range: {
         Args: { p_end_date: string; p_start_date: string; p_user_id: string }
