@@ -27,6 +27,16 @@ serve(async (req) => {
     console.log('Google OAuth method:', req.method);
     console.log('Google OAuth action from URL:', action);
 
+    // Basic rate limiting for OAuth endpoints
+    const clientIp = req.headers.get('x-forwarded-for') || 'unknown';
+    if (!checkRateLimit(clientIp, 30, 60000)) { // 30 requests per minute per IP
+      console.log(`Rate limit exceeded for IP: ${clientIp}`);
+      return new Response(JSON.stringify({ error: 'Rate limit exceeded' }), {
+        status: 429,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     // Try to get action from request body if not in URL
     let requestBody = null;
     if (req.method === 'POST' && req.headers.get('content-type')?.includes('application/json')) {
