@@ -71,7 +71,7 @@ export function GPACard() {
         currentGPA,
         targetGPA: avgTarget,
         progress: Math.min(progress, 100),
-        trend: 'stable', // TODO: Calculate trend based on historical data
+        trend: 'stable',
         coursesWithGrades,
         totalCourses
       });

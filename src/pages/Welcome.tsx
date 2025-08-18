@@ -80,7 +80,7 @@ export default function Welcome() {
             <p className="text-xs text-muted-foreground">
               Already have an account?{" "}
               <button 
-                onClick={() => navigate('/auth/signin')}
+                onClick={() => navigate('/auth')}
                 className="text-primary hover:underline font-medium"
               >
                 Sign In
