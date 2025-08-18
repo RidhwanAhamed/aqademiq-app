@@ -14,6 +14,134 @@ export type Database = {
   }
   public: {
     Tables: {
+      academic_goals: {
+        Row: {
+          achieved_at: string | null
+          course_id: string | null
+          created_at: string
+          current_value: number | null
+          goal_description: string | null
+          goal_title: string
+          goal_type: string
+          id: string
+          is_achieved: boolean | null
+          is_active: boolean | null
+          priority: number | null
+          target_date: string | null
+          target_value: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          achieved_at?: string | null
+          course_id?: string | null
+          created_at?: string
+          current_value?: number | null
+          goal_description?: string | null
+          goal_title: string
+          goal_type: string
+          id?: string
+          is_achieved?: boolean | null
+          is_active?: boolean | null
+          priority?: number | null
+          target_date?: string | null
+          target_value: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          achieved_at?: string | null
+          course_id?: string | null
+          created_at?: string
+          current_value?: number | null
+          goal_description?: string | null
+          goal_title?: string
+          goal_type?: string
+          id?: string
+          is_achieved?: boolean | null
+          is_active?: boolean | null
+          priority?: number | null
+          target_date?: string | null
+          target_value?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "academic_goals_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      academic_insights: {
+        Row: {
+          action_items: Json | null
+          confidence_score: number | null
+          created_at: string
+          expires_at: string | null
+          id: string
+          insight_description: string
+          insight_title: string
+          insight_type: string
+          is_dismissed: boolean | null
+          is_read: boolean | null
+          related_assignment_id: string | null
+          related_course_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          action_items?: Json | null
+          confidence_score?: number | null
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          insight_description: string
+          insight_title: string
+          insight_type: string
+          is_dismissed?: boolean | null
+          is_read?: boolean | null
+          related_assignment_id?: string | null
+          related_course_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          action_items?: Json | null
+          confidence_score?: number | null
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          insight_description?: string
+          insight_title?: string
+          insight_type?: string
+          is_dismissed?: boolean | null
+          is_read?: boolean | null
+          related_assignment_id?: string | null
+          related_course_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "academic_insights_related_assignment_id_fkey"
+            columns: ["related_assignment_id"]
+            isOneToOne: false
+            referencedRelation: "assignments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "academic_insights_related_course_id_fkey"
+            columns: ["related_course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_insights_history: {
         Row: {
           ai_response: Json
@@ -573,6 +701,50 @@ export type Database = {
         }
         Relationships: []
       }
+      performance_analytics: {
+        Row: {
+          calculation_date: string
+          course_id: string | null
+          created_at: string
+          id: string
+          metadata: Json | null
+          metric_type: string
+          metric_value: number
+          time_period: string
+          user_id: string
+        }
+        Insert: {
+          calculation_date?: string
+          course_id?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          metric_type: string
+          metric_value: number
+          time_period: string
+          user_id: string
+        }
+        Update: {
+          calculation_date?: string
+          course_id?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          metric_type?: string
+          metric_value?: number
+          time_period?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "performance_analytics_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string | null
@@ -882,6 +1054,72 @@ export type Database = {
         }
         Relationships: []
       }
+      study_session_analytics: {
+        Row: {
+          break_duration_minutes: number | null
+          course_id: string | null
+          created_at: string
+          distraction_count: number | null
+          effective_study_minutes: number | null
+          focus_intervals: Json | null
+          id: string
+          notes: string | null
+          productivity_score: number | null
+          session_date: string
+          session_id: string | null
+          session_rating: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          break_duration_minutes?: number | null
+          course_id?: string | null
+          created_at?: string
+          distraction_count?: number | null
+          effective_study_minutes?: number | null
+          focus_intervals?: Json | null
+          id?: string
+          notes?: string | null
+          productivity_score?: number | null
+          session_date?: string
+          session_id?: string | null
+          session_rating?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          break_duration_minutes?: number | null
+          course_id?: string | null
+          created_at?: string
+          distraction_count?: number | null
+          effective_study_minutes?: number | null
+          focus_intervals?: Json | null
+          id?: string
+          notes?: string | null
+          productivity_score?: number | null
+          session_date?: string
+          session_id?: string | null
+          session_rating?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "study_session_analytics_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "study_session_analytics_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "study_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       study_sessions: {
         Row: {
           actual_end: string | null
@@ -1087,6 +1325,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      calculate_performance_metrics: {
+        Args: { p_course_id?: string; p_user_id: string }
+        Returns: undefined
+      }
       calculate_user_gpa: {
         Args: { p_user_id: string }
         Returns: number
