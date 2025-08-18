@@ -93,6 +93,7 @@ export function AdaAIChat() {
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   const [showAccessibility, setShowAccessibility] = useState(false);
+  const [welcomeMessageShown, setWelcomeMessageShown] = useState(false);
   
   // Accessibility state
   const [accessibilitySettings, setAccessibilitySettings] = useState<AccessibilitySettings>({
@@ -110,12 +111,25 @@ export function AdaAIChat() {
   const MESSAGE_LIMIT = 10;
 
   useEffect(() => {
-    // Clear everything when component is refreshed/reset
+    // Clear everything when component is refreshed/reset and show welcome message
     setMessages([]);
     setConflicts([]);
     setMessageCount(0);
     setInputMessage('');
-  }, []);
+    
+    // Show Ada's welcome message
+    if (!welcomeMessageShown && user) {
+      const welcomeMessage: ChatMessage = {
+        id: `welcome-${Date.now()}`,
+        message: `👋 Hi there! I'm Ada AI, your personal study strategist and productivity engine.\n\nI'm here to help you:\n• **Plan & organize** your academic schedule\n• **Break down** large assignments into manageable tasks\n• **Detect conflicts** and suggest solutions\n• **Parse syllabi & timetables** from files you upload\n• **Optimize** your study sessions for maximum effectiveness\n\nJust ask me things like:\n- "Help me plan for my exam next Friday"\n- "Optimize my schedule this week"\n- "I missed yesterday's study session, what now?"\n\nOr simply **upload your syllabus** and I'll structure it into your calendar automatically! 📚✨`,
+        is_user: false,
+        created_at: new Date().toISOString(),
+        metadata: { welcome: true }
+      };
+      setMessages([welcomeMessage]);
+      setWelcomeMessageShown(true);
+    }
+  }, [user, welcomeMessageShown]);
 
   useEffect(() => {
     scrollToBottom();
