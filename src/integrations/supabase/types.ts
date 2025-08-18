@@ -333,6 +333,78 @@ export type Database = {
         }
         Relationships: []
       }
+      google_calendar_settings: {
+        Row: {
+          calendar_id: string | null
+          created_at: string
+          id: string
+          last_sync_at: string | null
+          sync_assignments: boolean
+          sync_enabled: boolean
+          sync_exams: boolean
+          sync_schedule_blocks: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          calendar_id?: string | null
+          created_at?: string
+          id?: string
+          last_sync_at?: string | null
+          sync_assignments?: boolean
+          sync_enabled?: boolean
+          sync_exams?: boolean
+          sync_schedule_blocks?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          calendar_id?: string | null
+          created_at?: string
+          id?: string
+          last_sync_at?: string | null
+          sync_assignments?: boolean
+          sync_enabled?: boolean
+          sync_exams?: boolean
+          sync_schedule_blocks?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      google_tokens: {
+        Row: {
+          access_token: string
+          created_at: string
+          expires_at: string
+          id: string
+          refresh_token: string | null
+          scope: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          access_token: string
+          created_at?: string
+          expires_at: string
+          id?: string
+          refresh_token?: string | null
+          scope: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          access_token?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          refresh_token?: string | null
+          scope?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       holiday_periods: {
         Row: {
           created_at: string | null

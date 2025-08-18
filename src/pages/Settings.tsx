@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ThemeCustomizer } from "@/components/ThemeCustomizer";
 import { NotificationSettings } from "@/components/NotificationSettings";
+import { GoogleCalendarSettings } from "@/components/GoogleCalendarSettings";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -149,6 +150,7 @@ export default function Settings() {
 
       <div className="space-y-6">
         <NotificationSettings />
+        <GoogleCalendarSettings />
         
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Profile Settings */}
