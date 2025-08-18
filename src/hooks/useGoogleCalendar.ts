@@ -224,7 +224,7 @@ export function useGoogleCalendar() {
 
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('google-calendar-sync', {
+      const { data, error } = await supabase.functions.invoke('enhanced-google-calendar-sync', {
         body: { action: 'full-sync', userId: user.id }
       });
 
@@ -234,14 +234,41 @@ export function useGoogleCalendar() {
       setSettings(prev => prev ? { ...prev, last_sync_at: new Date().toISOString() } : null);
 
       toast({
-        title: "Sync Complete",
-        description: `Successfully synced your academic data to Google Calendar.`,
+        title: "Bi-Directional Sync Complete",
+        description: `Successfully synced your academic data with Google Calendar in both directions.`,
       });
     } catch (error) {
-      console.error('Error syncing to Google Calendar:', error);
+      console.error('Error syncing with Google Calendar:', error);
       toast({
         title: "Sync Failed",
         description: "Failed to sync with Google Calendar. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const setupWebhook = async () => {
+    if (!user || !tokenStatus.isConnected) return;
+
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('enhanced-google-calendar-sync', {
+        body: { action: 'setup-webhook', userId: user.id }
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Real-Time Sync Enabled",
+        description: "Google Calendar changes will now sync automatically to your app.",
+      });
+    } catch (error) {
+      console.error('Error setting up webhook:', error);
+      toast({
+        title: "Webhook Setup Failed",
+        description: "Failed to enable real-time sync. Manual sync is still available.",
         variant: "destructive",
       });
     } finally {
@@ -257,5 +284,6 @@ export function useGoogleCalendar() {
     disconnectFromGoogle,
     updateSettings,
     syncNow,
+    setupWebhook,
   };
 }
