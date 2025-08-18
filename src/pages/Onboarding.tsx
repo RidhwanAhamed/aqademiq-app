@@ -202,22 +202,32 @@ export default function Onboarding() {
   const onPreferencesSubmit = async (data: PreferencesData) => {
     setIsLoading(true);
     try {
-      // Update user stats with preferences
+      if (!user?.id) {
+        throw new Error('User not authenticated');
+      }
+
+      // Update user stats with preferences using proper conflict resolution
       const { error } = await supabase
         .from('user_stats')
         .upsert({
-          user_id: user?.id,
+          user_id: user.id,
           weekly_study_goal: parseInt(data.weeklyStudyHours || '10'),
-          study_goals: data.studyGoals,
+        }, {
+          onConflict: 'user_id'
         });
 
-      if (error) throw error;
+      if (error) {
+        console.error('User stats upsert error:', error);
+        throw error;
+      }
+      
       nextStep();
     } catch (error) {
+      console.error('Preferences submission error:', error);
       // Handle preferences save error gracefully
       toast({
         title: "Error saving preferences",
-        description: "Please try again.",
+        description: error instanceof Error ? error.message : "Please try again.",
         variant: "destructive",
       });
     } finally {
