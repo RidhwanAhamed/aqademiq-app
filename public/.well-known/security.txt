@@ -1,0 +1,22 @@
+Contact: security@studyplanner.app
+Preferred-Languages: en
+Canonical: https://studyplanner.app/.well-known/security.txt
+Policy: https://studyplanner.app/security-policy
+Hiring: https://studyplanner.app/careers
+
+We take security seriously. If you discover a security vulnerability, please report it responsibly:
+
+1. Email us at security@studyplanner.app with details
+2. Allow us reasonable time to investigate and address the issue  
+3. Do not publicly disclose the vulnerability until we've had a chance to fix it
+4. We appreciate responsible disclosure and will acknowledge your contribution
+
+Scope: This policy applies to all StudyPlanner services and web applications.
+
+Out of scope:
+- Social engineering attacks
+- Physical attacks against our infrastructure
+- Denial of service attacks
+- Reports of spam or phishing not directly related to our platform
+
+Thank you for helping keep StudyPlanner secure!

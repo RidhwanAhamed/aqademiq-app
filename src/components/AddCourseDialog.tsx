@@ -29,11 +29,18 @@ import { toast } from "@/hooks/use-toast";
 import { useCourses, useSemesters } from "@/hooks/useCourses";
 
 const courseSchema = z.object({
-  name: z.string().min(1, "Course name is required"),
-  code: z.string().optional(),
+  name: z.string()
+    .min(1, "Course name is required")
+    .max(100, "Course name too long")
+    .regex(/^[a-zA-Z0-9\s\-_&.()]+$/, "Course name contains invalid characters"),
+  code: z.string()
+    .optional()
+    .refine(val => !val || /^[A-Z0-9\s\-]+$/i.test(val), "Course code contains invalid characters"),
   semester_id: z.string().min(1, "Please select a semester"),
   credits: z.number().min(1).max(10),
-  instructor: z.string().optional(),
+  instructor: z.string()
+    .optional()
+    .refine(val => !val || /^[a-zA-Z\s\-.']+$/.test(val), "Instructor name contains invalid characters"),
   color: z.string().min(1, "Please select a color"),
   target_grade: z.string().optional(),
 });

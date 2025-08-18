@@ -1,4 +1,7 @@
 import { useState } from 'react';
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,6 +16,22 @@ import { cn } from '@/lib/utils';
 import { useExams } from '@/hooks/useExams';
 import { useCourses } from '@/hooks/useCourses';
 import { useToast } from '@/hooks/use-toast';
+
+const examSchema = z.object({
+  title: z.string()
+    .min(1, "Exam title is required")
+    .max(200, "Title too long")
+    .regex(/^[a-zA-Z0-9\s\-_&.()#:]+$/, "Title contains invalid characters"),
+  course_id: z.string().min(1, "Please select a course"),
+  exam_date: z.date(),
+  location: z.string()
+    .max(100, "Location too long")
+    .optional()
+    .refine(val => !val || /^[a-zA-Z0-9\s\-_&.()#]+$/.test(val), "Location contains invalid characters"),
+  exam_type: z.string(),
+  duration_minutes: z.number().min(30).max(480),
+  notes: z.string().max(500, "Notes too long").optional(),
+});
 
 interface AddExamDialogProps {
   open: boolean;
