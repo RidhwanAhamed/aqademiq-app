@@ -11,7 +11,8 @@ import {
   ChevronRight,
   Bot,
   LogOut,
-  TrendingUp
+  TrendingUp,
+  Sparkles
 } from "lucide-react";
 import { useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
@@ -43,6 +44,7 @@ const mainItems: NavItem[] = [
   { title: "Dashboard", url: "/", icon: Home },
   { title: "Calendar", url: "/calendar", icon: Calendar },
   { title: "Ada", url: "/studysage", icon: Bot, badge: "Beta" },
+  { title: "Enhanced Ada", url: "/ada", icon: Sparkles, badge: "New" },
   { title: "Courses", url: "/courses", icon: BookOpen },
   { title: "Assignments", url: "/assignments", icon: Target },
   { title: "Study Timer", url: "/timer", icon: Clock },
