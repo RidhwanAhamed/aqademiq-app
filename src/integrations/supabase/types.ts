@@ -1506,7 +1506,9 @@ export type Database = {
         Returns: undefined
       }
       calculate_performance_metrics: {
-        Args: { p_course_id?: string; p_user_id: string }
+        Args:
+          | { p_course_id?: string; p_user_id: string }
+          | { p_user_id: string }
         Returns: undefined
       }
       calculate_user_gpa: {
