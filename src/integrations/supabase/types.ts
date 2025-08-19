@@ -1496,6 +1496,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      audit_profile_access: {
+        Args: {
+          p_accessed_profile_id: string
+          p_action: string
+          p_fields_accessed?: Json
+          p_user_id: string
+        }
+        Returns: undefined
+      }
       calculate_performance_metrics: {
         Args: { p_course_id?: string; p_user_id: string }
         Returns: undefined
@@ -1503,6 +1512,15 @@ export type Database = {
       calculate_user_gpa: {
         Args: { p_user_id: string }
         Returns: number
+      }
+      check_operation_rate_limit: {
+        Args: {
+          p_max_operations?: number
+          p_operation_type: string
+          p_user_id: string
+          p_window_minutes?: number
+        }
+        Returns: boolean
       }
       decrypt_token: {
         Args: { p_encrypted_token: string }
@@ -1610,6 +1628,20 @@ export type Database = {
         }
         Returns: undefined
       }
+      mask_sensitive_data: {
+        Args: { input_text: string }
+        Returns: string
+      }
+      monitor_suspicious_activity: {
+        Args: { p_user_id?: string }
+        Returns: {
+          alert_message: string
+          alert_type: string
+          event_count: number
+          last_occurrence: string
+          risk_score: number
+        }[]
+      }
       revoke_google_tokens: {
         Args: { p_user_id?: string }
         Returns: boolean
@@ -1635,6 +1667,18 @@ export type Database = {
       update_user_study_stats: {
         Args: { p_study_hours: number; p_user_id: string }
         Returns: undefined
+      }
+      validate_oauth_state: {
+        Args: {
+          p_max_age_minutes?: number
+          p_state_token: string
+          p_user_id: string
+        }
+        Returns: boolean
+      }
+      validate_redirect_uri: {
+        Args: { p_allowed_domains?: string[]; p_redirect_uri: string }
+        Returns: boolean
       }
     }
     Enums: {
