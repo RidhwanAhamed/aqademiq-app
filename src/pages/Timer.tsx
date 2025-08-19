@@ -79,20 +79,20 @@ export default function Timer() {
             // Update user stats with the study session duration
             const durationHours = sessionDuration / 60; // Convert minutes to hours
             
-            const { data: currentStats } = await supabase
-              .from('user_stats')
-              .select('total_study_hours')
-              .eq('user_id', user.id)
-              .maybeSingle();
-
-            await supabase
-              .from('user_stats')
-              .upsert({
-                user_id: user.id,
-                total_study_hours: (currentStats?.total_study_hours || 0) + durationHours,
-                last_study_date: new Date().toISOString().split('T')[0],
-                updated_at: new Date().toISOString()
-              });
+            try {
+              // Use the database function to update study stats
+              const { error: statsError } = await supabase
+                .rpc('update_user_study_stats', {
+                  p_user_id: user.id,
+                  p_study_hours: durationHours
+                });
+              
+              if (statsError) {
+                console.error('Error updating study stats:', statsError);
+              }
+            } catch (err) {
+              console.error('Error updating study stats:', err);
+            }
           }
         }
       }
