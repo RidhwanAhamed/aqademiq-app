@@ -40,6 +40,7 @@ type AcademicSetupData = z.infer<typeof academicSetupSchema>;
 type PreferencesData = z.infer<typeof preferencesSchema>;
 
 const ONBOARDING_STEPS = [
+  { id: 'verification', title: 'Email Verification', description: 'Verify your account' },
   { id: 'personal', title: 'Personal Information', description: 'Tell us about yourself' },
   { id: 'academic', title: 'Academic Setup', description: 'Configure your semester' },
   { id: 'preferences', title: 'Goals & Preferences', description: 'Customize your experience' },
@@ -265,8 +266,8 @@ export default function Onboarding() {
         description: "Your account has been set up successfully.",
       });
 
-      // Navigate to dashboard immediately instead of waiting
-      navigate('/');
+      // Force a page reload to ensure proper navigation
+      window.location.href = '/';
     } catch (error) {
       console.error('Onboarding completion error:', error);
       
@@ -279,8 +280,8 @@ export default function Onboarding() {
         description: "Setup completed! Redirecting to dashboard...",
       });
 
-      // Still navigate to dashboard as fallback
-      navigate('/');
+      // Force navigation as fallback
+      window.location.href = '/';
     } finally {
       setIsLoading(false);
     }
