@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useSecurityMonitoring } from '@/hooks/useSecurityMonitoring';
 
 interface GoogleCalendarSettings {
   sync_enabled: boolean;
@@ -19,6 +20,12 @@ interface GoogleTokenStatus {
 export function useGoogleCalendar() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { 
+    checkRateLimit, 
+    logSecurityEvent, 
+    validateRedirectUri,
+    validateOAuthState 
+  } = useSecurityMonitoring();
   const [settings, setSettings] = useState<GoogleCalendarSettings | null>(null);
   const [tokenStatus, setTokenStatus] = useState<GoogleTokenStatus>({
     isConnected: false,
@@ -62,9 +69,34 @@ export function useGoogleCalendar() {
   const connectToGoogle = async () => {
     if (!user) return;
 
+    // Security: Check rate limits
+    const canConnect = await checkRateLimit('oauth_connect_attempt');
+    if (!canConnect) {
+      toast({
+        title: "Rate Limited",
+        description: "Too many connection attempts. Please wait before trying again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
     try {
       const redirectUri = `${window.location.origin}/auth/callback`;
+      
+      // Security: Validate redirect URI
+      const isValidUri = await validateRedirectUri(redirectUri);
+      if (!isValidUri) {
+        throw new Error('Invalid redirect URI detected');
+      }
+
+      // Log OAuth initiation for security monitoring
+      await logSecurityEvent(
+        'oauth_connection_initiated', 
+        'oauth_flow', 
+        user.id,
+        { redirect_uri: redirectUri }
+      );
       
       const { data, error } = await supabase.functions.invoke('google-oauth', {
         body: { action: 'authorize', redirectUri }
@@ -73,6 +105,14 @@ export function useGoogleCalendar() {
       if (error) {
         console.error('Error from google-oauth function:', error);
         throw new Error(error.message || 'Failed to get authorization URL');
+      }
+
+      // Security: Validate state parameter if returned
+      if (data.state) {
+        const isValidState = await validateOAuthState(data.state);
+        if (!isValidState) {
+          throw new Error('Invalid OAuth state parameter');
+        }
       }
 
       // Open Google OAuth in a new window
@@ -86,22 +126,34 @@ export function useGoogleCalendar() {
         throw new Error('Failed to open authentication window. Please allow popups for this site.');
       }
 
-      // Listen for the auth completion
+      // Listen for the auth completion with enhanced security
       const handleAuthComplete = (event: MessageEvent) => {
-        if (event.origin !== window.location.origin) return;
+        // Security: Validate message origin
+        if (event.origin !== window.location.origin) {
+          console.warn('Ignored message from invalid origin:', event.origin);
+          return;
+        }
         
         if (event.data.type === 'GOOGLE_AUTH_SUCCESS') {
           authWindow?.close();
           window.removeEventListener('message', handleAuthComplete);
           clearInterval(checkClosed);
           
-          // Handle the auth code
-          handleAuthCallback(event.data.code);
+          // Handle the auth code with state validation
+          handleAuthCallback(event.data.code, data.state);
         } else if (event.data.type === 'GOOGLE_AUTH_ERROR') {
           authWindow?.close();
           window.removeEventListener('message', handleAuthComplete);
           clearInterval(checkClosed);
           setLoading(false);
+          
+          // Log OAuth error for security monitoring
+          logSecurityEvent(
+            'oauth_authentication_failed',
+            'oauth_flow',
+            user.id,
+            { error: event.data.error }
+          );
           
           toast({
             title: "Authentication Failed",
@@ -120,6 +172,14 @@ export function useGoogleCalendar() {
           window.removeEventListener('message', handleAuthComplete);
           setLoading(false);
           
+          // Log manual cancellation
+          logSecurityEvent(
+            'oauth_authentication_cancelled',
+            'oauth_flow',
+            user.id,
+            { reason: 'window_closed_manually' }
+          );
+          
           toast({
             title: "Authentication Cancelled",
             description: "Google Calendar connection was cancelled.",
@@ -129,6 +189,18 @@ export function useGoogleCalendar() {
       }, 1000);
     } catch (error) {
       console.error('Error connecting to Google:', error);
+      
+      // Log connection error
+      await logSecurityEvent(
+        'oauth_connection_error',
+        'oauth_flow',
+        user.id,
+        { 
+          error: error instanceof Error ? error.message : 'unknown_error',
+          timestamp: new Date().toISOString()
+        }
+      );
+      
       const errorMessage = error instanceof Error ? error.message : "Failed to connect to Google Calendar. Please try again.";
       toast({
         title: "Connection Failed",
@@ -139,16 +211,31 @@ export function useGoogleCalendar() {
     }
   };
 
-  const handleAuthCallback = async (code: string) => {
+  const handleAuthCallback = async (code: string, state?: string) => {
     if (!user) return;
 
     try {
+      // Security: Validate state parameter if provided
+      if (state) {
+        const isValidState = await validateOAuthState(state);
+        if (!isValidState) {
+          await logSecurityEvent(
+            'oauth_invalid_state_detected',
+            'security_incident',
+            user.id,
+            { state_token: state }
+          );
+          throw new Error('Invalid OAuth state - security validation failed');
+        }
+      }
+
       const { data, error } = await supabase.functions.invoke('google-oauth', {
         body: { 
           action: 'callback', 
           code, 
           userId: user.id,
-          redirectUri: `${window.location.origin}/auth/callback`
+          redirectUri: `${window.location.origin}/auth/callback`,
+          state // Include state for server-side validation
         }
       });
 
@@ -179,12 +266,32 @@ export function useGoogleCalendar() {
         });
       }
 
+      // Log successful OAuth completion
+      await logSecurityEvent(
+        'oauth_connection_completed',
+        'oauth_flow',
+        user.id,
+        { timestamp: new Date().toISOString() }
+      );
+
       toast({
         title: "Connected Successfully",
         description: "Google Calendar has been connected to your account.",
       });
     } catch (error) {
       console.error('Error handling auth callback:', error);
+      
+      // Log callback error
+      await logSecurityEvent(
+        'oauth_callback_error',
+        'oauth_flow',
+        user.id,
+        { 
+          error: error instanceof Error ? error.message : 'unknown_error',
+          code_length: code?.length || 0
+        }
+      );
+      
       const errorMessage = error instanceof Error ? error.message : "Failed to complete Google Calendar connection.";
       toast({
         title: "Connection Failed",

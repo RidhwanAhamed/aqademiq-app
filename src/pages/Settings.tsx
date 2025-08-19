@@ -4,10 +4,12 @@ import { ThemeCustomizer } from "@/components/ThemeCustomizer";
 import { NotificationSettings } from "@/components/NotificationSettings";
 import { GoogleCalendarSettings } from "@/components/GoogleCalendarSettings";
 import { EnhancedNotificationSettings } from "@/components/EnhancedNotificationSettings";
+import { SecurityMonitorDashboard } from "@/components/SecurityMonitorDashboard";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Settings as SettingsIcon, User, Bell, Palette, Moon, Sun, Monitor } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Settings as SettingsIcon, User, Bell, Palette, Shield, Moon, Sun, Monitor } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useTheme } from "next-themes";
 import { useState, useEffect } from "react";
@@ -149,87 +151,116 @@ export default function Settings() {
         </div>
       </div>
 
-      <div className="space-y-6">
-        <EnhancedNotificationSettings />
-        <GoogleCalendarSettings />
-        
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Profile Settings */}
-        <Card className="bg-gradient-card">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <User className="w-5 h-5" />
-              Profile
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Full Name</Label>
-              <Input 
-                id="name" 
-                placeholder="Your full name" 
-                value={profile.full_name}
-                onChange={(e) => setProfile(prev => ({ ...prev, full_name: e.target.value }))}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input 
-                id="email" 
-                type="email" 
-                placeholder="your@email.com"
-                value={profile.email}
-                onChange={(e) => setProfile(prev => ({ ...prev, email: e.target.value }))}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="timezone">Timezone</Label>
-              <Input 
-                id="timezone" 
-                placeholder="UTC"
-                value={profile.timezone}
-                onChange={(e) => setProfile(prev => ({ ...prev, timezone: e.target.value }))}
-              />
-            </div>
-            <Button 
-              className="w-full bg-gradient-primary hover:opacity-90"
-              onClick={saveProfile}
-              disabled={loading}
-            >
-              {loading ? "Saving..." : "Save Changes"}
-            </Button>
-          </CardContent>
-        </Card>
+      <Tabs defaultValue="general" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="general" className="flex items-center gap-2">
+            <User className="w-4 h-4" />
+            General
+          </TabsTrigger>
+          <TabsTrigger value="notifications" className="flex items-center gap-2">
+            <Bell className="w-4 h-4" />
+            Notifications
+          </TabsTrigger>
+          <TabsTrigger value="appearance" className="flex items-center gap-2">
+            <Palette className="w-4 h-4" />
+            Appearance
+          </TabsTrigger>
+          <TabsTrigger value="security" className="flex items-center gap-2">
+            <Shield className="w-4 h-4" />
+            Security
+          </TabsTrigger>
+        </TabsList>
 
+        <TabsContent value="general" className="space-y-6">
+          <GoogleCalendarSettings />
+          
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Profile Settings */}
+            <Card className="bg-gradient-card">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <User className="w-5 h-5" />
+                  Profile
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Full Name</Label>
+                  <Input 
+                    id="name" 
+                    placeholder="Your full name" 
+                    value={profile.full_name}
+                    onChange={(e) => setProfile(prev => ({ ...prev, full_name: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input 
+                    id="email" 
+                    type="email" 
+                    placeholder="your@email.com"
+                    value={profile.email}
+                    onChange={(e) => setProfile(prev => ({ ...prev, email: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="timezone">Timezone</Label>
+                  <Input 
+                    id="timezone" 
+                    placeholder="UTC"
+                    value={profile.timezone}
+                    onChange={(e) => setProfile(prev => ({ ...prev, timezone: e.target.value }))}
+                  />
+                </div>
+                <Button 
+                  className="w-full bg-gradient-primary hover:opacity-90"
+                  onClick={saveProfile}
+                  disabled={loading}
+                >
+                  {loading ? "Saving..." : "Save Changes"}
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Account Actions */}
+            <Card className="bg-gradient-card">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <SettingsIcon className="w-5 h-5" />
+                  Account
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Button variant="outline" className="w-full" onClick={exportData}>
+                  Export Data
+                </Button>
+                <Button variant="outline" className="w-full">
+                  Reset All Data
+                </Button>
+                <Button 
+                  variant="destructive" 
+                  className="w-full"
+                  onClick={() => signOut()}
+                >
+                  Sign Out
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="notifications" className="space-y-6">
+          <EnhancedNotificationSettings />
+        </TabsContent>
+
+        <TabsContent value="appearance" className="space-y-6">
           <ThemeCustomizer />
+        </TabsContent>
 
-
-        {/* Account Actions */}
-        <Card className="bg-gradient-card">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <SettingsIcon className="w-5 h-5" />
-              Account
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Button variant="outline" className="w-full" onClick={exportData}>
-              Export Data
-            </Button>
-            <Button variant="outline" className="w-full">
-              Reset All Data
-            </Button>
-            <Button 
-              variant="destructive" 
-              className="w-full"
-              onClick={() => signOut()}
-            >
-              Sign Out
-            </Button>
-          </CardContent>
-        </Card>
-        </div>
-      </div>
+        <TabsContent value="security" className="space-y-6">
+          <SecurityMonitorDashboard />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
