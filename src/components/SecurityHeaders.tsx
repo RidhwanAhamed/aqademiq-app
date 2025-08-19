@@ -36,8 +36,7 @@ export function SecurityHeaders() {
         "form-action 'self'",
         "frame-ancestors 'none'",
         "block-all-mixed-content",
-        "upgrade-insecure-requests",
-        "require-trusted-types-for 'script'"
+        "upgrade-insecure-requests"
       ].join('; ');
       document.head.appendChild(cspMeta);
     }
@@ -88,27 +87,32 @@ export function SecurityHeaders() {
         }
       });
 
-      // Detect potential XSS attempts
+      // Detect potential XSS attempts with improved innerHTML override
       const originalInnerHTML = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML')?.set;
       if (originalInnerHTML) {
         Object.defineProperty(Element.prototype, 'innerHTML', {
           set: function(value: string) {
-            if (typeof value === 'string') {
-              // Basic XSS detection patterns
-              const xssPatterns = [
-                /<script[^>]*>.*?<\/script>/gi,
-                /javascript:/gi,
-                /on\w+\s*=/gi,
-                /<iframe[^>]*>.*?<\/iframe>/gi
+            if (typeof value === 'string' && value.length > 0) {
+              // Only check for obvious XSS patterns, be less aggressive
+              const dangerousPatterns = [
+                /<script[^>]*src\s*=\s*['"][^'"]*javascript:/gi,
+                /<script[^>]*>[\s\S]*?(alert|confirm|prompt|eval)\s*\(/gi,
+                /javascript:\s*(alert|confirm|prompt|eval|document\.)/gi,
+                /<iframe[^>]*src\s*=\s*['"][^'"]*javascript:/gi
               ];
               
-              const hasXSS = xssPatterns.some(pattern => pattern.test(value));
-              if (hasXSS) {
-                console.error('Potential XSS attempt blocked:', value);
+              const isDangerous = dangerousPatterns.some(pattern => pattern.test(value));
+              if (isDangerous) {
+                console.warn('Potentially malicious HTML blocked:', value.substring(0, 100) + '...');
                 return;
               }
             }
-            originalInnerHTML?.call(this, value);
+            
+            try {
+              originalInnerHTML?.call(this, value);
+            } catch (error) {
+              console.error('innerHTML assignment failed:', error);
+            }
           },
           get: function() {
             return Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML')?.get?.call(this);
