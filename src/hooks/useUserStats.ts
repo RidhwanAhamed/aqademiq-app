@@ -170,6 +170,47 @@ export function useUserStats() {
     }
   };
 
+  const checkAndUpdateStreak = async () => {
+    if (!user || !stats) return;
+
+    try {
+      const now = new Date();
+      const today = now.toISOString().split('T')[0];
+      const lastStudyDate = stats.last_study_date;
+      
+      let newStreak = stats.current_streak;
+      
+      if (lastStudyDate) {
+        const lastDate = new Date(lastStudyDate);
+        const currentTime = now.getTime();
+        const lastStudyTime = lastDate.getTime();
+        
+        // Check if more than 24 hours have passed since last study
+        const hoursSinceLastStudy = (currentTime - lastStudyTime) / (1000 * 60 * 60);
+        
+        if (hoursSinceLastStudy > 24) {
+          // Reset streak if more than 24 hours have passed
+          newStreak = 0;
+        }
+      }
+
+      // Only update if streak changed
+      if (newStreak !== stats.current_streak) {
+        const { error } = await supabase
+          .from('user_stats')
+          .update({
+            current_streak: newStreak,
+          })
+          .eq('user_id', user.id);
+
+        if (error) throw error;
+        await fetchUserStats();
+      }
+    } catch (error) {
+      console.error('Error checking study streak:', error);
+    }
+  };
+
   const updateStudyStreak = async () => {
     if (!user || !stats) return;
 
@@ -225,7 +266,19 @@ export function useUserStats() {
     };
 
     fetchAllData();
-  }, [user]);
+    
+    // Set up interval to check streak every hour
+    const streakCheckInterval = setInterval(checkAndUpdateStreak, 60 * 60 * 1000);
+    
+    return () => clearInterval(streakCheckInterval);
+  }, [user, stats]);
+
+  // Check streak when stats are first loaded
+  useEffect(() => {
+    if (stats) {
+      checkAndUpdateStreak();
+    }
+  }, [stats]);
 
   return {
     stats,
@@ -234,6 +287,7 @@ export function useUserStats() {
     loading,
     error,
     updateStudyStreak,
+    checkAndUpdateStreak,
     refetch: () => {
       fetchUserStats();
       fetchStudyTimeData();
