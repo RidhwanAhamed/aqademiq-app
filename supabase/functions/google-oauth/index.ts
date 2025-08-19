@@ -79,12 +79,40 @@ serve(async (req) => {
 
     switch (action || 'authorize') {
       case 'authorize': {
-        // Generate Google OAuth URL
+        // Enhanced OAuth Authorization with Security Validations
         const redirectUri = requestBody?.redirectUri;
         
         if (!redirectUri) {
           throw new Error('Missing redirectUri');
         }
+
+        // Validate redirect URI for security
+        const { data: isValidUri, error: validationError } = await supabase
+          .rpc('validate_redirect_uri', { p_redirect_uri: redirectUri });
+
+        if (validationError || !isValidUri) {
+          console.error('Invalid redirect URI:', redirectUri);
+          throw new Error('Invalid redirect URI provided');
+        }
+
+        // Generate cryptographically secure state parameter for CSRF protection
+        const state = Array.from(
+          crypto.getRandomValues(new Uint8Array(32)), 
+          b => b.toString(16).padStart(2, '0')
+        ).join('');
+
+        // Log OAuth initiation for security monitoring
+        await supabase.rpc('log_security_event', {
+          p_action: 'oauth_authorization_started',
+          p_resource_type: 'oauth_flow',
+          p_details: {
+            redirect_uri: redirectUri,
+            state_generated: true,
+            client_ip: req.headers.get('x-forwarded-for') || 'unknown',
+            user_agent: req.headers.get('user-agent') || 'unknown',
+            timestamp: new Date().toISOString()
+          }
+        });
         
         const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
         authUrl.searchParams.set('client_id', googleClientId);
@@ -93,18 +121,78 @@ serve(async (req) => {
         authUrl.searchParams.set('scope', 'https://www.googleapis.com/auth/calendar email profile');
         authUrl.searchParams.set('access_type', 'offline');
         authUrl.searchParams.set('prompt', 'consent');
+        authUrl.searchParams.set('state', state); // Add CSRF protection
 
-        return new Response(JSON.stringify({ authUrl: authUrl.toString() }), {
+        return new Response(JSON.stringify({ 
+          authUrl: authUrl.toString(),
+          state // Return state for client-side validation
+        }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
 
       case 'callback': {
-        // Handle OAuth callback
-        const { code, userId, redirectUri } = requestBody || {};
+        // Enhanced OAuth Callback with Security Validations
+        const { code, userId, redirectUri, state } = requestBody || {};
         
         if (!code || !userId) {
           throw new Error('Missing code or userId');
+        }
+
+        // Validate state parameter for CSRF protection
+        if (state) {
+          const { data: isValidState, error: stateError } = await supabase
+            .rpc('validate_oauth_state', { 
+              p_state_token: state, 
+              p_user_id: userId 
+            });
+
+          if (stateError || !isValidState) {
+            await supabase.rpc('log_security_event', {
+              p_action: 'oauth_csrf_attack_detected',
+              p_resource_type: 'security_incident',
+              p_details: {
+                user_id: userId,
+                invalid_state: state,
+                client_ip: req.headers.get('x-forwarded-for') || 'unknown',
+                timestamp: new Date().toISOString()
+              }
+            });
+            throw new Error('Invalid OAuth state - possible CSRF attack');
+          }
+        }
+
+        // Rate limit OAuth callback attempts
+        const { data: canProceed, error: rateLimitError } = await supabase
+          .rpc('check_operation_rate_limit', {
+            p_user_id: userId,
+            p_operation_type: 'oauth_callback',
+            p_max_operations: 5,
+            p_window_minutes: 15
+          });
+
+        if (rateLimitError || !canProceed) {
+          await supabase.rpc('log_security_event', {
+            p_action: 'oauth_rate_limit_exceeded',
+            p_resource_type: 'security_control',
+            p_details: {
+              user_id: userId,
+              operation: 'oauth_callback',
+              client_ip: req.headers.get('x-forwarded-for') || 'unknown',
+              timestamp: new Date().toISOString()
+            }
+          });
+          throw new Error('OAuth callback rate limit exceeded');
+        }
+
+        // Validate redirect URI
+        if (redirectUri) {
+          const { data: isValidUri, error: uriError } = await supabase
+            .rpc('validate_redirect_uri', { p_redirect_uri: redirectUri });
+
+          if (uriError || !isValidUri) {
+            throw new Error('Invalid redirect URI in callback');
+          }
         }
 
         // Use the provided redirect URI or fall back to a default
