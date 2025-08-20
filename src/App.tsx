@@ -15,6 +15,8 @@ import Onboarding from "./pages/Onboarding";
 import Auth from "./pages/Auth";
 
 import AuthCallback from "./pages/AuthCallback";
+import EmailVerification from "./pages/EmailVerification";
+import PasswordResetConfirm from "./pages/PasswordResetConfirm";
 import Calendar from "./pages/Calendar";
 import Ada from "./pages/Ada";
 import Courses from "./pages/Courses";
@@ -42,6 +44,8 @@ const App = () => (
             <Route path="/onboarding" element={<Onboarding />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
+            <Route path="/auth/verify" element={<EmailVerification />} />
+            <Route path="/auth/reset-password" element={<PasswordResetConfirm />} />
             <Route path="/" element={<AppLayout />}>
               <Route index element={<Index />} />
               <Route path="calendar" element={<Calendar />} />
