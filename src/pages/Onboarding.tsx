@@ -47,11 +47,58 @@ const ONBOARDING_STEPS = [
   { id: 'success', title: 'All Set!', description: 'Welcome to Aqademiq' },
 ];
 
-const TIMEZONES = [
-  'America/New_York', 'America/Chicago', 'America/Denver', 'America/Los_Angeles',
-  'Europe/London', 'Europe/Paris', 'Europe/Berlin', 'Asia/Tokyo', 'Asia/Shanghai',
-  'Australia/Sydney', 'Pacific/Auckland'
+const GMT_TIMEZONES = [
+  { offset: 'GMT-12', label: 'GMT-12', value: 'Etc/GMT+12' },
+  { offset: 'GMT-11', label: 'GMT-11', value: 'Etc/GMT+11' },
+  { offset: 'GMT-10', label: 'GMT-10', value: 'Pacific/Honolulu' },
+  { offset: 'GMT-9', label: 'GMT-9', value: 'America/Anchorage' },
+  { offset: 'GMT-8', label: 'GMT-8', value: 'America/Los_Angeles' },
+  { offset: 'GMT-7', label: 'GMT-7', value: 'America/Denver' },
+  { offset: 'GMT-6', label: 'GMT-6', value: 'America/Chicago' },
+  { offset: 'GMT-5', label: 'GMT-5', value: 'America/New_York' },
+  { offset: 'GMT-4', label: 'GMT-4', value: 'America/Halifax' },
+  { offset: 'GMT-3', label: 'GMT-3', value: 'America/Sao_Paulo' },
+  { offset: 'GMT-2', label: 'GMT-2', value: 'Etc/GMT+2' },
+  { offset: 'GMT-1', label: 'GMT-1', value: 'Atlantic/Azores' },
+  { offset: 'GMT+0', label: 'GMT+0', value: 'Europe/London' },
+  { offset: 'GMT+1', label: 'GMT+1', value: 'Europe/Paris' },
+  { offset: 'GMT+2', label: 'GMT+2', value: 'Europe/Berlin' },
+  { offset: 'GMT+3', label: 'GMT+3', value: 'Europe/Moscow' },
+  { offset: 'GMT+4', label: 'GMT+4', value: 'Asia/Dubai' },
+  { offset: 'GMT+5', label: 'GMT+5', value: 'Asia/Karachi' },
+  { offset: 'GMT+5:30', label: 'GMT+5:30', value: 'Asia/Kolkata' },
+  { offset: 'GMT+6', label: 'GMT+6', value: 'Asia/Dhaka' },
+  { offset: 'GMT+7', label: 'GMT+7', value: 'Asia/Bangkok' },
+  { offset: 'GMT+8', label: 'GMT+8', value: 'Asia/Shanghai' },
+  { offset: 'GMT+9', label: 'GMT+9', value: 'Asia/Tokyo' },
+  { offset: 'GMT+10', label: 'GMT+10', value: 'Australia/Sydney' },
+  { offset: 'GMT+11', label: 'GMT+11', value: 'Pacific/Norfolk' },
+  { offset: 'GMT+12', label: 'GMT+12', value: 'Pacific/Auckland' },
+  { offset: 'GMT+13', label: 'GMT+13', value: 'Pacific/Tongatapu' },
+  { offset: 'GMT+14', label: 'GMT+14', value: 'Pacific/Kiritimati' },
 ];
+
+// Helper function to get user's current GMT offset
+const getUserGMTOffset = () => {
+  const now = new Date();
+  const offset = -now.getTimezoneOffset() / 60;
+  const sign = offset >= 0 ? '+' : '';
+  const hours = Math.floor(Math.abs(offset));
+  const minutes = Math.abs(offset) % 1;
+  
+  if (minutes === 0) {
+    return `GMT${sign}${offset}`;
+  } else {
+    return `GMT${sign}${hours}:30`;
+  }
+};
+
+// Function to find the matching timezone value for user's offset
+const getDefaultTimezone = () => {
+  const userOffset = getUserGMTOffset();
+  const match = GMT_TIMEZONES.find(tz => tz.offset === userOffset);
+  return match ? match.value : 'America/New_York';
+};
 
 export default function Onboarding() {
   const [currentStep, setCurrentStep] = useState(0);
@@ -103,7 +150,7 @@ export default function Onboarding() {
     resolver: zodResolver(personalInfoSchema),
     defaultValues: {
       fullName: '',
-      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/New_York',
+      timezone: getDefaultTimezone(),
     },
   });
 
@@ -349,9 +396,9 @@ export default function Onboarding() {
                   <SelectValue placeholder="Select your timezone" />
                 </SelectTrigger>
                 <SelectContent>
-                  {TIMEZONES.map((tz) => (
-                    <SelectItem key={tz} value={tz}>
-                      {tz.replace('_', ' ')}
+                  {GMT_TIMEZONES.map((tz) => (
+                    <SelectItem key={tz.value} value={tz.value}>
+                      {tz.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
