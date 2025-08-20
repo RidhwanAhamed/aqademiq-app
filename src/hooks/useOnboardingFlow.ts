@@ -18,12 +18,19 @@ export function useOnboardingFlow() {
       }
 
       try {
-        // Check if user has completed profile
+        // Check if user has completed onboarding
         const { data: profile } = await supabase
           .from('profiles')
-          .select('full_name')
+          .select('full_name, onboarding_completed')
           .eq('user_id', user.id)
           .maybeSingle();
+
+        // If onboarding is explicitly marked as completed, skip all checks
+        if (profile?.onboarding_completed) {
+          setHasProfile(true);
+          setHasSemester(true);
+          return;
+        }
 
         const profileComplete = profile?.full_name && profile.full_name.trim() !== '' && profile.full_name !== user.email;
         setHasProfile(profileComplete);

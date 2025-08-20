@@ -478,6 +478,9 @@ export default function Onboarding() {
                     />
                   </PopoverContent>
                 </Popover>
+                {academicForm.formState.errors.startDate && (
+                  <p className="text-sm text-destructive">{academicForm.formState.errors.startDate.message}</p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -510,6 +513,9 @@ export default function Onboarding() {
                     />
                   </PopoverContent>
                 </Popover>
+                {academicForm.formState.errors.endDate && (
+                  <p className="text-sm text-destructive">{academicForm.formState.errors.endDate.message}</p>
+                )}
               </div>
             </div>
 
