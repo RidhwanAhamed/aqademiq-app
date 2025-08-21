@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, Sparkles, Clock, Repeat } from "lucide-react";
+import { CalendarIcon, Sparkles, Clock, Repeat, Loader2, BookOpen, Plus } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -57,8 +57,8 @@ export function AddAssignmentDialog({ open, onOpenChange, onCreated, preselected
   const [isProcessing, setIsProcessing] = useState(false);
 
   const { addAssignment } = useAssignments();
-  const { courses } = useCourses();
-  const { exams } = useExams();
+  const { courses, loading: coursesLoading } = useCourses();
+  const { exams, loading: examsLoading } = useExams();
   const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -137,19 +137,59 @@ export function AddAssignmentDialog({ open, onOpenChange, onCreated, preselected
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="course">Course</Label>
-            <Select value={course} onValueChange={setCourse} required>
-              <SelectTrigger>
-                <SelectValue placeholder="Select a course" />
-              </SelectTrigger>
-              <SelectContent>
-                {courses.map((courseItem) => (
-                  <SelectItem key={courseItem.id} value={courseItem.id}>
-                    {courseItem.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label htmlFor="course">Course *</Label>
+            {coursesLoading ? (
+              <div className="flex items-center gap-2 h-10 px-3 py-2 border rounded-md">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span className="text-muted-foreground">Loading courses...</span>
+              </div>
+            ) : courses.length === 0 ? (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 h-10 px-3 py-2 border rounded-md bg-muted/50">
+                  <BookOpen className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-muted-foreground">No courses available</span>
+                </div>
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                  <div className="flex items-start gap-2">
+                    <BookOpen className="w-4 h-4 text-amber-600 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-sm text-amber-800 font-medium">Create a course first</p>
+                      <p className="text-xs text-amber-700 mt-1">You need to create at least one course before adding assignments.</p>
+                      <Button 
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="mt-2 text-amber-700 border-amber-300 hover:bg-amber-100"
+                        onClick={() => {
+                          onOpenChange(false);
+                          // Note: This would typically trigger opening the AddCourseDialog
+                          toast({
+                            title: "Create a course",
+                            description: "Please go to Courses page to create your first course.",
+                          });
+                        }}
+                      >
+                        <Plus className="w-3 h-3 mr-1" />
+                        Go to Courses
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <Select value={course} onValueChange={setCourse} required>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a course" />
+                </SelectTrigger>
+                <SelectContent>
+                  {courses.map((courseItem) => (
+                    <SelectItem key={courseItem.id} value={courseItem.id}>
+                      {courseItem.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -283,18 +323,29 @@ export function AddAssignmentDialog({ open, onOpenChange, onCreated, preselected
           {/* Exam Linking Section */}
           <div className="space-y-2">
             <Label htmlFor="linkedExam">Link to Exam (Optional)</Label>
-            <Select value={linkedExam} onValueChange={setLinkedExam}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select an exam to link this assignment" />
-              </SelectTrigger>
-              <SelectContent>
-                {exams.map((exam) => (
-                  <SelectItem key={exam.id} value={exam.id}>
-                    {exam.title} - {format(new Date(exam.exam_date), "PPP")}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {examsLoading ? (
+              <div className="flex items-center gap-2 h-10 px-3 py-2 border rounded-md">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span className="text-muted-foreground">Loading exams...</span>
+              </div>
+            ) : exams.length === 0 ? (
+              <div className="flex items-center gap-2 h-10 px-3 py-2 border rounded-md bg-muted/50">
+                <span className="text-muted-foreground">No exams available (optional)</span>
+              </div>
+            ) : (
+              <Select value={linkedExam} onValueChange={setLinkedExam}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select an exam to link this assignment" />
+                </SelectTrigger>
+                <SelectContent>
+                  {exams.map((exam) => (
+                    <SelectItem key={exam.id} value={exam.id}>
+                      {exam.title} - {format(new Date(exam.exam_date), "PPP")}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
             {linkedExam && (
               <p className="text-xs text-muted-foreground">
                 Linking to an exam will automatically generate revision tasks before the exam date.
@@ -328,7 +379,7 @@ export function AddAssignmentDialog({ open, onOpenChange, onCreated, preselected
             </Button>
             <Button 
               type="submit" 
-              disabled={!title || !course || !dueDate || (isRecurring && !recurrenceEndDate) || isProcessing}
+              disabled={!title || !course || !dueDate || (isRecurring && !recurrenceEndDate) || isProcessing || courses.length === 0}
               className="bg-gradient-primary hover:opacity-90"
             >
               {isProcessing ? (
