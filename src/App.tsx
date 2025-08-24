@@ -25,6 +25,7 @@ import Timer from "./pages/Timer";
 import Analytics from "./pages/AdvancedAnalytics";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
+import Marketplace from "./pages/Marketplace";
 
 const queryClient = new QueryClient();
 
@@ -50,6 +51,7 @@ const App = () => (
               <Route index element={<Index />} />
               <Route path="calendar" element={<Calendar />} />
               <Route path="ada" element={<Ada />} />
+              <Route path="marketplace" element={<Marketplace />} />
               <Route path="courses" element={<Courses />} />
               <Route path="assignments" element={<Assignments />} />
               <Route path="timer" element={<Timer />} />

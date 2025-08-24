@@ -60,6 +60,10 @@ export default {
 					foreground: 'hsl(var(--warning-foreground))',
 					muted: 'hsl(var(--warning-muted))'
 				},
+				marketplace: {
+					DEFAULT: 'hsl(var(--marketplace))',
+					foreground: 'hsl(var(--marketplace-foreground))'
+				},
 				popover: {
 					DEFAULT: 'hsl(var(--popover))',
 					foreground: 'hsl(var(--popover-foreground))'
@@ -90,12 +94,15 @@ export default {
 			backgroundImage: {
 				'gradient-primary': 'var(--gradient-primary)',
 				'gradient-card': 'var(--gradient-card)',
-				'gradient-progress': 'var(--gradient-progress)'
+				'gradient-progress': 'var(--gradient-progress)',
+				'gradient-marketplace': 'var(--gradient-marketplace)'
 			},
 			boxShadow: {
 				'card': 'var(--shadow-card)',
 				'elevated': 'var(--shadow-elevated)',
-				'primary': 'var(--shadow-primary)'
+				'primary': 'var(--shadow-primary)',
+				'marketplace': 'var(--shadow-marketplace)',
+				'marketplace-hover': 'var(--shadow-marketplace-hover)'
 			},
 			transitionTimingFunction: {
 				'smooth': 'var(--transition-smooth)',
