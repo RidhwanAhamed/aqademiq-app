@@ -689,6 +689,57 @@ export type Database = {
         }
         Relationships: []
       }
+      marketplace_config: {
+        Row: {
+          config_key: string
+          config_value: Json
+          created_at: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          config_key: string
+          config_value: Json
+          created_at?: string
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          config_key?: string
+          config_value?: Json
+          created_at?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      marketplace_early_access: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          metadata: Json | null
+          referral_source: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          metadata?: Json | null
+          referral_source?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          metadata?: Json | null
+          referral_source?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       notification_preferences: {
         Row: {
           assignment_reminders: boolean
@@ -1567,6 +1618,10 @@ export type Database = {
         Args: { entity_data: Json; entity_type: string }
         Returns: string
       }
+      get_marketplace_early_access_count: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
       get_public_profile: {
         Args: { p_user_id: string }
         Returns: {
@@ -1669,6 +1724,10 @@ export type Database = {
       update_user_study_stats: {
         Args: { p_study_hours: number; p_user_id: string }
         Returns: undefined
+      }
+      user_has_marketplace_early_access: {
+        Args: { p_user_id?: string }
+        Returns: boolean
       }
       validate_oauth_state: {
         Args: {
