@@ -13,6 +13,7 @@ import { useAssignments } from "@/hooks/useAssignments";
 import { useExams } from "@/hooks/useExams";
 import { useUserStats } from "@/hooks/useUserStats";
 import { RevisionTasksPanel } from "./RevisionTasksPanel";
+import { MarketplaceTeaserCard } from "./MarketplaceTeaserCard";
 import { format, isAfter, isBefore, addDays } from "date-fns";
 
 export function Dashboard() {
@@ -139,6 +140,9 @@ export function Dashboard() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Marketplace Teaser */}
+          <MarketplaceTeaserCard />
 
           {/* Upcoming Deadlines */}
           <Card className="bg-gradient-card shadow-card">
