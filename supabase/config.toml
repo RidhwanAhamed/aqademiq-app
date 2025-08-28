@@ -3,6 +3,12 @@ project_id = "thmyddcvpopzjbvmhbur"
 [functions.enhanced-google-calendar-sync]
 verify_jwt = false
 
+[functions.enhanced-ocr-parser]
+verify_jwt = false
+
+[functions.advanced-schedule-parser]
+verify_jwt = false
+
 [functions.ocr-parser]
 verify_jwt = false
 

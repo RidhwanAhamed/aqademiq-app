@@ -14,6 +14,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { EnhancedFileUpload } from '@/components/EnhancedFileUpload';
+import { ConflictResolutionPanel } from '@/components/ConflictResolutionPanel';
+import { useAdvancedConflictDetection } from '@/hooks/useAdvancedConflictDetection';
 import {
   Upload,
   Send,
@@ -94,6 +97,13 @@ export function AdaAIChat() {
   const [isDragOver, setIsDragOver] = useState(false);
   const [showAccessibility, setShowAccessibility] = useState(false);
   const [welcomeMessageShown, setWelcomeMessageShown] = useState(false);
+  const [showEnhancedUpload, setShowEnhancedUpload] = useState(false);
+  
+  // Enhanced conflict detection
+  const { 
+    detectConflicts, 
+    loading: isDetecting 
+  } = useAdvancedConflictDetection();
   
   // Accessibility state
   const [accessibilitySettings, setAccessibilitySettings] = useState<AccessibilitySettings>({
@@ -189,20 +199,19 @@ export function AdaAIChat() {
     }
   };
 
-  const handleFileUpload = async (file?: File) => {
-    const targetFile = file || fileInputRef.current?.files?.[0];
-    if (!targetFile || !user) return;
+  const handleEnhancedFileUpload = async (file: File) => {
+    if (!user) return;
 
     setIsProcessing(true);
 
     try {
       // Upload file to Supabase Storage
-      const fileExt = targetFile.name.split('.').pop();
+      const fileExt = file.name.split('.').pop();
       const fileName = `${user.id}/${Date.now()}.${fileExt}`;
       
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('study-files')
-        .upload(fileName, targetFile);
+        .upload(fileName, file);
 
       if (uploadError) throw uploadError;
 
@@ -211,9 +220,9 @@ export function AdaAIChat() {
         .from('file_uploads')
         .insert([{
           user_id: user.id,
-          file_name: targetFile.name,
+          file_name: file.name,
           file_url: uploadData.path,
-          file_type: targetFile.type,
+          file_type: file.type,
           status: 'uploaded'
         }])
         .select()
@@ -221,12 +230,12 @@ export function AdaAIChat() {
 
       if (fileError) throw fileError;
 
-      // Process file with AI
-      await processFileWithAI(fileRecord.id, targetFile);
+      // Process file with enhanced AI pipeline
+      await processFileWithEnhancedAI(fileRecord.id, file);
 
       // Add user message about file upload
       const userMessage = await saveChatMessage(
-        `I've uploaded a file: ${targetFile.name}`,
+        `I've uploaded a file: ${file.name}`,
         true,
         fileRecord.id
       );
@@ -245,28 +254,50 @@ export function AdaAIChat() {
       });
     } finally {
       setIsProcessing(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
     }
   };
 
-  const processFileWithAI = async (fileId: string, file: File) => {
+  // Legacy handler for backward compatibility
+  const handleFileUpload = async (file?: File) => {
+    const targetFile = file || fileInputRef.current?.files?.[0];
+    if (!targetFile) return;
+    
+    await handleEnhancedFileUpload(targetFile);
+  };
+
+  const processFileWithEnhancedAI = async (fileId: string, file: File) => {
     try {
-      // Convert file to base64 for OCR if it's an image or PDF
+      // Step 1: Enhanced OCR with fallback system
+      let ocrResult;
+      
       if (file.type.startsWith('image/') || file.type === 'application/pdf') {
         const base64 = await fileToBase64(file);
         
-        // Call OCR function
-        const { data: ocrResult, error: ocrError } = await supabase.functions.invoke('ocr-parser', {
+        // Try enhanced OCR parser first
+        const { data: enhancedOcrResult, error: enhancedOcrError } = await supabase.functions.invoke('enhanced-ocr-parser', {
           body: { 
             file_data: base64, 
             file_type: file.type,
-            file_id: fileId 
+            file_id: fileId,
+            use_fallback: false 
           }
         });
 
-        if (ocrError) throw ocrError;
+        if (enhancedOcrError || !enhancedOcrResult?.success) {
+          // Fallback to basic OCR
+          const { data: basicOcrResult, error: basicOcrError } = await supabase.functions.invoke('ocr-parser', {
+            body: { 
+              file_data: base64, 
+              file_type: file.type,
+              file_id: fileId 
+            }
+          });
+          
+          if (basicOcrError) throw basicOcrError;
+          ocrResult = basicOcrResult;
+        } else {
+          ocrResult = enhancedOcrResult;
+        }
 
         // Update file record with OCR results
         await supabase
@@ -278,17 +309,25 @@ export function AdaAIChat() {
           .eq('id', fileId);
       }
 
-      // Parse extracted text with enhanced AI
-      const { data: parseResult, error: parseError } = await supabase.functions.invoke('enhanced-schedule-parser', {
+      // Step 2: Advanced schedule parsing with conflict detection
+      const { data: parseResult, error: parseError } = await supabase.functions.invoke('advanced-schedule-parser', {
         body: { 
           file_id: fileId,
           user_id: user.id,
           auto_add_to_calendar: true,
-          sync_to_google: false
+          sync_to_google: false,
+          enable_conflict_detection: true,
+          enable_workload_balancing: true
         }
       });
 
       if (parseError) throw parseError;
+
+      // Step 3: Real-time conflict detection
+      if (parseResult.schedule_data) {
+        const detectedConflicts = await detectConflicts(parseResult.schedule_data);
+        parseResult.conflicts = [...(parseResult.conflicts || []), ...detectedConflicts];
+      }
 
       // Save AI response with enhanced metadata
       const aiMessage = await saveChatMessage(
@@ -298,10 +337,17 @@ export function AdaAIChat() {
         { 
           parsed_data: parseResult.schedule_data, 
           conflicts: parseResult.conflicts, 
+          suggestions: parseResult.suggestions,
+          workload_analysis: parseResult.workload_analysis,
           can_add_to_calendar: !parseResult.calendar_results,
           can_sync_to_google: !parseResult.google_sync_results,
           calendar_results: parseResult.calendar_results,
-          google_sync_results: parseResult.google_sync_results
+          google_sync_results: parseResult.google_sync_results,
+          processing_stats: {
+            ocr_confidence: ocrResult?.confidence || 0,
+            document_type: parseResult.document_type,
+            processing_time: parseResult.processing_time
+          }
         }
       );
 
@@ -309,18 +355,19 @@ export function AdaAIChat() {
         setMessages(prev => [...prev, aiMessage]);
         playNotificationSound();
         
-        // Check for conflicts
+        // Update conflicts state for resolution panel
         if (parseResult.conflicts && parseResult.conflicts.length > 0) {
           setConflicts(parseResult.conflicts);
         }
       }
 
     } catch (error) {
-      console.error('Error processing file:', error);
+      console.error('Error processing file with enhanced AI:', error);
       const errorMessage = await saveChatMessage(
-        'I encountered an error processing your file. Please try uploading it again or check the file format.',
+        'I encountered an error processing your file with the enhanced AI system. The error has been logged for improvement. Please try uploading it again or contact support if the issue persists.',
         false,
-        fileId
+        fileId,
+        { error: error.message, timestamp: new Date().toISOString() }
       );
       
       if (errorMessage) {
@@ -328,6 +375,9 @@ export function AdaAIChat() {
       }
     }
   };
+
+  // Legacy method for backward compatibility
+  const processFileWithAI = processFileWithEnhancedAI;
 
   const fileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -821,13 +871,38 @@ export function AdaAIChat() {
           </div>
         )}
 
-        {/* Enhanced Messages Area */}
+          {/* Enhanced Messages Area with Integrated File Upload */}
         <div 
           className="flex-1 overflow-hidden relative"
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
         >
+          {/* Enhanced File Upload Integration */}
+          {showEnhancedUpload && (
+            <div className="absolute inset-0 z-20 bg-background/95 backdrop-blur-sm p-4 overflow-y-auto">
+              <div className="max-w-4xl mx-auto space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold">Enhanced File Upload</h3>
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={() => setShowEnhancedUpload(false)}
+                    className="h-8 w-8 p-0"
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+                <EnhancedFileUpload 
+                  onFileUpload={handleEnhancedFileUpload}
+                  maxFiles={5}
+                  maxSizeInMB={10}
+                  className="border-2 border-dashed"
+                />
+              </div>
+            </div>
+          )}
+          
           {/* Drag overlay */}
           {isDragOver && (
             <div className="absolute inset-0 bg-primary/10 border-2 border-dashed border-primary z-10 flex items-center justify-center">
@@ -835,6 +910,14 @@ export function AdaAIChat() {
                 <Upload className="w-8 h-8 mx-auto mb-2 text-primary" />
                 <p className="font-medium">Drop your file here</p>
                 <p className="text-sm text-muted-foreground">Supported: PDF, JPG, PNG, TXT, DOC, DOCX</p>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setShowEnhancedUpload(true)}
+                  className="mt-2"
+                >
+                  Use Enhanced Upload
+                </Button>
               </div>
             </div>
           )}
@@ -922,23 +1005,39 @@ export function AdaAIChat() {
                 onChange={(e) => setInputMessage(e.target.value)}
                 onKeyDown={handleKeyPress}
                 placeholder="Ask Ada anything about your schedule, assignments, or academic planning..."
-                className="min-h-[60px] max-h-32 resize-none pr-12 sm:pr-24 bg-background/50 border-border/50 focus:bg-background focus:border-primary/50 transition-all duration-200"
+                className="min-h-[60px] max-h-32 resize-none pr-32 sm:pr-40 bg-background/50 border-border/50 focus:bg-background focus:border-primary/50 transition-all duration-200"
                 disabled={isProcessing}
                 rows={2}
                 aria-label="Message input"
               />
               
-              {/* Attachment button */}
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => fileInputRef.current?.click()}
-                className="absolute bottom-2 right-2 h-8 w-8 p-0 hover:bg-muted"
-                disabled={isProcessing}
-                aria-label="Attach file"
-              >
-                <Paperclip className="w-4 h-4" />
-              </Button>
+              <div className="absolute bottom-2 right-2">
+                {/* Attachment and Enhanced Upload buttons */}
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="h-8 w-8 p-0 hover:bg-muted"
+                    disabled={isProcessing}
+                    aria-label="Quick attach file"
+                  >
+                    <Paperclip className="w-4 h-4" />
+                  </Button>
+                  
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setShowEnhancedUpload(true)}
+                    className="h-8 px-3 hover:bg-muted"
+                    disabled={isProcessing}
+                    aria-label="Enhanced file upload"
+                  >
+                    <Upload className="w-4 h-4 mr-1" />
+                    <span className="text-xs hidden sm:inline">Enhanced</span>
+                  </Button>
+                </div>
+              </div>
             </div>
             
             <Button
@@ -996,40 +1095,19 @@ export function AdaAIChat() {
         </div>
       </div>
 
-      {/* Conflicts Panel */}
+      {/* Enhanced Conflicts Panel with Resolution */}
       {conflicts.length > 0 && (
-        <div className="absolute bottom-0 left-0 right-0 bg-background border-t p-4 shadow-lg animate-in slide-in-from-bottom-2">
-          <div className="flex items-start gap-3">
-            <AlertTriangle className="w-5 h-5 text-yellow-500 flex-shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <h4 className="font-medium text-sm mb-2">Schedule Conflicts Detected</h4>
-              <div className="space-y-2">
-                {conflicts.map((conflict, index) => (
-                  <div key={index} className="flex items-center justify-between p-2 bg-muted/50 rounded-lg text-sm">
-                    <span>{conflict.conflict_title}</span>
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {/* Handle conflict resolution */}}
-                        className="h-7 px-2 text-xs"
-                      >
-                        Resolve
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => setConflicts(prev => prev.filter((_, i) => i !== index))}
-                        className="h-7 w-7 p-0"
-                      >
-                        <X className="w-3 h-3" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
+        <div className="absolute bottom-0 left-0 right-0 bg-background border-t p-4 shadow-lg animate-in slide-in-from-bottom-2 max-h-[40vh] overflow-y-auto">
+          <ConflictResolutionPanel 
+            onConflictResolved={(conflictId) => {
+              setConflicts(prev => prev.filter(c => c.conflict_id !== conflictId));
+            }}
+            onRefreshNeeded={() => {
+              // Refresh conflict detection
+              window.location.reload();
+            }}
+            className="border-0 shadow-none"
+          />
         </div>
       )}
 
