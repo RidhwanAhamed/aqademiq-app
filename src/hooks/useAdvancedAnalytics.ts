@@ -222,6 +222,18 @@ export function useAdvancedAnalytics() {
 
     setLoading(true);
     try {
+      // Check if user has sufficient data before attempting calculation
+      const dataValidation = await validateUserData();
+      
+      if (!dataValidation.hasRequiredData) {
+        toast({
+          title: "Insufficient Data",
+          description: dataValidation.message,
+          variant: "destructive"
+        });
+        return;
+      }
+
       // Call the database function to recalculate metrics
       const { error } = await supabase.rpc('calculate_performance_metrics', {
         p_user_id: user.id
@@ -236,15 +248,73 @@ export function useAdvancedAnalytics() {
         title: "Metrics Updated",
         description: "Your performance metrics have been recalculated."
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error refreshing metrics:', error);
+      
+      // Provide specific error messages based on error type
+      let errorMessage = "Failed to refresh metrics";
+      
+      if (error?.message?.includes('User not found')) {
+        errorMessage = "User profile not found. Please try logging in again.";
+      } else if (error?.message?.includes('permission denied')) {
+        errorMessage = "You don't have permission to perform this action.";
+      } else if (error?.message?.includes('network')) {
+        errorMessage = "Network error. Please check your connection and try again.";
+      }
+      
       toast({
         title: "Error",
-        description: "Failed to refresh metrics",
+        description: errorMessage,
         variant: "destructive"
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const validateUserData = async () => {
+    if (!user) return { hasRequiredData: false, message: "User not authenticated" };
+
+    try {
+      // Check if user has courses
+      const { data: courses, error: coursesError } = await supabase
+        .from('courses')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('is_active', true);
+
+      if (coursesError) throw coursesError;
+
+      if (!courses || courses.length === 0) {
+        return {
+          hasRequiredData: false,
+          message: "Add some courses first to see analytics insights."
+        };
+      }
+
+      // Check if user has any assignments or study sessions
+      const [assignmentsData, sessionsData] = await Promise.all([
+        supabase.from('assignments').select('id').eq('user_id', user.id).limit(1),
+        supabase.from('study_sessions').select('id').eq('user_id', user.id).limit(1)
+      ]);
+
+      const hasAssignments = assignmentsData.data && assignmentsData.data.length > 0;
+      const hasSessions = sessionsData.data && sessionsData.data.length > 0;
+
+      if (!hasAssignments && !hasSessions) {
+        return {
+          hasRequiredData: false,
+          message: "Add some assignments or complete study sessions to generate meaningful analytics."
+        };
+      }
+
+      return { hasRequiredData: true, message: "Ready to calculate metrics" };
+    } catch (error) {
+      console.error('Error validating user data:', error);
+      return {
+        hasRequiredData: false,
+        message: "Unable to validate your data. Please try again."
+      };
     }
   };
 
@@ -277,6 +347,22 @@ export function useAdvancedAnalytics() {
     };
   };
 
+  const getDataRequirements = () => {
+    return {
+      courses: performanceMetrics.length > 0 || academicGoals.length > 0,
+      assignments: performanceMetrics.some(m => m.metric_type.includes('grade') && m.metric_value > 0),
+      studySessions: studyAnalytics.length > 0,
+      grades: performanceMetrics.some(m => m.metric_type === 'average_grade' && m.metric_value > 0)
+    };
+  };
+
+  const isEmpty = () => {
+    return performanceMetrics.length === 0 && 
+           academicGoals.length === 0 && 
+           academicInsights.length === 0 && 
+           studyAnalytics.length === 0;
+  };
+
   return {
     performanceMetrics,
     academicGoals,
@@ -293,6 +379,9 @@ export function useAdvancedAnalytics() {
     getInsightsByCourse,
     getUnreadInsightsCount,
     getActiveGoalsProgress,
-    loadAnalyticsData
+    loadAnalyticsData,
+    validateUserData,
+    getDataRequirements,
+    isEmpty
   };
 }
