@@ -11,13 +11,14 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { SecurityHeaders } from "@/components/SecurityHeaders";
 import { OptimizedSecurityMonitor } from "@/components/OptimizedSecurityMonitor";
 import { queryClient } from "@/config/queryClient";
+
 // Lazy load heavy components for better performance
 const Calendar = lazy(() => import("./pages/Calendar"));
 const Ada = lazy(() => import("./pages/Ada"));
 const Analytics = lazy(() => import("./pages/AdvancedAnalytics"));
 const Marketplace = lazy(() => import("./pages/Marketplace"));
 
-// Regular imports for light components
+// Import all auth and core page components
 import Index from "./pages/Index";
 import Welcome from "./pages/Welcome";
 import Onboarding from "./pages/Onboarding";
