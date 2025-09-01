@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CalendarDays, Clock, Users, GraduationCap, Calendar as CalendarIcon, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -12,12 +12,19 @@ import { useSchedule, type ScheduleBlock } from '@/hooks/useSchedule';
 import { useAssignments } from '@/hooks/useAssignments';
 import { useExams } from '@/hooks/useExams';
 import { useHolidays } from '@/hooks/useHolidays';
+import { useOptimizedRealtimeCalendar } from '@/hooks/useOptimizedRealtimeCalendar';
 import { format, isToday, isWithinInterval, parseISO } from 'date-fns';
 import { CalendarErrorBoundaryWrapper } from '@/components/calendar/ErrorBoundary';
+import { MemoizedQuickStats } from '@/components/MemoizedQuickStats';
 
 export default function Calendar() {
   const [view, setView] = useState<'week' | 'month'>('week');
   const [activeTab, setActiveTab] = useState('calendar');
+  
+  // Use optimized calendar hook for real-time events
+  const { events, loading: calendarLoading } = useOptimizedRealtimeCalendar();
+  
+  // Keep existing hooks for statistics (memoized)
   const { scheduleBlocks, exams, loading: scheduleLoading, addScheduleBlock, updateScheduleBlock } = useSchedule();
   const { assignments, loading: assignmentsLoading } = useAssignments();
   const { exams: examsList, loading: examsLoading } = useExams();
@@ -25,54 +32,68 @@ export default function Calendar() {
 
   const loading = scheduleLoading || assignmentsLoading || examsLoading;
 
-  // Calculate today's stats
-  const todayClasses = scheduleBlocks.filter(block => {
-    if (!block.is_recurring) return false;
-    const today = new Date();
-    return block.day_of_week === today.getDay();
-  }).length;
+  // Memoized calculations for better performance
+  const todayClasses = useMemo(() => {
+    return scheduleBlocks.filter(block => {
+      if (!block.is_recurring) return false;
+      const today = new Date();
+      return block.day_of_week === today.getDay();
+    }).length;
+  }, [scheduleBlocks]);
 
-  const todayAssignments = assignments.filter(assignment => 
-    isToday(new Date(assignment.due_date))
-  ).length;
+  const todayAssignments = useMemo(() => {
+    return assignments.filter(assignment => 
+      isToday(new Date(assignment.due_date))
+    ).length;
+  }, [assignments]);
 
-  const weeklyStudyHours = scheduleBlocks.reduce((total, block) => {
-    const start = new Date(`2000-01-01T${block.start_time}`);
-    const end = new Date(`2000-01-01T${block.end_time}`);
-    const duration = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
-    return total + duration;
-  }, 0);
+  const weeklyStudyHours = useMemo(() => {
+    return scheduleBlocks.reduce((total, block) => {
+      const start = new Date(`2000-01-01T${block.start_time}`);
+      const end = new Date(`2000-01-01T${block.end_time}`);
+      const duration = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+      return total + duration;
+    }, 0);
+  }, [scheduleBlocks]);
 
-  const upcomingExams = examsList.filter(exam => 
-    new Date(exam.exam_date) > new Date()
-  ).length;
+  const upcomingExams = useMemo(() => {
+    return examsList.filter(exam => 
+      new Date(exam.exam_date) > new Date()
+    ).length;
+  }, [examsList]);
 
-  // Calculate active holidays
-  const activeHolidays = holidays.filter(holiday => {
-    const today = new Date();
-    const startDate = parseISO(holiday.start_date);
-    const endDate = parseISO(holiday.end_date);
-    return isWithinInterval(today, { start: startDate, end: endDate });
-  });
+  // Memoized active holidays calculation
+  const activeHolidays = useMemo(() => {
+    return holidays.filter(holiday => {
+      const today = new Date();
+      const startDate = parseISO(holiday.start_date);
+      const endDate = parseISO(holiday.end_date);
+      return isWithinInterval(today, { start: startDate, end: endDate });
+    });
+  }, [holidays]);
 
-  // Wrapper functions to match the expected interface
-  const handleAddScheduleBlock = async (data: Omit<ScheduleBlock, 'id' | 'user_id' | 'created_at' | 'updated_at'>): Promise<boolean> => {
+  // Memoized wrapper functions for better performance
+  const handleAddScheduleBlock = useCallback(async (data: Omit<ScheduleBlock, 'id' | 'user_id' | 'created_at' | 'updated_at'>): Promise<boolean> => {
     try {
       await addScheduleBlock(data);
       return true;
     } catch (error) {
       return false;
     }
-  };
+  }, [addScheduleBlock]);
 
-  const handleUpdateScheduleBlock = async (id: string, updates: Partial<ScheduleBlock>): Promise<boolean> => {
+  const handleUpdateScheduleBlock = useCallback(async (id: string, updates: Partial<ScheduleBlock>): Promise<boolean> => {
     try {
       await updateScheduleBlock(id, updates);
       return true;
     } catch (error) {
       return false;
     }
-  };
+  }, [updateScheduleBlock]);
+
+  const handleDateChange = useCallback((date: Date) => {
+    console.log('Date changed:', date);
+  }, []);
 
   return (
     <div className="p-6 space-y-6">
@@ -95,78 +116,15 @@ export default function Calendar() {
         </div>
       </div>
 
-      {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-        <Card className="bg-gradient-card">
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-3">
-              <div className="p-2 bg-primary/10 rounded-lg">
-                <CalendarDays className="w-5 h-5 text-primary" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Today's Classes</p>
-                <p className="text-2xl font-bold">{loading ? '...' : todayClasses}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-card">
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-3">
-              <div className="p-2 bg-accent/10 rounded-lg">
-                <Clock className="w-5 h-5 text-accent" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Weekly Hours</p>
-                <p className="text-2xl font-bold">{loading ? '...' : Math.round(weeklyStudyHours)}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-card">
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-3">
-              <div className="p-2 bg-warning/10 rounded-lg">
-                <Users className="w-5 h-5 text-warning" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Due Today</p>
-                <p className="text-2xl font-bold">{loading ? '...' : todayAssignments}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-card">
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-3">
-              <div className="p-2 bg-info/10 rounded-lg">
-                <MapPin className="w-5 h-5 text-info" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Active Holidays</p>
-                <p className="text-2xl font-bold">{activeHolidays.length}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-card">
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-3">
-              <div className="p-2 bg-success/10 rounded-lg">
-                <GraduationCap className="w-5 h-5 text-success" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Upcoming Exams</p>
-                <p className="text-2xl font-bold">{loading ? '...' : upcomingExams}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      {/* Quick Stats - Memoized for better performance */}
+      <MemoizedQuickStats
+        todayClasses={todayClasses}
+        weeklyStudyHours={weeklyStudyHours}
+        todayAssignments={todayAssignments}
+        activeHolidaysCount={activeHolidays.length}
+        upcomingExams={upcomingExams}
+        loading={loading}
+      />
 
       {/* Main Content with Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
@@ -182,8 +140,8 @@ export default function Calendar() {
         </TabsList>
 
         <TabsContent value="calendar" className="space-y-4">
-          {/* Calendar View */}
-          {loading ? (
+          {/* Optimized Calendar View */}
+          {calendarLoading ? (
             <Card className="bg-gradient-card">
               <CardContent className="p-12">
                 <div className="text-center text-muted-foreground">
@@ -196,7 +154,7 @@ export default function Calendar() {
             <CalendarErrorBoundaryWrapper>
               <NativeCalendarView
                 selectedDate={new Date()}
-                onDateChange={(date) => console.log('Date changed:', date)}
+                onDateChange={handleDateChange}
               />
             </CalendarErrorBoundaryWrapper>
           )}

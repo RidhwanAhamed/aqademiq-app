@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, retryOperation } from '@/config/supabaseClient';
+import { logger } from '@/utils/logger';
 
 interface AuthContextType {
   user: User | null;
@@ -51,25 +52,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signUp = async (email: string, password: string, options?: { data?: any }) => {
-    const redirectUrl = `${window.location.origin}/auth/verify`;
-    
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: redirectUrl,
-        data: options?.data
-      }
-    });
-    return { error };
+    try {
+      const redirectUrl = `${window.location.origin}/auth/verify`;
+      
+      const result = await retryOperation(async () => {
+        return await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo: redirectUrl,
+            data: options?.data
+          }
+        });
+      }, 2, 1000);
+      
+      logger.info('Sign up attempt', { email, hasError: !!result.error });
+      return { error: result.error };
+    } catch (error) {
+      logger.error('Sign up failed', { error, email });
+      return { error: error as any };
+    }
   };
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    return { error };
+    try {
+      const result = await retryOperation(async () => {
+        return await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+      }, 2, 1000);
+      
+      logger.info('Sign in attempt', { email, hasError: !!result.error });
+      return { error: result.error };
+    } catch (error) {
+      logger.error('Sign in failed', { error, email });
+      return { error: error as any };
+    }
   };
 
   const signOut = async () => {
