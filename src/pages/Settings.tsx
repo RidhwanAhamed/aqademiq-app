@@ -13,7 +13,7 @@ import { Settings as SettingsIcon, User, Bell, Palette, Shield, Moon, Sun, Monit
 import { useAuth } from "@/hooks/useAuth";
 import { useTheme } from "next-themes";
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/config/supabaseClient";
 import { useToast } from "@/hooks/use-toast";
 
 export default function Settings() {

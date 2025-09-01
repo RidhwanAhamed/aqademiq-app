@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/config/supabaseClient";
 import { useAuth } from "@/hooks/useAuth";
 
 export interface Assignment {
