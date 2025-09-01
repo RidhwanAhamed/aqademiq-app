@@ -7,8 +7,10 @@ import { useCourses } from "@/hooks/useCourses";
 import { AdvancedPerformanceChart } from "@/components/analytics/AdvancedPerformanceChart";
 import { AcademicGoalsPanel } from "@/components/analytics/AcademicGoalsPanel";
 import { AcademicInsightsPanel } from "@/components/analytics/AcademicInsightsPanel";
-import { BarChart3, Target, Lightbulb, RefreshCw, TrendingUp } from "lucide-react";
+import { AnalyticsEmptyState } from "@/components/analytics/AnalyticsEmptyState";
+import { BarChart3, Target, Lightbulb, RefreshCw, TrendingUp, AlertCircle } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function Analytics() {
   const { courses } = useCourses();
@@ -24,17 +26,21 @@ export default function Analytics() {
     markInsightAsRead,
     refreshMetrics,
     getUnreadInsightsCount,
-    getActiveGoalsProgress
+    getActiveGoalsProgress,
+    getDataRequirements,
+    isEmpty
   } = useAdvancedAnalytics();
 
   const unreadInsightsCount = getUnreadInsightsCount();
   const goalsProgress = getActiveGoalsProgress();
+  const dataRequirements = getDataRequirements();
+  const isEmptyState = isEmpty();
 
   const handleRefreshMetrics = async () => {
     await refreshMetrics();
   };
 
-  if (loading && performanceMetrics.length === 0) {
+  if (loading && isEmptyState) {
     return (
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
@@ -58,6 +64,15 @@ export default function Analytics() {
     );
   }
 
+  // Show empty state if user has no data
+  if (!loading && isEmptyState) {
+    return (
+      <div className="p-6">
+        <AnalyticsEmptyState dataRequirements={dataRequirements} />
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
@@ -77,6 +92,21 @@ export default function Analytics() {
           Refresh Metrics
         </Button>
       </div>
+
+      {/* Data Quality Alert */}
+      {(!dataRequirements.grades || !dataRequirements.studySessions) && (
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            {!dataRequirements.grades && !dataRequirements.studySessions 
+              ? "Add grades to assignments and complete study sessions for richer analytics insights."
+              : !dataRequirements.grades 
+              ? "Add grades to assignments to see performance trends."
+              : "Complete some study sessions to track productivity patterns."
+            }
+          </AlertDescription>
+        </Alert>
+      )}
 
       {/* Quick Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
