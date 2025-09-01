@@ -12,7 +12,7 @@ import { useSchedule, type ScheduleBlock } from '@/hooks/useSchedule';
 import { useAssignments } from '@/hooks/useAssignments';
 import { useExams } from '@/hooks/useExams';
 import { useHolidays } from '@/hooks/useHolidays';
-import { format, isToday, isWithinInterval, parseISO } from 'date-fns';
+import { CalendarErrorBoundaryWrapper } from '@/components/calendar/ErrorBoundary';
 
 export default function Calendar() {
   const [view, setView] = useState<'week' | 'month'>('week');
@@ -192,10 +192,12 @@ export default function Calendar() {
               </CardContent>
             </Card>
           ) : (
-            <NativeCalendarView
-              selectedDate={new Date()}
-              onDateChange={(date) => console.log('Date changed:', date)}
-            />
+            <CalendarErrorBoundaryWrapper>
+              <NativeCalendarView
+                selectedDate={new Date()}
+                onDateChange={(date) => console.log('Date changed:', date)}
+              />
+            </CalendarErrorBoundaryWrapper>
           )}
         </TabsContent>
 
