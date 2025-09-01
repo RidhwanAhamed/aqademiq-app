@@ -12,6 +12,7 @@ import { useSchedule, type ScheduleBlock } from '@/hooks/useSchedule';
 import { useAssignments } from '@/hooks/useAssignments';
 import { useExams } from '@/hooks/useExams';
 import { useHolidays } from '@/hooks/useHolidays';
+import { format, isToday, isWithinInterval, parseISO } from 'date-fns';
 import { CalendarErrorBoundaryWrapper } from '@/components/calendar/ErrorBoundary';
 
 export default function Calendar() {
