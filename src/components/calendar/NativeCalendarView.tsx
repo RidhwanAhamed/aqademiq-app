@@ -1,16 +1,21 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { CalendarIcon, Grid3x3, List, Loader2 } from 'lucide-react';
+import { CalendarIcon, Grid3x3, List, Loader2, Undo2, Settings } from 'lucide-react';
 import { useRealtimeCalendar, CalendarEvent } from '@/hooks/useRealtimeCalendar';
 import { useConflictDetection } from '@/hooks/useConflictDetection';
 import { EnhancedWeekView } from './EnhancedWeekView';
 import { EnhancedMonthView } from './EnhancedMonthView';
 import { EnhancedAgendaView } from './EnhancedAgendaView';
-import { EventContextMenu } from './EventContextMenu';
+import { EnhancedEventContextMenu } from './EnhancedEventContextMenu';
+import { CalendarErrorBoundaryWrapper } from './ErrorBoundary';
+import { AccessibleCalendarView } from './AccessibleCalendarView';
+import { TimezoneSelector } from './TimezoneSelector';
+import { useEnhancedDragDrop } from '@/hooks/useEnhancedDragDrop';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
+import { formatInUserTimezone } from '@/utils/timezone';
 
 interface NativeCalendarViewProps {
   selectedDate: Date;
@@ -24,6 +29,8 @@ export function NativeCalendarView({ selectedDate, onDateChange }: NativeCalenda
     x: number; 
     y: number; 
   } | null>(null);
+  const [showSettings, setShowSettings] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const { toast } = useToast();
 
@@ -40,19 +47,6 @@ export function NativeCalendarView({ selectedDate, onDateChange }: NativeCalenda
     conflicts, 
     detectConflicts 
   } = useConflictDetection();
-
-  // Detect conflicts whenever events change
-  React.useEffect(() => {
-    detectConflicts(events);
-  }, [events, detectConflicts]);
-
-  const handleEventClick = useCallback((event: CalendarEvent) => {
-    // For now, just show a toast. Could open edit dialog in the future
-    toast({
-      title: event.title,
-      description: `${format(event.start, 'MMM d, HH:mm')} - ${format(event.end, 'HH:mm')}`,
-    });
-  }, [toast]);
 
   const handleEventUpdate = useCallback(async (event: CalendarEvent, updates: Partial<CalendarEvent>) => {
     try {
@@ -114,6 +108,60 @@ export function NativeCalendarView({ selectedDate, onDateChange }: NativeCalenda
       });
     }
   }, [updateScheduleBlock, updateExam, updateAssignment, refetch, toast]);
+
+  // Enhanced drag and drop functionality
+  const {
+    dragState,
+    handleDragStart,
+    handleDragMove,
+    handleDragEnd,
+    undoLastMove,
+    canUndo
+  } = useEnhancedDragDrop({
+    events,
+    onEventUpdate: handleEventUpdate,
+    selectedDate,
+    containerRef
+  });
+
+  // Detect conflicts whenever events change
+  React.useEffect(() => {
+    detectConflicts(events);
+  }, [events, detectConflicts]);
+
+  // Global mouse event handlers for drag and drop
+  React.useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (dragState.isDragging) {
+        handleDragMove(e.clientX, e.clientY);
+      }
+    };
+
+    const handleMouseUp = () => {
+      if (dragState.isDragging) {
+        handleDragEnd();
+      }
+    };
+
+    if (dragState.isDragging) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [dragState.isDragging, handleDragMove, handleDragEnd]);
+
+  const handleEventClick = useCallback((event: CalendarEvent) => {
+    // For now, just show a toast. Could open edit dialog in the future
+    toast({
+      title: event.title,
+      description: `${format(event.start, 'MMM d, HH:mm')} - ${format(event.end, 'HH:mm')}`,
+    });
+  }, [toast]);
+
 
   const handleTimeSlotClick = useCallback((date: Date, hour: number) => {
     // This could open a quick event creation dialog
