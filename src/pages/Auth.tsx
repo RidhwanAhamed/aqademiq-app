@@ -12,8 +12,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { GraduationCap, Brain, Eye, EyeOff, Mail, Lock, Loader2, CheckCircle, RefreshCw } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { useConnectionStatus } from '@/hooks/useConnectionStatus';
+import { ConnectionStatus } from '@/components/ConnectionStatus';
+import { GraduationCap, Brain, Eye, EyeOff, Mail, Lock, Loader2, CheckCircle, RefreshCw, AlertTriangle } from 'lucide-react';
+import { supabase, retryOperation } from "@/config/supabaseClient";
 
 const signInSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -44,11 +46,34 @@ export default function Auth() {
   const [verificationEmail, setVerificationEmail] = useState('');
   const [canResendEmail, setCanResendEmail] = useState(true);
   const [resendCooldown, setResendCooldown] = useState(0);
+  const [authError, setAuthError] = useState<string | null>(null);
   
   const { signIn, signUp, user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
+  const { hasConnection, connectionError } = useConnectionStatus();
+
+  // Clear session storage on mount to handle corrupted sessions
+  useEffect(() => {
+    const clearCorruptedSession = async () => {
+      try {
+        const { data: session } = await supabase.auth.getSession();
+        if (!session.session) {
+          // Clear any remaining auth data
+          localStorage.removeItem('supabase.auth.token');
+          sessionStorage.clear();
+        }
+      } catch (error) {
+        console.error('Error checking session:', error);
+        // Clear storage on error
+        localStorage.removeItem('supabase.auth.token');
+        sessionStorage.clear();
+      }
+    };
+    
+    clearCorruptedSession();
+  }, []);
 
   // If user is already authenticated, redirect them
   useEffect(() => {
@@ -77,15 +102,58 @@ export default function Auth() {
     defaultValues: { email: '', password: '', confirmPassword: '' },
   });
 
+  const getErrorMessage = (error: any): string => {
+    if (!hasConnection || connectionError) {
+      return 'Please check your internet connection and try again.';
+    }
+    
+    if (error?.message?.includes('Failed to fetch')) {
+      return 'Network connection failed. Please check your internet connection.';
+    }
+    
+    if (error?.message?.includes('Invalid login credentials')) {
+      return 'Invalid email or password. Please check your credentials and try again.';
+    }
+    
+    if (error?.message?.includes('Email not confirmed')) {
+      return 'Please check your email and click the confirmation link before signing in.';
+    }
+    
+    if (error?.message?.includes('User already registered')) {
+      return 'An account with this email already exists. Please sign in instead.';
+    }
+    
+    if (error?.message?.includes('Signup requires')) {
+      return 'Email signup is temporarily disabled. Please try again later.';
+    }
+
+    if (error?.message?.includes('rate_limit')) {
+      return 'Too many requests. Please wait a moment before trying again.';
+    }
+    
+    return error?.message || 'An unexpected error occurred. Please try again.';
+  };
+
   const onSignIn = async (data: SignInFormData) => {
+    if (!hasConnection) {
+      setAuthError('No internet connection available');
+      return;
+    }
+
     setLoading(true);
+    setAuthError(null);
+
     try {
-      const { error } = await signIn(data.email, data.password);
+      const result = await retryOperation(async () => {
+        return await signIn(data.email, data.password);
+      }, 2, 1000);
       
-      if (error) {
+      if (result.error) {
+        const errorMessage = getErrorMessage(result.error);
+        setAuthError(errorMessage);
         toast({
           title: "Sign in failed",
-          description: error.message,
+          description: errorMessage,
           variant: "destructive",
         });
       } else {
@@ -96,9 +164,11 @@ export default function Auth() {
         // Navigation will happen automatically via auth state change
       }
     } catch (error) {
+      const errorMessage = getErrorMessage(error);
+      setAuthError(errorMessage);
       toast({
-        title: "Something went wrong",
-        description: "Please try again later.",
+        title: "Connection Error",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -107,14 +177,25 @@ export default function Auth() {
   };
 
   const onSignUp = async (data: SignUpFormData) => {
+    if (!hasConnection) {
+      setAuthError('No internet connection available');
+      return;
+    }
+
     setLoading(true);
+    setAuthError(null);
+
     try {
-      const { error } = await signUp(data.email, data.password);
+      const result = await retryOperation(async () => {
+        return await signUp(data.email, data.password);
+      }, 2, 1000);
       
-      if (error) {
+      if (result.error) {
+        const errorMessage = getErrorMessage(result.error);
+        setAuthError(errorMessage);
         toast({
-          title: "Sign up failed",
-          description: error.message,
+          title: "Sign up failed", 
+          description: errorMessage,
           variant: "destructive",
         });
       } else {
@@ -126,9 +207,11 @@ export default function Auth() {
         });
       }
     } catch (error) {
+      const errorMessage = getErrorMessage(error);
+      setAuthError(errorMessage);
       toast({
-        title: "Something went wrong",
-        description: "Please try again later.",
+        title: "Connection Error",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -137,22 +220,24 @@ export default function Auth() {
   };
 
   const handleResendEmail = async () => {
-    if (!canResendEmail || !verificationEmail) return;
+    if (!canResendEmail || !verificationEmail || !hasConnection) return;
     
     setLoading(true);
     try {
-      const { error } = await supabase.auth.resend({
-        type: 'signup',
-        email: verificationEmail,
-        options: {
-          emailRedirectTo: `${window.location.origin}/auth/verify`,
-        }
-      });
+      const result = await retryOperation(async () => {
+        return await supabase.auth.resend({
+          type: 'signup',
+          email: verificationEmail,
+          options: {
+            emailRedirectTo: `${window.location.origin}/auth/verify`,
+          }
+        });
+      }, 2, 1000);
 
-      if (error) {
+      if (result.error) {
         toast({
           title: "Failed to resend email",
-          description: error.message,
+          description: getErrorMessage(result.error),
           variant: "destructive",
         });
       } else {
@@ -165,8 +250,8 @@ export default function Auth() {
       }
     } catch (error) {
       toast({
-        title: "Something went wrong",
-        description: "Please try again later.",
+        title: "Connection Error",
+        description: getErrorMessage(error),
         variant: "destructive",
       });
     } finally {
@@ -185,16 +270,27 @@ export default function Auth() {
       return;
     }
 
+    if (!hasConnection) {
+      toast({
+        title: "No connection",
+        description: "Please check your internet connection and try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth/reset-password`,
-      });
+      const result = await retryOperation(async () => {
+        return await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${window.location.origin}/auth/reset-password`,
+        });
+      }, 2, 1000);
 
-      if (error) {
+      if (result.error) {
         toast({
           title: "Password reset failed",
-          description: error.message,
+          description: getErrorMessage(result.error),
           variant: "destructive",
         });
       } else {
@@ -206,8 +302,8 @@ export default function Auth() {
       }
     } catch (error) {
       toast({
-        title: "Something went wrong",
-        description: "Please try again later.",
+        title: "Connection Error",
+        description: getErrorMessage(error),
         variant: "destructive",
       });
     } finally {
@@ -261,6 +357,15 @@ export default function Auth() {
           </CardHeader>
 
           <CardContent>
+            <ConnectionStatus />
+            
+            {authError && (
+              <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 rounded-lg flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-destructive" />
+                <p className="text-sm text-destructive">{authError}</p>
+              </div>
+            )}
+            
             <AnimatePresence mode="wait">
               {activeTab === 'verify' ? (
                 <motion.div
