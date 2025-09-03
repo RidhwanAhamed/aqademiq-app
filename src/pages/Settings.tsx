@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ThemeCustomizer } from "@/components/ThemeCustomizer";
 import { NotificationSettings } from "@/components/NotificationSettings";
-import { GoogleCalendarSettings } from "@/components/GoogleCalendarSettings";
+import { AdvancedGoogleCalendarSettings } from "@/components/AdvancedGoogleCalendarSettings";
 import { EnhancedNotificationSettings } from "@/components/EnhancedNotificationSettings";
 import { SecurityMonitorDashboard } from "@/components/SecurityMonitorDashboard";
 import { Input } from "@/components/ui/input";
@@ -172,7 +172,7 @@ export default function Settings() {
         </TabsList>
 
         <TabsContent value="general" className="space-y-6">
-          <GoogleCalendarSettings />
+          <AdvancedGoogleCalendarSettings />
           
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Profile Settings */}
