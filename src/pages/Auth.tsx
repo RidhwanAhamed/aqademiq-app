@@ -12,7 +12,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { useConnectionStatus } from '@/hooks/useConnectionStatus';
 import { ConnectionStatus } from '@/components/ConnectionStatus';
 import { GraduationCap, Brain, Eye, EyeOff, Mail, Lock, Loader2, CheckCircle, RefreshCw, AlertTriangle } from 'lucide-react';
 import { supabase, retryOperation } from "@/config/supabaseClient";
@@ -52,7 +51,6 @@ export default function Auth() {
   const { toast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
-  const { hasConnection, connectionError } = useConnectionStatus();
 
   // Clear session storage on mount to handle corrupted sessions
   useEffect(() => {
@@ -136,11 +134,6 @@ export default function Auth() {
   };
 
   const onSignIn = async (data: SignInFormData) => {
-    if (!hasConnection) {
-      setAuthError('No internet connection available');
-      return;
-    }
-
     setLoading(true);
     setAuthError(null);
 
@@ -178,11 +171,6 @@ export default function Auth() {
   };
 
   const onSignUp = async (data: SignUpFormData) => {
-    if (!hasConnection) {
-      setAuthError('No internet connection available');
-      return;
-    }
-
     setLoading(true);
     setAuthError(null);
 
@@ -221,7 +209,7 @@ export default function Auth() {
   };
 
   const handleResendEmail = async () => {
-    if (!canResendEmail || !verificationEmail || !hasConnection) return;
+    if (!canResendEmail || !verificationEmail) return;
     
     setLoading(true);
     try {
@@ -266,15 +254,6 @@ export default function Auth() {
       toast({
         title: "Email required",
         description: "Please enter your email address first.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!hasConnection) {
-      toast({
-        title: "No connection",
-        description: "Please check your internet connection and try again.",
         variant: "destructive",
       });
       return;
