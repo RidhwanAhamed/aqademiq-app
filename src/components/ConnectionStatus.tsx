@@ -2,13 +2,32 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { WifiOff, Wifi, AlertTriangle, RefreshCw } from "lucide-react";
 import { useConnectionStatus } from "@/hooks/useConnectionStatus";
+import { useState } from "react";
 
 export function ConnectionStatus() {
-  const { isOnline, connectionError, clearError, hasConnection } = useConnectionStatus();
+  const { isOnline, connectionError, clearError, testConnection, hasConnection } = useConnectionStatus();
+  const [testing, setTesting] = useState(false);
 
   if (hasConnection) {
     return null;
   }
+
+  const handleRetry = async () => {
+    setTesting(true);
+    clearError();
+    
+    try {
+      const connected = await testConnection();
+      if (connected) {
+        // Force a page refresh to ensure clean state
+        window.location.reload();
+      }
+    } catch (error) {
+      console.error('Connection test failed:', error);
+    } finally {
+      setTesting(false);
+    }
+  };
 
   return (
     <Alert className={`mb-4 ${!isOnline ? 'border-destructive' : 'border-warning'}`}>
@@ -29,17 +48,15 @@ export function ConnectionStatus() {
           </AlertDescription>
         </div>
         
-        {connectionError && (
+        {(connectionError || !isOnline) && (
           <Button
             size="sm"
             variant="outline"
-            onClick={() => {
-              clearError();
-              window.location.reload();
-            }}
+            onClick={handleRetry}
+            disabled={testing}
           >
-            <RefreshCw className="h-3 w-3 mr-1" />
-            Retry
+            <RefreshCw className={`h-3 w-3 mr-1 ${testing ? 'animate-spin' : ''}`} />
+            {testing ? 'Testing...' : 'Retry'}
           </Button>
         )}
       </div>

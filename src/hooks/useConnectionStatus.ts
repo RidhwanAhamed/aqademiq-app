@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { isConnected } from '@/config/supabaseClient';
+import { supabase } from '@/config/supabaseClient';
 
 export function useConnectionStatus() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -16,36 +16,60 @@ export function useConnectionStatus() {
       setConnectionError('You are currently offline');
     };
 
-    const handleConnectionError = (error: any) => {
-      if (error?.message?.includes('Failed to fetch')) {
-        setConnectionError('Network connection failed. Please check your internet connection.');
-      } else if (error?.message?.includes('NetworkError')) {
-        setConnectionError('Network error occurred. Please try again.');
-      } else {
-        setConnectionError(error?.message || 'Connection error occurred');
+    // Test actual Supabase connectivity
+    const testSupabaseConnection = async () => {
+      try {
+        const { error } = await supabase.auth.getSession();
+        if (error && error.message.includes('Failed to fetch')) {
+          setConnectionError('Unable to connect to the service. Please check your internet connection.');
+        }
+      } catch (error: any) {
+        if (error?.message?.includes('Failed to fetch') || error?.message?.includes('NetworkError')) {
+          setConnectionError('Network connection failed. Please check your internet connection.');
+        }
       }
     };
 
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
-    window.addEventListener('error', handleConnectionError);
 
     // Set initial connection status
-    setIsOnline(navigator.onLine && isConnected());
+    setIsOnline(navigator.onLine);
+    
+    // Test connection on mount if online
+    if (navigator.onLine) {
+      testSupabaseConnection();
+    }
 
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
-      window.removeEventListener('error', handleConnectionError);
     };
   }, []);
 
   const clearError = () => setConnectionError(null);
 
+  const testConnection = async () => {
+    try {
+      const { error } = await supabase.auth.getSession();
+      if (!error) {
+        setConnectionError(null);
+        return true;
+      }
+      return false;
+    } catch (error: any) {
+      if (error?.message?.includes('Failed to fetch') || error?.message?.includes('NetworkError')) {
+        setConnectionError('Network connection failed. Please check your internet connection.');
+      }
+      return false;
+    }
+  };
+
   return {
     isOnline,
     connectionError,
     clearError,
+    testConnection,
     hasConnection: isOnline && !connectionError
   };
 }
