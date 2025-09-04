@@ -8,7 +8,8 @@ export function ConnectionStatus() {
   const { isOnline, connectionError, clearError, testConnection, hasConnection } = useConnectionStatus();
   const [testing, setTesting] = useState(false);
 
-  if (hasConnection) {
+  // Only show component when there's an actual connection issue
+  if (isOnline && !connectionError) {
     return null;
   }
 
@@ -19,8 +20,8 @@ export function ConnectionStatus() {
     try {
       const connected = await testConnection();
       if (connected) {
-        // Force a page refresh to ensure clean state
-        window.location.reload();
+        // Connection restored, clear any errors
+        clearError();
       }
     } catch (error) {
       console.error('Connection test failed:', error);
