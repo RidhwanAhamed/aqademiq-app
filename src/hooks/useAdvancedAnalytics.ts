@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/config/supabaseClient';
 import { useToast } from '@/hooks/use-toast';
 
 interface PerformanceMetric {
