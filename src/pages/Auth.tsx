@@ -103,12 +103,13 @@ export default function Auth() {
   });
 
   const getErrorMessage = (error: any): string => {
-    if (!hasConnection || connectionError) {
-      return 'Please check your internet connection and try again.';
+    // Only treat actual network errors as connection issues
+    if (error?.message?.includes('Failed to fetch') || error?.message?.includes('fetch')) {
+      return 'Network connection failed. Please check your internet connection and try again.';
     }
     
-    if (error?.message?.includes('Failed to fetch')) {
-      return 'Network connection failed. Please check your internet connection.';
+    if (error?.message?.includes('NetworkError')) {
+      return 'Network error occurred. Please try again.';
     }
     
     if (error?.message?.includes('Invalid login credentials')) {
