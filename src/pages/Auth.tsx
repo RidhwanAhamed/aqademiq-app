@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { ConnectionStatus } from '@/components/ConnectionStatus';
+
 import { GraduationCap, Brain, Eye, EyeOff, Mail, Lock, Loader2, CheckCircle, RefreshCw, AlertTriangle } from 'lucide-react';
 import { supabase, retryOperation } from "@/config/supabaseClient";
 
@@ -101,18 +101,16 @@ export default function Auth() {
   });
 
   const getErrorMessage = (error: any): string => {
-    // Only treat genuine network connectivity issues as connection problems
-    if (error?.name === 'NetworkError' || 
-        (error?.message?.includes('NetworkError') && !error?.message?.includes('Invalid'))) {
-      return 'Network error occurred. Please try again.';
-    }
+    // Add detailed debugging to understand exact error types
+    console.log('Auth Error Details:', {
+      error,
+      errorName: error?.name,
+      errorMessage: error?.message,
+      errorType: typeof error,
+      fullError: JSON.stringify(error, null, 2)
+    });
     
-    // Check for genuine fetch failures (not API errors that mention "fetch")
-    if (error?.message === 'Failed to fetch' || 
-        (error?.message?.includes('Failed to fetch') && !error?.message?.includes('Invalid'))) {
-      return 'Connection failed. Please check your internet connection.';
-    }
-    
+    // Check for specific Supabase auth errors first
     if (error?.message?.includes('Invalid login credentials')) {
       return 'Invalid email or password. Please check your credentials and try again.';
     }
@@ -129,23 +127,46 @@ export default function Auth() {
       return 'Email signup is temporarily disabled. Please try again later.';
     }
 
-    if (error?.message?.includes('rate_limit')) {
+    if (error?.message?.includes('rate_limit') || error?.message?.includes('Rate limit')) {
       return 'Too many requests. Please wait a moment before trying again.';
     }
     
-    return error?.message || 'An unexpected error occurred. Please try again.';
+    if (error?.message?.includes('Network error') || error?.name === 'NetworkError') {
+      return 'Network connection issue. Please check your internet and try again.';
+    }
+    
+    // Handle CORS and other technical issues that might show as "Failed to fetch"
+    if (error?.message === 'Failed to fetch') {
+      return 'Unable to connect to our servers. This might be a temporary issue - please try again in a moment.';
+    }
+    
+    // For any other error, show the actual message but make it user-friendly
+    const userMessage = error?.message || 'An unexpected error occurred. Please try again.';
+    
+    // If it's a technical error, provide a more user-friendly version
+    if (userMessage.includes('fetch')) {
+      return 'Connection issue detected. Please check your network connection and try again.';
+    }
+    
+    return userMessage;
   };
 
   const onSignIn = async (data: SignInFormData) => {
     setLoading(true);
     setAuthError(null);
+    
+    console.log('Starting sign in process for:', data.email);
 
     try {
+      console.log('Calling signIn function...');
       const result = await retryOperation(async () => {
         return await signIn(data.email, data.password);
       }, 2, 1000);
       
+      console.log('Sign in result:', result);
+      
       if (result.error) {
+        console.log('Sign in failed with error:', result.error);
         const errorMessage = getErrorMessage(result.error);
         setAuthError(errorMessage);
         toast({
@@ -154,6 +175,7 @@ export default function Auth() {
           variant: "destructive",
         });
       } else {
+        console.log('Sign in successful!');
         toast({
           title: "Welcome back!",
           description: "You've been successfully signed in.",
@@ -161,10 +183,11 @@ export default function Auth() {
         // Navigation will happen automatically via auth state change
       }
     } catch (error) {
+      console.log('Sign in caught error:', error);
       const errorMessage = getErrorMessage(error);
       setAuthError(errorMessage);
       toast({
-        title: "Connection Error",
+        title: "Authentication Error",
         description: errorMessage,
         variant: "destructive",
       });
@@ -176,13 +199,19 @@ export default function Auth() {
   const onSignUp = async (data: SignUpFormData) => {
     setLoading(true);
     setAuthError(null);
+    
+    console.log('Starting sign up process for:', data.email);
 
     try {
+      console.log('Calling signUp function...');
       const result = await retryOperation(async () => {
         return await signUp(data.email, data.password);
       }, 2, 1000);
       
+      console.log('Sign up result:', result);
+      
       if (result.error) {
+        console.log('Sign up failed with error:', result.error);
         const errorMessage = getErrorMessage(result.error);
         setAuthError(errorMessage);
         toast({
@@ -191,6 +220,7 @@ export default function Auth() {
           variant: "destructive",
         });
       } else {
+        console.log('Sign up successful!');
         setVerificationEmail(data.email);
         setActiveTab('verify');
         toast({
@@ -199,10 +229,11 @@ export default function Auth() {
         });
       }
     } catch (error) {
+      console.log('Sign up caught error:', error);
       const errorMessage = getErrorMessage(error);
       setAuthError(errorMessage);
       toast({
-        title: "Connection Error",
+        title: "Authentication Error",
         description: errorMessage,
         variant: "destructive",
       });
@@ -340,8 +371,6 @@ export default function Auth() {
           </CardHeader>
 
           <CardContent>
-            <ConnectionStatus />
-            
             {authError && (
               <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 rounded-lg flex items-center gap-2">
                 <AlertTriangle className="h-4 w-4 text-destructive" />
