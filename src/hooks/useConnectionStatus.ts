@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/config/supabaseClient';
 
 export function useConnectionStatus() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -34,15 +33,24 @@ export function useConnectionStatus() {
   const clearError = () => setConnectionError(null);
 
   const testConnection = async () => {
+    // Simple connectivity test using a basic fetch to a reliable endpoint
     try {
-      const { error } = await supabase.auth.getSession();
-      if (!error) {
-        setConnectionError(null);
-        return true;
-      }
-      return false;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      
+      const response = await fetch('https://www.google.com/favicon.ico', {
+        method: 'HEAD',
+        signal: controller.signal,
+        mode: 'no-cors'
+      });
+      
+      clearTimeout(timeoutId);
+      setConnectionError(null);
+      return true;
     } catch (error: any) {
-      if (error?.message?.includes('Failed to fetch') || error?.message?.includes('NetworkError')) {
+      if (error.name === 'AbortError') {
+        setConnectionError('Connection timeout. Please check your internet connection.');
+      } else {
         setConnectionError('Network connection failed. Please check your internet connection.');
       }
       return false;

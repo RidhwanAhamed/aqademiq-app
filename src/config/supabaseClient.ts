@@ -42,32 +42,28 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
   },
 });
 
-// Add connection state monitoring
+// Simple connection status tracking
 let isOnline = navigator.onLine;
 
-// Monitor connection status
 window.addEventListener('online', () => {
   isOnline = true;
-  logger.info('Connection restored, refreshing session');
-  supabase.auth.refreshSession();
+  logger.info('Connection restored');
 });
 
 window.addEventListener('offline', () => {
   isOnline = false;
-  logger.warn('Connection lost, operating in offline mode');
+  logger.warn('Connection lost');
 });
 
-// Enhanced error handling for auth state changes
+// Basic auth state monitoring
 supabase.auth.onAuthStateChange((event, session) => {
-  logger.info('Auth state changed', { event, userId: session?.user?.id });
+  logger.info('Auth state changed', { 
+    event, 
+    userId: session?.user?.id ? 'logged-in' : 'anonymous'
+  });
   
   if (event === 'SIGNED_OUT') {
-    // Clear any cached data on sign out
     localStorage.removeItem('supabase.auth.token');
-  }
-  
-  if (event === 'TOKEN_REFRESHED') {
-    logger.info('Auth token refreshed successfully');
   }
 });
 
