@@ -9,7 +9,6 @@ import { AppLayout } from "@/components/AppLayout";
 import { ThemeProvider } from "next-themes";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { SecurityHeaders } from "@/components/SecurityHeaders";
-import { OptimizedSecurityMonitor } from "@/components/OptimizedSecurityMonitor";
 import { queryClient } from "@/config/queryClient";
 
 // Lazy load heavy components for better performance
@@ -39,7 +38,6 @@ const App = () => (
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <TooltipProvider>
             <SecurityHeaders />
-            <OptimizedSecurityMonitor />
             <Toaster />
             <Sonner />
             <BrowserRouter>
