@@ -101,16 +101,7 @@ export default function Auth() {
   });
 
   const getErrorMessage = (error: any): string => {
-    // Add detailed debugging to understand exact error types
-    console.log('Auth Error Details:', {
-      error,
-      errorName: error?.name,
-      errorMessage: error?.message,
-      errorType: typeof error,
-      fullError: JSON.stringify(error, null, 2)
-    });
-    
-    // Check for specific Supabase auth errors first
+    // Check for specific Supabase auth errors
     if (error?.message?.includes('Invalid login credentials')) {
       return 'Invalid email or password. Please check your credentials and try again.';
     }
@@ -135,38 +126,18 @@ export default function Auth() {
       return 'Network connection issue. Please check your internet and try again.';
     }
     
-    // Handle CORS and other technical issues that might show as "Failed to fetch"
-    if (error?.message === 'Failed to fetch') {
-      return 'Unable to connect to our servers. This might be a temporary issue - please try again in a moment.';
-    }
-    
-    // For any other error, show the actual message but make it user-friendly
-    const userMessage = error?.message || 'An unexpected error occurred. Please try again.';
-    
-    // If it's a technical error, provide a more user-friendly version
-    if (userMessage.includes('fetch')) {
-      return 'Connection issue detected. Please check your network connection and try again.';
-    }
-    
-    return userMessage;
+    // For any other error, show a clean user-friendly message
+    return error?.message || 'An unexpected error occurred. Please try again.';
   };
 
   const onSignIn = async (data: SignInFormData) => {
     setLoading(true);
     setAuthError(null);
-    
-    console.log('Starting sign in process for:', data.email);
 
     try {
-      console.log('Calling signIn function...');
-      const result = await retryOperation(async () => {
-        return await signIn(data.email, data.password);
-      }, 2, 1000);
-      
-      console.log('Sign in result:', result);
+      const result = await signIn(data.email, data.password);
       
       if (result.error) {
-        console.log('Sign in failed with error:', result.error);
         const errorMessage = getErrorMessage(result.error);
         setAuthError(errorMessage);
         toast({
@@ -175,15 +146,12 @@ export default function Auth() {
           variant: "destructive",
         });
       } else {
-        console.log('Sign in successful!');
         toast({
           title: "Welcome back!",
           description: "You've been successfully signed in.",
         });
-        // Navigation will happen automatically via auth state change
       }
     } catch (error) {
-      console.log('Sign in caught error:', error);
       const errorMessage = getErrorMessage(error);
       setAuthError(errorMessage);
       toast({
@@ -199,19 +167,11 @@ export default function Auth() {
   const onSignUp = async (data: SignUpFormData) => {
     setLoading(true);
     setAuthError(null);
-    
-    console.log('Starting sign up process for:', data.email);
 
     try {
-      console.log('Calling signUp function...');
-      const result = await retryOperation(async () => {
-        return await signUp(data.email, data.password);
-      }, 2, 1000);
-      
-      console.log('Sign up result:', result);
+      const result = await signUp(data.email, data.password);
       
       if (result.error) {
-        console.log('Sign up failed with error:', result.error);
         const errorMessage = getErrorMessage(result.error);
         setAuthError(errorMessage);
         toast({
@@ -220,7 +180,6 @@ export default function Auth() {
           variant: "destructive",
         });
       } else {
-        console.log('Sign up successful!');
         setVerificationEmail(data.email);
         setActiveTab('verify');
         toast({
@@ -229,7 +188,6 @@ export default function Auth() {
         });
       }
     } catch (error) {
-      console.log('Sign up caught error:', error);
       const errorMessage = getErrorMessage(error);
       setAuthError(errorMessage);
       toast({
@@ -247,15 +205,13 @@ export default function Auth() {
     
     setLoading(true);
     try {
-      const result = await retryOperation(async () => {
-        return await supabase.auth.resend({
-          type: 'signup',
-          email: verificationEmail,
-          options: {
-            emailRedirectTo: `${window.location.origin}/auth/verify`,
-          }
-        });
-      }, 2, 1000);
+      const result = await supabase.auth.resend({
+        type: 'signup',
+        email: verificationEmail,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/verify`,
+        }
+      });
 
       if (result.error) {
         toast({
@@ -295,11 +251,9 @@ export default function Auth() {
 
     setLoading(true);
     try {
-      const result = await retryOperation(async () => {
-        return await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: `${window.location.origin}/auth/reset-password`,
-        });
-      }, 2, 1000);
+      const result = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth/reset-password`,
+      });
 
       if (result.error) {
         toast({
