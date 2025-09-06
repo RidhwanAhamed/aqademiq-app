@@ -25,104 +25,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Clear any auth errors
   const clearError = () => setError(null);
 
-  // Clean up corrupted sessions with better error handling
-  const cleanupCorruptedSessions = async () => {
-    try {
-      const { data, error: sessionError } = await supabase.auth.getSession();
-      
-      if (sessionError) {
-        // Only clear storage for specific auth errors, not network errors
-        if (!sessionError.message.includes('Failed to fetch')) {
-          logger.error('Session error, clearing storage:', sessionError);
-          localStorage.removeItem('sb-thmyddcvpopzjbvmhbur-auth-token');
-          setError('Session expired. Please sign in again.');
-        }
-        return;
-      }
-      
-      // Only validate session if we have one and no network issues
-      if (data?.session) {
-        try {
-          const { error: testError } = await supabase.auth.getUser();
-          if (testError && !testError.message.includes('Failed to fetch')) {
-            logger.error('Session validation failed, clearing storage:', testError);
-            localStorage.removeItem('sb-thmyddcvpopzjbvmhbur-auth-token');
-            await supabase.auth.signOut();
-          }
-        } catch (validationError) {
-          // Don't clear session for network errors during validation
-          logger.warn('Session validation skipped due to network error:', validationError);
-        }
-      }
-    } catch (error) {
-      logger.warn('Session cleanup skipped due to network error:', error);
-    }
-  };
-
   useEffect(() => {
     let mounted = true;
-    
-    // Clean up on mount
-    cleanupCorruptedSessions();
 
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      (event, session) => {
         if (!mounted) return;
 
         logger.info('Auth state changed', { event, userId: session?.user?.id });
         
+        setSession(session);
+        setUser(session?.user ?? null);
+        
         if (event === 'SIGNED_OUT') {
-          setSession(null);
-          setUser(null);
           setError(null);
-          // Clear any cached data on sign out
-          localStorage.removeItem('sb-thmyddcvpopzjbvmhbur-auth-token');
         } else if (event === 'SIGNED_IN') {
-          setSession(session);
-          setUser(session?.user ?? null);
           setError(null);
-        } else if (event === 'TOKEN_REFRESHED') {
-          setSession(session);
-          setUser(session?.user ?? null);
-          logger.info('Auth token refreshed successfully');
-        } else {
-          setSession(session);
-          setUser(session?.user ?? null);
-        }
-        
-        setLoading(false);
-        
-        // Handle successful sign in - redirect to dashboard
-        if (event === 'SIGNED_IN' && session?.user) {
+          // Handle successful sign in - redirect to dashboard
           const currentPath = window.location.pathname;
-          // Only redirect if we're on an auth page
           if (currentPath.includes('/auth') || currentPath === '/welcome') {
-            // Use navigate instead of window.location for better SPA behavior
             setTimeout(() => {
               window.location.href = '/';
             }, 100);
           }
         }
+        
+        setLoading(false);
       }
     );
 
     // THEN check for existing session
     const initializeAuth = async () => {
       try {
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        
-        if (sessionError) {
-          logger.error('Failed to get session:', sessionError);
-          setError('Failed to load session. Please refresh and try again.');
-        } else {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (mounted) {
           setSession(session);
           setUser(session?.user ?? null);
+          setLoading(false);
         }
       } catch (error) {
         logger.error('Auth initialization error:', error);
-        setError('Failed to initialize authentication.');
-      } finally {
         if (mounted) {
           setLoading(false);
         }
@@ -160,6 +103,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signIn = async (email: string, password: string) => {
     try {
+      clearError();
       const result = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -175,18 +119,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (result.error.message.includes('Email not confirmed')) {
           return { error: { message: 'Please check your email and click the confirmation link before signing in.' } };
         }
-        if (result.error.message.includes('Failed to fetch')) {
-          return { error: { message: 'Connection error. Please check your internet connection and try again.' } };
-        }
       }
       
       return { error: result.error };
     } catch (error) {
       logger.error('Sign in failed', { error, email });
-      // Handle network errors specifically
-      if (error instanceof Error && error.message.includes('Failed to fetch')) {
-        return { error: { message: 'Unable to connect to the authentication service. Please check your internet connection and try again.' } };
-      }
       return { error: error as any };
     }
   };
@@ -195,15 +132,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       setLoading(true);
       await supabase.auth.signOut();
-      // Clear all local storage with correct storage key
-      localStorage.removeItem('sb-thmyddcvpopzjbvmhbur-auth-token');
       setError(null);
     } catch (error) {
       logger.error('Sign out failed', error);
       // Force clear local state even if API call fails
       setSession(null);
       setUser(null);
-      localStorage.removeItem('sb-thmyddcvpopzjbvmhbur-auth-token');
     } finally {
       setLoading(false);
     }
