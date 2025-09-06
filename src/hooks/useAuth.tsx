@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
-import { supabase, retryOperation, isConnected } from '@/config/supabaseClient';
+import { supabase } from '@/integrations/supabase/client';
 import { logger } from '@/utils/logger';
 
 interface AuthContextType {
@@ -25,33 +25,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Clear any auth errors
   const clearError = () => setError(null);
 
-  // Clean up corrupted sessions
+  // Clean up corrupted sessions with better error handling
   const cleanupCorruptedSessions = async () => {
     try {
       const { data, error: sessionError } = await supabase.auth.getSession();
       
       if (sessionError) {
-        logger.error('Session error, clearing storage:', sessionError);
-        localStorage.removeItem('supabase.auth.token');
-        sessionStorage.clear();
-        setError('Session expired. Please sign in again.');
+        // Only clear storage for specific auth errors, not network errors
+        if (!sessionError.message.includes('Failed to fetch')) {
+          logger.error('Session error, clearing storage:', sessionError);
+          localStorage.removeItem('sb-thmyddcvpopzjbvmhbur-auth-token');
+          setError('Session expired. Please sign in again.');
+        }
         return;
       }
       
+      // Only validate session if we have one and no network issues
       if (data?.session) {
-        // Validate session by making a test request
-        const { error: testError } = await supabase.auth.getUser();
-        if (testError) {
-          logger.error('Session validation failed, clearing storage:', testError);
-          localStorage.removeItem('supabase.auth.token');
-          sessionStorage.clear();
-          await supabase.auth.signOut();
+        try {
+          const { error: testError } = await supabase.auth.getUser();
+          if (testError && !testError.message.includes('Failed to fetch')) {
+            logger.error('Session validation failed, clearing storage:', testError);
+            localStorage.removeItem('sb-thmyddcvpopzjbvmhbur-auth-token');
+            await supabase.auth.signOut();
+          }
+        } catch (validationError) {
+          // Don't clear session for network errors during validation
+          logger.warn('Session validation skipped due to network error:', validationError);
         }
       }
     } catch (error) {
-      logger.error('Session cleanup error:', error);
-      localStorage.removeItem('supabase.auth.token');
-      sessionStorage.clear();
+      logger.warn('Session cleanup skipped due to network error:', error);
     }
   };
 
@@ -73,7 +77,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUser(null);
           setError(null);
           // Clear any cached data on sign out
-          localStorage.removeItem('supabase.auth.token');
+          localStorage.removeItem('sb-thmyddcvpopzjbvmhbur-auth-token');
         } else if (event === 'SIGNED_IN') {
           setSession(session);
           setUser(session?.user ?? null);
@@ -134,23 +138,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signUp = async (email: string, password: string, options?: { data?: any }) => {
-    if (!isConnected()) {
-      return { error: { message: 'No internet connection available' } };
-    }
-
     try {
       const redirectUrl = `${window.location.origin}/auth/verify`;
       
-      const result = await retryOperation(async () => {
-        return await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            emailRedirectTo: redirectUrl,
-            data: options?.data
-          }
-        });
-      }, 3, 1000);
+      const result = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: redirectUrl,
+          data: options?.data
+        }
+      });
       
       logger.info('Sign up attempt', { email, hasError: !!result.error });
       return { error: result.error };
@@ -161,22 +159,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signIn = async (email: string, password: string) => {
-    if (!isConnected()) {
-      return { error: { message: 'No internet connection available' } };
-    }
-
     try {
-      const result = await retryOperation(async () => {
-        return await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-      }, 3, 1000);
+      const result = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
       
       logger.info('Sign in attempt', { email, hasError: !!result.error });
+      
+      if (result.error) {
+        // Handle specific auth errors with user-friendly messages
+        if (result.error.message.includes('Invalid login credentials')) {
+          return { error: { message: 'Invalid email or password. Please check your credentials and try again.' } };
+        }
+        if (result.error.message.includes('Email not confirmed')) {
+          return { error: { message: 'Please check your email and click the confirmation link before signing in.' } };
+        }
+        if (result.error.message.includes('Failed to fetch')) {
+          return { error: { message: 'Connection error. Please check your internet connection and try again.' } };
+        }
+      }
+      
       return { error: result.error };
     } catch (error) {
       logger.error('Sign in failed', { error, email });
+      // Handle network errors specifically
+      if (error instanceof Error && error.message.includes('Failed to fetch')) {
+        return { error: { message: 'Unable to connect to the authentication service. Please check your internet connection and try again.' } };
+      }
       return { error: error as any };
     }
   };
@@ -185,17 +195,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       setLoading(true);
       await supabase.auth.signOut();
-      // Clear all local storage
-      localStorage.removeItem('supabase.auth.token');
-      sessionStorage.clear();
+      // Clear all local storage with correct storage key
+      localStorage.removeItem('sb-thmyddcvpopzjbvmhbur-auth-token');
       setError(null);
     } catch (error) {
       logger.error('Sign out failed', error);
       // Force clear local state even if API call fails
       setSession(null);
       setUser(null);
-      localStorage.removeItem('supabase.auth.token');
-      sessionStorage.clear();
+      localStorage.removeItem('sb-thmyddcvpopzjbvmhbur-auth-token');
     } finally {
       setLoading(false);
     }
