@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
-import { supabase } from '@/config/supabaseClient';
+import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 
 export interface AdvancedConflict {

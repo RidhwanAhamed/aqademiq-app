@@ -134,6 +134,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signUp = async (email: string, password: string, options?: { data?: any }) => {
+    if (!isConnected()) {
+      return { error: { message: 'No internet connection available' } };
+    }
+
     try {
       const redirectUrl = `${window.location.origin}/auth/verify`;
       
@@ -157,6 +161,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signIn = async (email: string, password: string) => {
+    if (!isConnected()) {
+      return { error: { message: 'No internet connection available' } };
+    }
+
     try {
       const result = await retryOperation(async () => {
         return await supabase.auth.signInWithPassword({

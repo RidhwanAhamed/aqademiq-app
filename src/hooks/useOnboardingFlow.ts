@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/config/supabaseClient';
+import { supabase } from '@/integrations/supabase/client';
 
 export function useOnboardingFlow() {
   const { user, loading: authLoading } = useAuth();
