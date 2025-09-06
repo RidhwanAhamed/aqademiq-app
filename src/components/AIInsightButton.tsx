@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Sparkles, Clock, Lightbulb, Target, Loader2 } from 'lucide-react';
-import { supabase } from '@/config/supabaseClient';
+import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { UpgradeToPremiumDialog } from '@/components/UpgradeToPremiumDialog';
 

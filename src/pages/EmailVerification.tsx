@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { CheckCircle, XCircle, Mail, ArrowRight, GraduationCap, Brain } from 'lucide-react';
-import { supabase } from '@/config/supabaseClient';
+import { supabase } from '@/integrations/supabase/client';
 
 export default function EmailVerification() {
   const [searchParams] = useSearchParams();
