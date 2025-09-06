@@ -111,22 +111,178 @@ async function performFullBidirectionalSync(userId: string, supabase: any) {
   }
 }
 
-async function performIncrementalSync(userId: string, supabase: any) {
+async function performIncrementalSync(userId: string, supabase: any, syncToken?: string) {
   console.log(`Performing incremental sync for user ${userId}`);
   
-  // For now, perform a full sync - in production this would be optimized
-  // to only sync changes since last sync
-  return await performFullBidirectionalSync(userId, supabase);
+  try {
+    const { data: tokenData } = await supabase
+      .from('google_tokens')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
+
+    if (!tokenData) {
+      throw new Error('No Google token found');
+    }
+
+    const accessToken = await refreshTokenIfNeeded(tokenData, userId, supabase);
+    
+    // Use sync token for efficient incremental updates
+    let syncUrl = 'https://www.googleapis.com/calendar/v3/calendars/primary/events';
+    const params = new URLSearchParams();
+    
+    if (syncToken) {
+      params.append('syncToken', syncToken);
+    } else {
+      // First sync - get events from last week
+      const updatedMin = new Date();
+      updatedMin.setDate(updatedMin.getDate() - 7);
+      params.append('updatedMin', updatedMin.toISOString());
+      params.append('singleEvents', 'true');
+    }
+    
+    const response = await fetch(`${syncUrl}?${params.toString()}`, {
+      headers: { 'Authorization': `Bearer ${accessToken}` }
+    });
+
+    if (!response.ok) {
+      if (response.status === 410) {
+        // Sync token expired - perform full sync
+        console.log('Sync token expired, performing full sync');
+        return await performFullBidirectionalSync(userId, supabase);
+      }
+      throw new Error(`Google Calendar API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    console.log(`Incremental sync found ${data.items?.length || 0} changed events`);
+
+    const conflicts = [];
+    let syncedEvents = 0;
+
+    // Process incremental changes
+    for (const event of data.items || []) {
+      if (event.status === 'cancelled') {
+        await handleDeletedEvent(userId, event.id, supabase);
+      } else {
+        const conflict = await processIncrementalEvent(userId, event, supabase);
+        if (conflict) conflicts.push(conflict);
+        syncedEvents++;
+      }
+    }
+
+    // Store new sync token if provided
+    if (data.nextSyncToken) {
+      await supabase
+        .from('google_sync_tokens')
+        .upsert({
+          user_id: userId,
+          calendar_id: 'primary',
+          sync_token: data.nextSyncToken,
+          last_used_at: new Date().toISOString(),
+        });
+    }
+
+    // Update settings
+    await supabase
+      .from('google_calendar_settings')
+      .update({ last_sync_at: new Date().toISOString() })
+      .eq('user_id', userId);
+
+    return new Response(
+      JSON.stringify({ 
+        success: true, 
+        synced_events: syncedEvents,
+        conflicts,
+        nextSyncToken: data.nextSyncToken
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  } catch (error) {
+    console.error('Incremental sync error:', error);
+    throw error;
+  }
 }
 
 async function resolveConflicts(userId: string, conflictData: any, supabase: any) {
-  // Implement conflict resolution logic based on user preferences
   console.log('Resolving conflicts for user:', userId, conflictData);
   
-  return new Response(
-    JSON.stringify({ success: true, message: 'Conflicts resolved' }),
-    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-  );
+  try {
+    const { conflict_id, resolution_type, resolved_data } = conflictData;
+
+    // Get the conflict record
+    const { data: conflict } = await supabase
+      .from('sync_conflicts')
+      .select('*')
+      .eq('id', conflict_id)
+      .eq('user_id', userId)
+      .single();
+
+    if (!conflict) {
+      throw new Error('Conflict not found');
+    }
+
+    let finalData;
+    
+    switch (resolution_type) {
+      case 'prefer_local':
+        finalData = conflict.local_data;
+        await updateGoogleEventFromLocal(conflict, supabase);
+        break;
+        
+      case 'prefer_google':
+        finalData = conflict.google_data;
+        await updateLocalEventFromGoogle(conflict, conflict.google_data, supabase);
+        break;
+        
+      case 'merge':
+        finalData = resolved_data;
+        await updateBothFromResolvedData(conflict, resolved_data, supabase);
+        break;
+        
+      default:
+        throw new Error('Invalid resolution type');
+    }
+
+    // Mark conflict as resolved
+    await supabase
+      .from('sync_conflicts')
+      .update({
+        resolved_at: new Date().toISOString(),
+        resolved_by: resolution_type,
+        resolution_preference: resolution_type
+      })
+      .eq('id', conflict_id);
+
+    // Log the resolution for analytics
+    await supabase
+      .from('sync_operations')
+      .insert({
+        user_id: userId,
+        entity_type: conflict.entity_type,
+        entity_id: conflict.entity_id,
+        operation_type: 'conflict_resolution',
+        operation_status: 'completed',
+        sync_direction: 'bidirectional',
+        google_event_id: conflict.google_event_id
+      });
+
+    return new Response(
+      JSON.stringify({ 
+        success: true, 
+        message: 'Conflict resolved successfully',
+        resolution_type,
+        final_data: finalData
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  } catch (error) {
+    console.error('Conflict resolution error:', error);
+    return new Response(
+      JSON.stringify({ error: error.message }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
 }
 
 async function importFromGoogleCalendar(userId: string, accessToken: string, settings: any, supabase: any) {
