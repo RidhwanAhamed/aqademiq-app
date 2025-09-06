@@ -17,7 +17,7 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     flowType: 'pkce',
     
     // Storage event handling
-    storageKey: 'supabase.auth.token',
+    storageKey: 'sb-thmyddcvpopzjbvmhbur-auth-token',
   },
   
   // Enhanced global configuration
@@ -55,20 +55,6 @@ window.addEventListener('online', () => {
 window.addEventListener('offline', () => {
   isOnline = false;
   logger.warn('Connection lost, operating in offline mode');
-});
-
-// Enhanced error handling for auth state changes
-supabase.auth.onAuthStateChange((event, session) => {
-  logger.info('Auth state changed', { event, userId: session?.user?.id });
-  
-  if (event === 'SIGNED_OUT') {
-    // Clear any cached data on sign out
-    localStorage.removeItem('supabase.auth.token');
-  }
-  
-  if (event === 'TOKEN_REFRESHED') {
-    logger.info('Auth token refreshed successfully');
-  }
 });
 
 // Utility function to check connection status
