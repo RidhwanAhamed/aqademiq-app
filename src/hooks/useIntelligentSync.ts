@@ -215,17 +215,22 @@ export function useIntelligentSync() {
             failed++;
           }
         } else {
-          // Low confidence - mark for manual resolution
+          // Low confidence - mark for manual resolution using sync_operations table
           await supabase
-            .from('sync_conflicts')
+            .from('sync_operations')
             .insert({
               user_id: user?.id,
               entity_type: conflict.entity_type,
               entity_id: conflict.entity_id,
+              operation_type: 'conflict_pending',
+              operation_status: 'pending',
+              sync_direction: 'bidirectional',
               google_event_id: conflict.google_event_id,
-              conflict_type: conflict.conflict_type,
-              local_data: conflict.local_data,
-              google_data: conflict.google_data,
+              conflict_data: {
+                conflict_type: conflict.conflict_type,
+                local_data: conflict.local_data,
+                google_data: conflict.google_data
+              }
             });
           failed++;
         }
