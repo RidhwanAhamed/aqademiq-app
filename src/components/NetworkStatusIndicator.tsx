@@ -33,14 +33,16 @@ export const NetworkStatusIndicator = ({ onRetry, showDetailedStatus = false }: 
     
     setTesting(true);
     try {
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      // Use the correct Supabase URL and key from the client configuration
+      const supabaseUrl = "https://thmyddcvpopzjbvmhbur.supabase.co";
+      const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRobXlkZGN2cG9wempidm1oYnVyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQzMDA3OTksImV4cCI6MjA2OTg3Njc5OX0.yomXAXLBjy_9re1xyJDRNV5rSuLfeCwwyNtH-fJxJ1k";
       
-      if (supabaseUrl && supabaseKey) {
-        const connected = await testSupabaseConnectivity(supabaseUrl, supabaseKey);
-        setSupabaseConnected(connected);
-      }
+      console.log('Testing Supabase connectivity...', { supabaseUrl });
+      const connected = await testSupabaseConnectivity(supabaseUrl, supabaseKey);
+      console.log('Supabase connectivity test result:', connected);
+      setSupabaseConnected(connected);
     } catch (error) {
+      console.error('Supabase connectivity test failed:', error);
       setSupabaseConnected(false);
     } finally {
       setTesting(false);
