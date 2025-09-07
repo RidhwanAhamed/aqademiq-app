@@ -14,5 +14,22 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true,
-  }
+    flowType: 'pkce',
+    storageKey: 'sb-thmyddcvpopzjbvmhbur-auth-token',
+  },
+  global: {
+    headers: {
+      'x-client-info': 'supabase-js-web/2.53.0',
+    },
+  },
+  realtime: {
+    params: {
+      eventsPerSecond: 10,
+    },
+    heartbeatIntervalMs: 30000,
+    reconnectAfterMs: (tries: number) => Math.min(tries * 1000, 30000),
+  },
+  db: {
+    schema: 'public',
+  },
 });

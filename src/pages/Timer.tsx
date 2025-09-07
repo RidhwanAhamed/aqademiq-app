@@ -5,7 +5,7 @@ import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Play, Pause, RotateCcw, Clock, Coffee, Target, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/config/supabaseClient";
+import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { AddStudySessionDialog } from "@/components/AddStudySessionDialog";
 

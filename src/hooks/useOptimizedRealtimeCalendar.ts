@@ -3,7 +3,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { ScheduleBlock, Exam } from '@/hooks/useSchedule';
 import { Assignment } from '@/hooks/useAssignments';
 import { useToast } from '@/hooks/use-toast';
-import { supabase, retryOperation } from '@/config/supabaseClient';
+import { supabase } from '@/integrations/supabase/client';
 import { logger } from '@/utils/logger';
 import { debounce } from 'lodash-es';
 
@@ -165,7 +165,7 @@ export function useOptimizedRealtimeCalendar() {
         };
       };
 
-      const { scheduleBlocks, exams, assignments } = await retryOperation(fetchData, 2, 1000);
+      const { scheduleBlocks, exams, assignments } = await fetchData();
 
       const calendarEvents = transformToCalendarEvents(scheduleBlocks, exams, assignments);
       setEvents(calendarEvents);
@@ -289,14 +289,12 @@ export function useOptimizedRealtimeCalendar() {
         location: updates.location,
       });
 
-      await retryOperation(async () => {
-        const { error } = await supabase
-          .from('schedule_blocks')
-          .update(updates)
-          .eq('id', id);
+      const { error } = await supabase
+        .from('schedule_blocks')
+        .update(updates)
+        .eq('id', id);
 
-        if (error) throw error;
-      }, 2, 1000);
+      if (error) throw error;
 
       clearOptimisticUpdate(eventId);
       toast({
@@ -326,14 +324,12 @@ export function useOptimizedRealtimeCalendar() {
         location: updates.location,
       });
 
-      await retryOperation(async () => {
-        const { error } = await supabase
-          .from('exams')
-          .update(updates)
-          .eq('id', id);
+      const { error } = await supabase
+        .from('exams')
+        .update(updates)
+        .eq('id', id);
 
-        if (error) throw error;
-      }, 2, 1000);
+      if (error) throw error;
 
       clearOptimisticUpdate(eventId);
       toast({
@@ -362,14 +358,12 @@ export function useOptimizedRealtimeCalendar() {
         title: updates.title ? `Due: ${updates.title}` : undefined,
       });
 
-      await retryOperation(async () => {
-        const { error } = await supabase
-          .from('assignments')
-          .update(updates)
-          .eq('id', id);
+      const { error } = await supabase
+        .from('assignments')
+        .update(updates)
+        .eq('id', id);
 
-        if (error) throw error;
-      }, 2, 1000);
+      if (error) throw error;
 
       clearOptimisticUpdate(eventId);
       toast({
