@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { isConnected } from '@/config/supabaseClient';
+// Connection status is now managed internally
 
 export function useConnectionStatus() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -31,7 +31,7 @@ export function useConnectionStatus() {
     window.addEventListener('error', handleConnectionError);
 
     // Set initial connection status
-    setIsOnline(navigator.onLine && isConnected());
+    setIsOnline(navigator.onLine);
 
     return () => {
       window.removeEventListener('online', handleOnline);
