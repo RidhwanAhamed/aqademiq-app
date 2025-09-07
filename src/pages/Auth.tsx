@@ -104,36 +104,64 @@ export default function Auth() {
   });
 
   const handleError = (error: any) => {
+    console.error('AUTH ERROR DETECTED:', {
+      error,
+      message: error?.message,
+      name: error?.name,
+      stack: error?.stack,
+      isAuthError: error?.__isAuthError,
+      status: error?.status
+    });
+
     const errorInfo = analyzeError(error);
+    console.log('Error analysis result:', errorInfo);
     
     if (errorInfo.isNetworkError) {
+      console.log('Setting network error:', errorInfo.userMessage);
       setNetworkError(errorInfo.userMessage);
       setAuthError(null);
     } else {
+      console.log('Setting auth error:', errorInfo.userMessage);
       setAuthError(errorInfo.userMessage);
       setNetworkError(null);
+    }
+    
+    // FORCE ERROR DISPLAY - Always show at least generic error if specific one fails
+    if (!errorInfo.userMessage) {
+      const fallbackMessage = `Authentication failed: ${error?.message || 'Unknown error'}`;
+      console.log('Using fallback error message:', fallbackMessage);
+      setAuthError(fallbackMessage);
     }
     
     return errorInfo;
   };
 
   const performAuthOperation = async (operation: () => Promise<any>, operationName: string) => {
+    console.log(`=== ${operationName.toUpperCase()} OPERATION STARTED ===`);
+    
     setAuthError(null);
     setNetworkError(null);
     
     if (!isOnline()) {
+      console.log('User is offline, setting network error');
       setNetworkError('No internet connection. Please check your network and try again.');
       return { error: new Error('Network offline') };
     }
 
     try {
-      return await retryWithBackoff(operation, 2, 1000);
+      console.log('Executing operation with retry logic...');
+      const result = await retryWithBackoff(operation, 2, 1000);
+      console.log('Operation completed successfully:', result);
+      return result;
     } catch (error) {
+      console.error(`${operationName} operation failed:`, error);
+      
       const errorInfo = handleError(error);
       
+      console.log('Showing error toast...');
       toast({
         title: `${operationName} failed`,
-        description: errorInfo.userMessage,
+        description: errorInfo.userMessage || `${operationName} failed. Please try again.`,
         variant: "destructive",
       });
       
@@ -142,21 +170,40 @@ export default function Auth() {
   };
 
   const onSignIn = async (data: SignInFormData) => {
-    setLoading(true);
-
-    const result = await performAuthOperation(
-      () => signIn(data.email, data.password),
-      "Sign in"
-    );
+    console.log('=== SIGN IN ATTEMPT STARTED ===');
+    console.log('Form data:', { email: data.email, passwordLength: data.password?.length });
     
-    if (!result.error) {
-      toast({
-        title: "Welcome back!",
-        description: "You've been successfully signed in.",
-      });
+    setLoading(true);
+    setAuthError(null);
+    setNetworkError(null);
+
+    try {
+      console.log('Calling performAuthOperation...');
+      const result = await performAuthOperation(
+        () => signIn(data.email, data.password),
+        "Sign in"
+      );
+      
+      console.log('performAuthOperation result:', result);
+      
+      if (!result.error) {
+        console.log('Sign in successful');
+        toast({
+          title: "Welcome back!",
+          description: "You've been successfully signed in.",
+        });
+      } else {
+        console.log('Sign in failed with error:', result.error);
+        // Ensure error is displayed even if other mechanisms fail
+        handleError(result.error);
+      }
+    } catch (error) {
+      console.error('UNEXPECTED ERROR in onSignIn:', error);
+      handleError(error);
     }
     
     setLoading(false);
+    console.log('=== SIGN IN ATTEMPT COMPLETED ===');
   };
 
   const onSignUp = async (data: SignUpFormData) => {
