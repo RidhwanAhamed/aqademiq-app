@@ -14,6 +14,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { GraduationCap, Brain, Eye, EyeOff, Mail, Lock, Loader2, CheckCircle, RefreshCw, AlertTriangle } from 'lucide-react';
 import { supabase } from "@/integrations/supabase/client";
+import { NetworkStatusIndicator } from '@/components/NetworkStatusIndicator';
+import { analyzeError, retryWithBackoff, isOnline } from '@/utils/networkErrorHandler';
 
 const signInSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -45,6 +47,8 @@ export default function Auth() {
   const [canResendEmail, setCanResendEmail] = useState(true);
   const [resendCooldown, setResendCooldown] = useState(0);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [networkError, setNetworkError] = useState<string | null>(null);
+  const [isRetrying, setIsRetrying] = useState(false);
   
   const { signIn, signUp, user } = useAuth();
   const { toast } = useToast();
@@ -99,137 +103,108 @@ export default function Auth() {
     defaultValues: { email: '', password: '', confirmPassword: '' },
   });
 
-  const getErrorMessage = (error: any): string => {
-    if (error?.message?.includes('Invalid login credentials')) {
-      return 'Invalid email or password. Please check your credentials and try again.';
+  const handleError = (error: any) => {
+    const errorInfo = analyzeError(error);
+    
+    if (errorInfo.isNetworkError) {
+      setNetworkError(errorInfo.userMessage);
+      setAuthError(null);
+    } else {
+      setAuthError(errorInfo.userMessage);
+      setNetworkError(null);
     }
     
-    if (error?.message?.includes('Email not confirmed')) {
-      return 'Please check your email and click the confirmation link before signing in.';
-    }
+    return errorInfo;
+  };
+
+  const performAuthOperation = async (operation: () => Promise<any>, operationName: string) => {
+    setAuthError(null);
+    setNetworkError(null);
     
-    if (error?.message?.includes('User already registered')) {
-      return 'An account with this email already exists. Please sign in instead.';
-    }
-    
-    if (error?.message?.includes('Signup requires')) {
-      return 'Email signup is temporarily disabled. Please try again later.';
+    if (!isOnline()) {
+      setNetworkError('No internet connection. Please check your network and try again.');
+      return { error: new Error('Network offline') };
     }
 
-    if (error?.message?.includes('rate_limit')) {
-      return 'Too many requests. Please wait a moment before trying again.';
+    try {
+      return await retryWithBackoff(operation, 2, 1000);
+    } catch (error) {
+      const errorInfo = handleError(error);
+      
+      toast({
+        title: `${operationName} failed`,
+        description: errorInfo.userMessage,
+        variant: "destructive",
+      });
+      
+      return { error };
     }
-    
-    return error?.message || 'An unexpected error occurred. Please try again.';
   };
 
   const onSignIn = async (data: SignInFormData) => {
     setLoading(true);
-    setAuthError(null);
 
-    try {
-      const result = await signIn(data.email, data.password);
-      
-      if (result.error) {
-        const errorMessage = getErrorMessage(result.error);
-        setAuthError(errorMessage);
-        toast({
-          title: "Sign in failed",
-          description: errorMessage,
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Welcome back!",
-          description: "You've been successfully signed in.",
-        });
-        // Navigation will happen automatically via auth state change
-      }
-    } catch (error) {
-      const errorMessage = getErrorMessage(error);
-      setAuthError(errorMessage);
+    const result = await performAuthOperation(
+      () => signIn(data.email, data.password),
+      "Sign in"
+    );
+    
+    if (!result.error) {
       toast({
-        title: "Sign in Error",
-        description: errorMessage,
-        variant: "destructive",
+        title: "Welcome back!",
+        description: "You've been successfully signed in.",
       });
-    } finally {
-      setLoading(false);
     }
+    
+    setLoading(false);
   };
 
   const onSignUp = async (data: SignUpFormData) => {
     setLoading(true);
-    setAuthError(null);
 
-    try {
-      const result = await signUp(data.email, data.password);
-      
-      if (result.error) {
-        const errorMessage = getErrorMessage(result.error);
-        setAuthError(errorMessage);
-        toast({
-          title: "Sign up failed", 
-          description: errorMessage,
-          variant: "destructive",
-        });
-      } else {
-        setVerificationEmail(data.email);
-        setActiveTab('verify');
-        toast({
-          title: "Account created!",
-          description: "Check your email to verify your account.",
-        });
-      }
-    } catch (error) {
-      const errorMessage = getErrorMessage(error);
-      setAuthError(errorMessage);
+    const result = await performAuthOperation(
+      () => signUp(data.email, data.password),
+      "Sign up"
+    );
+    
+    if (!result.error) {
+      setVerificationEmail(data.email);
+      setActiveTab('verify');
       toast({
-        title: "Connection Error",
-        description: errorMessage,
-        variant: "destructive",
+        title: "Account created!",
+        description: "Check your email to verify your account.",
       });
-    } finally {
-      setLoading(false);
     }
+    
+    setLoading(false);
   };
 
   const handleResendEmail = async () => {
     if (!canResendEmail || !verificationEmail) return;
     
     setLoading(true);
-    try {
-      const result = await supabase.auth.resend({
+    
+    const result = await performAuthOperation(
+      () => supabase.auth.resend({
         type: 'signup',
         email: verificationEmail,
         options: {
           emailRedirectTo: `${window.location.origin}/auth/verify`,
         }
-      });
-
-      if (result.error) {
-        toast({
-          title: "Failed to resend email",
-          description: getErrorMessage(result.error),
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Email sent!",
-          description: "Check your inbox for the verification email.",
-        });
-        setCanResendEmail(false);
-        setResendCooldown(60);
-      }
-    } catch (error) {
+      }),
+      "Resend email"
+    );
+    
+    if (!result.error) {
       toast({
-        title: "Connection Error",
-        description: getErrorMessage(error),
-        variant: "destructive",
+        title: "Email sent!",
+        description: "Check your inbox for the verification email.",
       });
-    } finally {
-      setLoading(false);
+      setCanResendEmail(false);
+      setResendCooldown(60);
     }
+    
+    setLoading(false);
   };
 
   const handleForgotPassword = async () => {
@@ -244,33 +219,35 @@ export default function Auth() {
     }
 
     setLoading(true);
-    try {
-      const result = await supabase.auth.resetPasswordForEmail(email, {
+    
+    const result = await performAuthOperation(
+      () => supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/auth/reset-password`,
-      });
-
-      if (result.error) {
-        toast({
-          title: "Password reset failed",
-          description: getErrorMessage(result.error),
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Password reset email sent",
-          description: "Check your email for password reset instructions.",
-        });
-        setActiveTab('signin');
-      }
-    } catch (error) {
+      }),
+      "Password reset"
+    );
+    
+    if (!result.error) {
       toast({
-        title: "Reset Error",
-        description: getErrorMessage(error),
-        variant: "destructive",
+        title: "Password reset email sent",
+        description: "Check your email for password reset instructions.",
       });
-    } finally {
-      setLoading(false);
+      setActiveTab('signin');
     }
+    
+    setLoading(false);
+  };
+
+  const handleRetry = () => {
+    setAuthError(null);
+    setNetworkError(null);
+    setIsRetrying(true);
+    
+    // Clear any existing form errors
+    signInForm.clearErrors();
+    signUpForm.clearErrors();
+    
+    setTimeout(() => setIsRetrying(false), 1000);
   };
 
   const getPasswordStrength = (password: string) => {
@@ -319,10 +296,39 @@ export default function Auth() {
           </CardHeader>
 
           <CardContent>
-            {authError && (
+            {/* Network Status Indicator */}
+            {(networkError || !isOnline()) && (
+              <NetworkStatusIndicator 
+                onRetry={handleRetry} 
+                showDetailedStatus={true} 
+              />
+            )}
+
+            {/* Authentication Error Display */}
+            {authError && !networkError && (
               <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 rounded-lg flex items-center gap-2">
                 <AlertTriangle className="h-4 w-4 text-destructive" />
                 <p className="text-sm text-destructive">{authError}</p>
+              </div>
+            )}
+
+            {/* Network Error Display */}
+            {networkError && (
+              <div className="mb-4 p-3 bg-warning/10 border border-warning/20 rounded-lg">
+                <div className="flex items-center gap-2 mb-2">
+                  <AlertTriangle className="h-4 w-4 text-warning" />
+                  <p className="text-sm font-medium text-warning">Connection Issue</p>
+                </div>
+                <p className="text-sm text-muted-foreground mb-3">{networkError}</p>
+                <div className="text-xs text-muted-foreground space-y-1">
+                  <p><strong>Troubleshooting steps:</strong></p>
+                  <ul className="list-disc list-inside space-y-1 ml-2">
+                    <li>Check your internet connection</li>
+                    <li>Try disabling VPN or proxy if using one</li>
+                    <li>Check if corporate firewall is blocking the connection</li>
+                    <li>Try using mobile data instead of WiFi</li>
+                  </ul>
+                </div>
               </div>
             )}
             
