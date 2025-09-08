@@ -117,71 +117,167 @@ export function useBidirectionalSync() {
   }, [user]);
 
   const triggerIncrementalSync = useCallback(async () => {
-    if (!user || !syncStatus.isOnline) return;
+    if (!user || !syncStatus.isOnline) {
+      toast({
+        title: "Sync Unavailable",
+        description: syncStatus.isOnline ? "Please sign in first." : "You're offline. Please check your internet connection.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     setLoading(true);
     try {
-      const { error } = await supabase.functions.invoke('enhanced-google-calendar-sync', {
+      console.log('Triggering incremental sync for user:', user.id);
+      
+      const { data, error } = await supabase.functions.invoke('enhanced-google-calendar-sync', {
         body: { action: 'incremental-sync', userId: user.id }
       });
 
-      if (error) throw error;
+      console.log('Incremental sync response:', { data, error });
+
+      if (error) {
+        console.error('Incremental sync error:', error);
+        throw new Error(error.message || 'Failed to perform incremental sync');
+      }
+
+      if (data?.error) {
+        console.error('Incremental sync returned error:', data.error);
+        throw new Error(data.error);
+      }
+
+      const syncedEvents = data?.synced_events || 0;
+      const conflictsDetected = data?.conflicts?.length || 0;
+
+      let message = "Incremental sync completed successfully.";
+      if (syncedEvents > 0) {
+        message += ` ${syncedEvents} events processed.`;
+      }
+      if (conflictsDetected > 0) {
+        message += ` ${conflictsDetected} conflicts detected.`;
+      }
 
       toast({
-        title: "Sync Triggered",
-        description: "Incremental sync is processing in the background.",
+        title: "Sync Completed",
+        description: message,
       });
+      
+      return data;
     } catch (error) {
-      console.error('Error triggering sync:', error);
+      console.error('Error triggering incremental sync:', error);
+      
+      let errorMessage = "Failed to sync recent changes.";
+      if (error instanceof Error) {
+        if (error.message.includes('token')) {
+          errorMessage = "Authentication expired. Please reconnect your Google account.";
+        } else if (error.message.includes('No Google tokens found')) {
+          errorMessage = "Google account not connected. Please connect your Google account first.";
+        } else if (error.message.includes('quota')) {
+          errorMessage = "Google API quota exceeded. Please try again later.";
+        } else if (error.message.includes('network') || error.message.includes('fetch')) {
+          errorMessage = "Network connection error. Please check your internet connection.";
+        } else {
+          errorMessage = `Sync failed: ${error.message}`;
+        }
+      }
+      
       toast({
         title: "Sync Failed",
-        description: "Failed to trigger incremental sync.",
+        description: errorMessage,
         variant: "destructive",
       });
+      
+      throw error;
     } finally {
       setLoading(false);
     }
   }, [user, syncStatus.isOnline, toast]);
 
   const resolveConflict = useCallback(async (operationId: string, resolution: 'prefer_local' | 'prefer_google' | 'merge') => {
-    if (!user) return;
+    if (!user) {
+      toast({
+        title: "Authentication Required",
+        description: "Please sign in to resolve conflicts.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     setLoading(true);
     try {
       const operation = operations.find(op => op.id === operationId);
-      if (!operation) throw new Error('Operation not found');
+      if (!operation) {
+        throw new Error('Operation not found - it may have already been resolved');
+      }
 
-      const { error } = await supabase.functions.invoke('enhanced-google-calendar-sync', {
+      console.log(`Resolving conflict ${operationId} with resolution: ${resolution}`);
+
+      const { data, error } = await supabase.functions.invoke('enhanced-google-calendar-sync', {
         body: { 
           action: 'conflict-resolution', 
           userId: user.id,
           conflictData: {
-            operationId,
-            resolution,
-            conflictData: operation.conflict_data
+            conflict_id: operationId,
+            resolution_type: resolution,
+            resolved_data: operation.conflict_data
           }
         }
       });
 
-      if (error) throw error;
+      console.log('Conflict resolution response:', { data, error });
 
-      // Update operation status
-      await supabase
-        .from('sync_operations')
-        .update({ operation_status: 'success' })
-        .eq('id', operationId);
+      if (error) {
+        console.error('Conflict resolution error:', error);
+        throw new Error(error.message || 'Failed to resolve conflict');
+      }
+
+      if (data?.error) {
+        console.error('Conflict resolution returned error:', data.error);
+        throw new Error(data.error);
+      }
+
+      // Update operation status locally
+      setOperations(prev => prev.map(op => 
+        op.id === operationId 
+          ? { ...op, operation_status: 'success' } 
+          : op
+      ));
+
+      // Update sync status
+      setSyncStatus(prev => ({
+        ...prev,
+        conflictsCount: Math.max(0, prev.conflictsCount - 1)
+      }));
 
       toast({
         title: "Conflict Resolved",
         description: `Conflict resolved using ${resolution.replace('_', ' ')} preference.`,
       });
+      
+      return data;
     } catch (error) {
       console.error('Error resolving conflict:', error);
+      
+      let errorMessage = "Failed to resolve sync conflict.";
+      if (error instanceof Error) {
+        if (error.message.includes('Conflict not found')) {
+          errorMessage = "Conflict no longer exists or has already been resolved.";
+        } else if (error.message.includes('token')) {
+          errorMessage = "Authentication expired. Please reconnect your Google account.";
+        } else if (error.message.includes('Operation not found')) {
+          errorMessage = "This conflict may have already been resolved.";
+        } else {
+          errorMessage = `Conflict resolution failed: ${error.message}`;
+        }
+      }
+      
       toast({
         title: "Resolution Failed",
-        description: "Failed to resolve conflict.",
+        description: errorMessage,
         variant: "destructive",
       });
+      
+      throw error;
     } finally {
       setLoading(false);
     }

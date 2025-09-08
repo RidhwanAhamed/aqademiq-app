@@ -363,28 +363,77 @@ export function useGoogleCalendar() {
   };
 
   const syncNow = async () => {
-    if (!user || !tokenStatus.isConnected) return;
+    if (!user || !tokenStatus.isConnected) {
+      toast({
+        title: "Connection Required",
+        description: "Please connect to Google Calendar first.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     setLoading(true);
     try {
+      console.log('Starting Google Calendar sync...');
+      
       const { data, error } = await supabase.functions.invoke('enhanced-google-calendar-sync', {
         body: { action: 'full-sync', userId: user.id }
       });
 
-      if (error) throw error;
+      console.log('Sync response:', { data, error });
+
+      if (error) {
+        console.error('Sync error:', error);
+        throw new Error(error.message || 'Failed to sync with Google Calendar');
+      }
+
+      if (data?.error) {
+        console.error('Sync returned error:', data.error);
+        throw new Error(data.error);
+      }
 
       // Update last sync time
       setSettings(prev => prev ? { ...prev, last_sync_at: new Date().toISOString() } : null);
 
+      const importedCount = data?.imported || 0;
+      const exportedCount = data?.exported || 0;
+      const conflictsCount = data?.conflicts?.length || 0;
+
+      let message = `Successfully synced your academic data with Google Calendar.`;
+      if (importedCount > 0 || exportedCount > 0) {
+        message += ` Imported: ${importedCount}, Exported: ${exportedCount}`;
+        if (conflictsCount > 0) {
+          message += `, Conflicts detected: ${conflictsCount}`;
+        }
+      }
+
       toast({
-        title: "Bi-Directional Sync Complete",
-        description: `Successfully synced your academic data with Google Calendar in both directions.`,
+        title: "Sync Completed",
+        description: message,
       });
     } catch (error) {
       console.error('Error syncing with Google Calendar:', error);
+      
+      let errorMessage = "Failed to sync with Google Calendar.";
+      
+      if (error instanceof Error) {
+        // Provide specific error messages based on the error
+        if (error.message.includes('token')) {
+          errorMessage = "Authentication expired. Please reconnect your Google account.";
+        } else if (error.message.includes('quota')) {
+          errorMessage = "Google API quota exceeded. Please try again later.";
+        } else if (error.message.includes('network') || error.message.includes('fetch')) {
+          errorMessage = "Network connection error. Please check your internet connection and try again.";
+        } else if (error.message.includes('No Google tokens found')) {
+          errorMessage = "Google account not properly connected. Please reconnect your Google account.";
+        } else {
+          errorMessage = `Sync failed: ${error.message}`;
+        }
+      }
+      
       toast({
         title: "Sync Failed",
-        description: "Failed to sync with Google Calendar. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -393,25 +442,57 @@ export function useGoogleCalendar() {
   };
 
   const setupWebhook = async () => {
-    if (!user || !tokenStatus.isConnected) return;
+    if (!user || !tokenStatus.isConnected) {
+      toast({
+        title: "Connection Required",
+        description: "Please connect to Google Calendar first.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     setLoading(true);
     try {
+      console.log('Setting up webhook for real-time sync...');
+      
       const { data, error } = await supabase.functions.invoke('enhanced-google-calendar-sync', {
         body: { action: 'setup-webhook', userId: user.id }
       });
 
-      if (error) throw error;
+      console.log('Webhook setup response:', { data, error });
+
+      if (error) {
+        console.error('Webhook setup error:', error);
+        throw new Error(error.message || 'Failed to setup webhook');
+      }
+
+      if (data?.error) {
+        console.error('Webhook setup returned error:', data.error);
+        throw new Error(data.error);
+      }
 
       toast({
-        title: "Real-Time Sync Enabled",
+        title: data?.message || "Real-Time Sync Enabled",
         description: "Google Calendar changes will now sync automatically to your app.",
       });
     } catch (error) {
       console.error('Error setting up webhook:', error);
+      
+      let errorMessage = "Failed to enable real-time sync.";
+      
+      if (error instanceof Error) {
+        if (error.message.includes('token')) {
+          errorMessage = "Authentication expired. Please reconnect your Google account.";
+        } else if (error.message.includes('webhook')) {
+          errorMessage = "Failed to setup real-time sync. Manual sync is still available.";
+        } else {
+          errorMessage = `Real-time sync setup failed: ${error.message}`;
+        }
+      }
+      
       toast({
         title: "Webhook Setup Failed",
-        description: "Failed to enable real-time sync. Manual sync is still available.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
