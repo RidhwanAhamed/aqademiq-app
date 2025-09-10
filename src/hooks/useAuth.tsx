@@ -138,6 +138,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       clearError();
       const redirectUrl = `${window.location.origin}/auth/verify`;
       
+      logger.info('Starting signup process', { email });
+      
       const result = await supabase.auth.signUp({
         email,
         password,
@@ -147,10 +149,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       });
       
-      logger.info('Sign up attempt', { email, hasError: !!result.error });
+      logger.info('Signup API response', { 
+        email, 
+        hasError: !!result.error, 
+        errorMessage: result.error?.message,
+        errorStatus: result.error?.status,
+        hasUser: !!result.data?.user,
+        needsConfirmation: !result.data?.user?.email_confirmed_at
+      });
       
       if (result.error) {
-        // Enhanced error handling for sign up
+        // Enhanced error handling for sign up with specific 422 handling
+        if (result.error.status === 422) {
+          logger.error('Database validation error during signup', { 
+            error: result.error, 
+            email 
+          });
+          return { 
+            error: { 
+              message: 'Account creation failed due to a database error. Please try again in a moment.',
+              isRetryable: true,
+              originalError: result.error
+            } 
+          };
+        }
+        
         if (result.error.message.includes('User already registered')) {
           return { error: { message: 'An account with this email already exists. Please sign in instead.' } };
         }
@@ -160,12 +183,53 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (result.error.message.includes('Password')) {
           return { error: { message: 'Password must be at least 6 characters long.' } };
         }
+        if (result.error.message.includes('duplicate') || result.error.message.includes('constraint')) {
+          return { 
+            error: { 
+              message: 'This email is already registered. Please try signing in instead.',
+              isRetryable: false
+            } 
+          };
+        }
+        if (result.error.message.includes('network') || result.error.message.includes('fetch')) {
+          return { 
+            error: { 
+              message: 'Network error during signup. Please check your connection and try again.',
+              isRetryable: true
+            } 
+          };
+        }
+      }
+      
+      // Successful signup
+      if (result.data?.user && !result.data.user.email_confirmed_at) {
+        logger.info('Signup successful, verification email should be sent', { 
+          email,
+          userId: result.data.user.id 
+        });
       }
       
       return { error: result.error };
     } catch (error) {
-      logger.error('Sign up failed', { error, email });
-      return { error: error as any };
+      logger.error('Sign up failed with exception', { error, email });
+      
+      // Handle network errors gracefully
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        return { 
+          error: { 
+            message: 'Connection error during signup. Please check your internet connection and try again.',
+            isRetryable: true
+          } 
+        };
+      }
+      
+      return { 
+        error: { 
+          message: 'An unexpected error occurred during signup. Please try again.',
+          isRetryable: true,
+          originalError: error
+        } as any 
+      };
     }
   };
 

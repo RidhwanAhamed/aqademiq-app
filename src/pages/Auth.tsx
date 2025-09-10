@@ -207,23 +207,59 @@ export default function Auth() {
   };
 
   const onSignUp = async (data: SignUpFormData) => {
-    setLoading(true);
-
-    const result = await performAuthOperation(
-      () => signUp(data.email, data.password),
-      "Sign up"
-    );
+    console.log('=== SIGN UP ATTEMPT STARTED ===');
+    console.log('Form data:', { email: data.email, passwordLength: data.password?.length });
     
-    if (!result.error) {
-      setVerificationEmail(data.email);
-      setActiveTab('verify');
-      toast({
-        title: "Account created!",
-        description: "Check your email to verify your account.",
-      });
+    setLoading(true);
+    setAuthError(null);
+    setNetworkError(null);
+
+    try {
+      console.log('Calling performAuthOperation for signup...');
+      const result = await performAuthOperation(
+        () => signUp(data.email, data.password, { 
+          data: { full_name: data.email.split('@')[0] } 
+        }),
+        "Sign up"
+      );
+      
+      console.log('Signup performAuthOperation result:', result);
+      
+      if (!result.error) {
+        console.log('Signup successful, switching to verification');
+        setVerificationEmail(data.email);
+        setActiveTab('verify');
+        toast({
+          title: "Account created successfully!",
+          description: "We've sent a verification email to your inbox. Please check your email and click the verification link to complete your registration.",
+        });
+      } else {
+        console.log('Signup failed with error:', result.error);
+        
+        // Handle specific signup errors with retry options
+        if (result.error?.isRetryable) {
+          console.log('Error is retryable, showing retry option');
+          setAuthError(`${result.error.message} Would you like to try again?`);
+        } else {
+          setAuthError(result.error.message || 'Signup failed. Please try again.');
+        }
+        
+        // Show specific guidance for database errors
+        if (result.error?.originalError?.status === 422) {
+          toast({
+            title: "Account Creation Issue",
+            description: "There was a temporary database issue. Please wait a moment and try again. If this persists, please contact support.",
+            variant: "destructive",
+          });
+        }
+      }
+    } catch (error) {
+      console.error('UNEXPECTED ERROR in onSignUp:', error);
+      handleError(error);
     }
     
     setLoading(false);
+    console.log('=== SIGN UP ATTEMPT COMPLETED ===');
   };
 
   const handleResendEmail = async () => {
@@ -351,11 +387,27 @@ export default function Auth() {
               />
             )}
 
-            {/* Authentication Error Display */}
+            {/* Authentication Error Display with Retry Options */}
             {authError && !networkError && (
-              <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 rounded-lg flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4 text-destructive" />
-                <p className="text-sm text-destructive">{authError}</p>
+              <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="h-4 w-4 text-destructive mt-0.5" />
+                  <div className="flex-1">
+                    <p className="text-sm text-destructive">{authError}</p>
+                    {authError.includes('database error') || authError.includes('try again') && (
+                      <Button
+                        onClick={handleRetry}
+                        variant="outline"
+                        size="sm"
+                        className="mt-2 h-8 text-xs"
+                        disabled={loading}
+                      >
+                        <RefreshCw className="mr-1 h-3 w-3" />
+                        Try Again
+                      </Button>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
 
@@ -401,15 +453,28 @@ export default function Auth() {
                       </p>
                       <p className="font-medium text-primary">{verificationEmail}</p>
                     </div>
-                    <div className="p-4 bg-muted/50 rounded-lg text-left">
-                      <p className="text-sm text-muted-foreground">
-                        <strong>Didn't receive the email?</strong>
-                      </p>
-                      <ul className="text-xs text-muted-foreground mt-2 space-y-1">
-                        <li>• Check your spam/junk folder</li>
-                        <li>• Wait a few minutes for delivery</li>
-                        <li>• Click the resend button below</li>
-                      </ul>
+                    
+                    {/* Email Delivery Status */}
+                    <div className="p-4 bg-muted/50 rounded-lg">
+                      <div className="flex items-center gap-2 mb-2">
+                        <CheckCircle className="h-4 w-4 text-green-500" />
+                        <p className="text-sm font-medium text-green-700">Account Created Successfully</p>
+                      </div>
+                      <div className="flex items-center gap-2 mb-3">
+                        <Mail className="h-4 w-4 text-blue-500" />
+                        <p className="text-sm font-medium text-blue-700">Verification Email Sent</p>
+                      </div>
+                      <div className="text-left">
+                        <p className="text-sm text-muted-foreground">
+                          <strong>Didn't receive the email?</strong>
+                        </p>
+                        <ul className="text-xs text-muted-foreground mt-2 space-y-1">
+                          <li>• Check your spam/junk folder</li>
+                          <li>• Wait a few minutes for delivery</li>
+                          <li>• Make sure {verificationEmail} is correct</li>
+                          <li>• Click the resend button below</li>
+                        </ul>
+                      </div>
                     </div>
                   </div>
 
@@ -622,12 +687,23 @@ export default function Auth() {
                         disabled={loading}
                       >
                         {loading ? (
-                          <>
+                          <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            className="flex items-center justify-center"
+                          >
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Creating account...
-                          </>
+                            <span>Creating your account...</span>
+                          </motion.div>
                         ) : (
-                          'Create Account'
+                          <motion.div
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                            className="flex items-center justify-center"
+                          >
+                            <CheckCircle className="mr-2 h-4 w-4" />
+                            Create Account
+                          </motion.div>
                         )}
                       </Button>
                     </motion.form>
