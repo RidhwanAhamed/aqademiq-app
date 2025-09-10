@@ -142,6 +142,51 @@ export type Database = {
           },
         ]
       }
+      academic_sync_preferences: {
+        Row: {
+          assignment_buffer_hours: number
+          auto_study_sessions: boolean
+          break_time_minutes: number
+          color_coding_enabled: boolean
+          created_at: string
+          exam_prep_days: number
+          id: string
+          reminder_escalation: boolean
+          study_session_duration: number
+          updated_at: string
+          user_id: string
+          weekend_study_allowed: boolean
+        }
+        Insert: {
+          assignment_buffer_hours?: number
+          auto_study_sessions?: boolean
+          break_time_minutes?: number
+          color_coding_enabled?: boolean
+          created_at?: string
+          exam_prep_days?: number
+          id?: string
+          reminder_escalation?: boolean
+          study_session_duration?: number
+          updated_at?: string
+          user_id: string
+          weekend_study_allowed?: boolean
+        }
+        Update: {
+          assignment_buffer_hours?: number
+          auto_study_sessions?: boolean
+          break_time_minutes?: number
+          color_coding_enabled?: boolean
+          created_at?: string
+          exam_prep_days?: number
+          id?: string
+          reminder_escalation?: boolean
+          study_session_duration?: number
+          updated_at?: string
+          user_id?: string
+          weekend_study_allowed?: boolean
+        }
+        Relationships: []
+      }
       ai_insights_history: {
         Row: {
           ai_response: Json
@@ -618,6 +663,42 @@ export type Database = {
           last_synced_at?: string
           local_event_updated?: string | null
           sync_hash?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      google_sync_tokens: {
+        Row: {
+          calendar_id: string
+          created_at: string
+          expires_at: string | null
+          id: string
+          last_used_at: string
+          page_token: string | null
+          sync_token: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          calendar_id?: string
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          last_used_at?: string
+          page_token?: string | null
+          sync_token: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          calendar_id?: string
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          last_used_at?: string
+          page_token?: string | null
+          sync_token?: string
           updated_at?: string
           user_id?: string
         }
@@ -1291,6 +1372,51 @@ export type Database = {
           },
         ]
       }
+      study_session_templates: {
+        Row: {
+          auto_schedule: boolean
+          break_intervals: Json | null
+          course_id: string | null
+          created_at: string
+          duration_minutes: number
+          id: string
+          preferred_times: Json | null
+          session_type: string
+          subject_focus: Json | null
+          template_name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          auto_schedule?: boolean
+          break_intervals?: Json | null
+          course_id?: string | null
+          created_at?: string
+          duration_minutes?: number
+          id?: string
+          preferred_times?: Json | null
+          session_type?: string
+          subject_focus?: Json | null
+          template_name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          auto_schedule?: boolean
+          break_intervals?: Json | null
+          course_id?: string | null
+          created_at?: string
+          duration_minutes?: number
+          id?: string
+          preferred_times?: Json | null
+          session_type?: string
+          subject_focus?: Json | null
+          template_name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       study_sessions: {
         Row: {
           actual_end: string | null
@@ -1367,8 +1493,112 @@ export type Database = {
           },
         ]
       }
+      sync_conflicts: {
+        Row: {
+          conflict_type: string
+          created_at: string
+          entity_id: string
+          entity_type: string
+          google_data: Json
+          google_event_id: string
+          id: string
+          local_data: Json
+          resolution_preference: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          conflict_type: string
+          created_at?: string
+          entity_id: string
+          entity_type: string
+          google_data: Json
+          google_event_id: string
+          id?: string
+          local_data: Json
+          resolution_preference?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          conflict_type?: string
+          created_at?: string
+          entity_id?: string
+          entity_type?: string
+          google_data?: Json
+          google_event_id?: string
+          id?: string
+          local_data?: Json
+          resolution_preference?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      sync_job_queue: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          error_message: string | null
+          failed_at: string | null
+          id: string
+          job_data: Json
+          job_type: string
+          max_retries: number
+          priority: number
+          retry_count: number
+          scheduled_for: string
+          started_at: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          failed_at?: string | null
+          id?: string
+          job_data?: Json
+          job_type: string
+          max_retries?: number
+          priority?: number
+          retry_count?: number
+          scheduled_for?: string
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          failed_at?: string | null
+          id?: string
+          job_data?: Json
+          job_type?: string
+          max_retries?: number
+          priority?: number
+          retry_count?: number
+          scheduled_for?: string
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       sync_operations: {
         Row: {
+          attempts_count: number
+          batch_id: string | null
           completed_at: string | null
           conflict_data: Json | null
           created_at: string
@@ -1378,13 +1608,19 @@ export type Database = {
           google_event_id: string | null
           id: string
           last_attempted_at: string | null
+          next_retry_at: string | null
           operation_status: string
           operation_type: string
+          original_created_at: string | null
+          priority: number
           retry_count: number
           sync_direction: string
+          sync_type: string
           user_id: string
         }
         Insert: {
+          attempts_count?: number
+          batch_id?: string | null
           completed_at?: string | null
           conflict_data?: Json | null
           created_at?: string
@@ -1394,13 +1630,19 @@ export type Database = {
           google_event_id?: string | null
           id?: string
           last_attempted_at?: string | null
+          next_retry_at?: string | null
           operation_status?: string
           operation_type: string
+          original_created_at?: string | null
+          priority?: number
           retry_count?: number
           sync_direction: string
+          sync_type?: string
           user_id: string
         }
         Update: {
+          attempts_count?: number
+          batch_id?: string | null
           completed_at?: string | null
           conflict_data?: Json | null
           created_at?: string
@@ -1410,10 +1652,14 @@ export type Database = {
           google_event_id?: string | null
           id?: string
           last_attempted_at?: string | null
+          next_retry_at?: string | null
           operation_status?: string
           operation_type?: string
+          original_created_at?: string | null
+          priority?: number
           retry_count?: number
           sync_direction?: string
+          sync_type?: string
           user_id?: string
         }
         Relationships: []
