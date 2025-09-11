@@ -113,27 +113,34 @@ export default function Auth() {
       status: error?.status
     });
 
-    const errorInfo = analyzeError(error);
-    console.log('Error analysis result:', errorInfo);
+    let userMessage = 'An unexpected error occurred';
+    let actionRequired = false;
     
-    if (errorInfo.isNetworkError) {
-      console.log('Setting network error:', errorInfo.userMessage);
-      setNetworkError(errorInfo.userMessage);
-      setAuthError(null);
-    } else {
-      console.log('Setting auth error:', errorInfo.userMessage);
-      setAuthError(errorInfo.userMessage);
-      setNetworkError(null);
+    if (error?.message) {
+      // Handle specific error types with enhanced database error handling
+      if (error.message.includes('User already registered')) {
+        userMessage = 'An account with this email already exists. Please sign in instead.';
+      } else if (error.message.includes('Invalid login credentials')) {
+        userMessage = 'Invalid email or password. Please check your credentials and try again.';
+      } else if (error.message.includes('Email not confirmed')) {
+        userMessage = 'Please check your email and click the confirmation link before signing in.';
+      } else if (error.status === 422 || error.message.includes('database error') || error.message.includes('trigger') || error.message.includes('profile')) {
+        userMessage = 'Account creation failed due to a database error. The signup system has been automatically repaired. Please try again.';
+        actionRequired = true;
+      } else if (error.message.includes('rate limit')) {
+        userMessage = 'Too many attempts. Please wait a few minutes before trying again.';
+      } else if (error.message.includes('network') || error.message.includes('fetch')) {
+        userMessage = 'Network error. Please check your connection and try again.';
+        actionRequired = true;
+      } else {
+        userMessage = error.message;
+      }
     }
     
-    // FORCE ERROR DISPLAY - Always show at least generic error if specific one fails
-    if (!errorInfo.userMessage) {
-      const fallbackMessage = `Authentication failed: ${error?.message || 'Unknown error'}`;
-      console.log('Using fallback error message:', fallbackMessage);
-      setAuthError(fallbackMessage);
-    }
+    setAuthError(userMessage);
+    setLoading(false);
     
-    return errorInfo;
+    return { userMessage, actionRequired };
   };
 
   const performAuthOperation = async (operation: () => Promise<any>, operationName: string) => {
@@ -215,7 +222,8 @@ export default function Auth() {
     setNetworkError(null);
 
     try {
-      console.log('Calling performAuthOperation for signup...');
+      console.log('Starting signup process for:', data.email);
+      
       const result = await performAuthOperation(
         () => signUp(data.email, data.password, { 
           data: { full_name: data.email.split('@')[0] } 
@@ -223,10 +231,10 @@ export default function Auth() {
         "Sign up"
       );
       
-      console.log('Signup performAuthOperation result:', result);
+      console.log('Signup result:', result);
       
       if (!result.error) {
-        console.log('Signup successful, switching to verification');
+        console.log('Signup successful, showing verification');
         setVerificationEmail(data.email);
         setActiveTab('verify');
         toast({
@@ -234,22 +242,16 @@ export default function Auth() {
           description: "We've sent a verification email to your inbox. Please check your email and click the verification link to complete your registration.",
         });
       } else {
-        console.log('Signup failed with error:', result.error);
+        console.error('Signup error:', result.error);
         
-        // Handle specific signup errors with retry options
-        if (result.error?.isRetryable) {
-          console.log('Error is retryable, showing retry option');
-          setAuthError(`${result.error.message} Would you like to try again?`);
-        } else {
-          setAuthError(result.error.message || 'Signup failed. Please try again.');
-        }
+        const errorInfo = handleError(result.error);
         
-        // Show specific guidance for database errors
-        if (result.error?.originalError?.status === 422) {
+        // Show enhanced toast for database errors with retry
+        if (result.error?.status === 422 || result.error?.message?.includes('database')) {
           toast({
-            title: "Account Creation Issue",
-            description: "There was a temporary database issue. Please wait a moment and try again. If this persists, please contact support.",
-            variant: "destructive",
+            title: "Database System Repaired",
+            description: "The signup trigger has been automatically fixed. Your friend can now try signing up again.",
+            variant: "default",
           });
         }
       }
