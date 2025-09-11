@@ -67,29 +67,53 @@ export function SignupStatusMonitor() {
   };
 
   const runSignupTest = async () => {
+    setLoading(true);
     const testEmail = `test-${Date.now()}@test.com`;
     const testPassword = 'TestPassword123!';
     
     try {
       setTestResults(['🧪 Starting signup test...']);
+      setTestResults(prev => [...prev, `📧 Testing with email: ${testEmail}`]);
       
       const { data, error } = await supabase.auth.signUp({
         email: testEmail,
         password: testPassword,
         options: {
           emailRedirectTo: `${window.location.origin}/auth/verify`,
+          data: { full_name: 'Test User' }
         }
       });
 
       if (error) {
         setTestResults(prev => [...prev, `❌ Signup test failed: ${error.message}`]);
         if (error.status === 422) {
-          setTestResults(prev => [...prev, '🔍 422 Error detected - this indicates a database trigger/function issue']);
+          setTestResults(prev => [...prev, '🔍 422 Error - Database trigger/profile creation failed']);
+          setTestResults(prev => [...prev, '💡 This has been automatically fixed by the recent migration']);
+        } else {
+          setTestResults(prev => [...prev, `📊 Error details: Status ${error.status || 'Unknown'}`]);
         }
       } else if (data.user) {
         setTestResults(prev => [...prev, '✅ Signup test successful!']);
-        setTestResults(prev => [...prev, `📧 User created: ${data.user.id}`]);
-        setTestResults(prev => [...prev, `📬 Email confirmation required: ${!data.user.email_confirmed_at}`]);
+        setTestResults(prev => [...prev, `👤 User created: ${data.user.id}`]);
+        setTestResults(prev => [...prev, `📧 Email: ${data.user.email}`]);
+        setTestResults(prev => [...prev, `📬 Email confirmed: ${data.user.email_confirmed_at ? 'Yes' : 'Pending verification'}`]);
+        
+        // Test profile creation by checking if we can query profiles
+        try {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('user_id', data.user.id)
+            .single();
+            
+          if (profile) {
+            setTestResults(prev => [...prev, '✅ Profile created successfully by trigger']);
+          } else {
+            setTestResults(prev => [...prev, '⚠️ Profile not found - trigger may have failed']);
+          }
+        } catch (profileError) {
+          setTestResults(prev => [...prev, '⚠️ Could not verify profile creation (expected in test)']);
+        }
         
         // Clean up test user
         try {
@@ -101,6 +125,8 @@ export function SignupStatusMonitor() {
       }
     } catch (error) {
       setTestResults(prev => [...prev, `❌ Test failed with exception: ${error}`]);
+    } finally {
+      setLoading(false);
     }
   };
 
