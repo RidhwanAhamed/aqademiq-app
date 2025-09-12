@@ -70,11 +70,26 @@ export function EarlyAccessForm() {
         throw error;
       }
 
+      // Send confirmation email
+      try {
+        const { error: emailError } = await supabase.functions.invoke('send-early-access-email', {
+          body: { email: formData.email }
+        });
+
+        if (emailError) {
+          console.error('Error sending email:', emailError);
+          // Don't fail the whole process if email fails
+        }
+      } catch (emailError) {
+        console.error('Error sending confirmation email:', emailError);
+        // Continue with success even if email fails
+      }
+
       setIsSubmitted(true);
       setHasAccess(true);
       
       toast.success("You're on the early access list!", {
-        description: "We'll notify you as soon as the marketplace launches."
+        description: "Check your email for confirmation and updates!"
       });
 
     } catch (error: any) {
