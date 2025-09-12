@@ -3,18 +3,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
-interface DiscordSettings {
-  webhook_url?: string;
-  username?: string;
-  notifications_enabled: boolean;
-  assignment_notifications: boolean;
-  exam_notifications: boolean;
-  reminder_notifications: boolean;
-}
-
 interface NotificationPreferences {
   email_enabled: boolean;
-  discord_enabled: boolean;
   in_app_enabled: boolean;
   assignment_reminders: boolean;
   exam_reminders: boolean;
@@ -26,27 +16,15 @@ interface NotificationPreferences {
 export function useEnhancedNotifications() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [discordSettings, setDiscordSettings] = useState<DiscordSettings | null>(null);
   const [notificationPreferences, setNotificationPreferences] = useState<NotificationPreferences | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // Load settings
+  // Load notification preferences
   useEffect(() => {
     if (!user) return;
 
     const loadSettings = async () => {
       try {
-        // Load Discord settings
-        const { data: discordData } = await supabase
-          .from('discord_settings')
-          .select('*')
-          .eq('user_id', user.id)
-          .maybeSingle();
-
-        if (discordData) {
-          setDiscordSettings(discordData);
-        }
-
         // Load notification preferences
         const { data: prefData } = await supabase
           .from('notification_preferences')
@@ -56,7 +34,12 @@ export function useEnhancedNotifications() {
 
         if (prefData) {
           setNotificationPreferences({
-            ...prefData,
+            email_enabled: prefData.email_enabled,
+            in_app_enabled: prefData.in_app_enabled,
+            assignment_reminders: prefData.assignment_reminders,
+            exam_reminders: prefData.exam_reminders,
+            deadline_warnings: prefData.deadline_warnings,
+            daily_summary: prefData.daily_summary,
             reminder_timing_minutes: Array.isArray(prefData.reminder_timing_minutes) 
               ? (prefData.reminder_timing_minutes as number[])
               : [15, 60, 1440]
@@ -69,42 +52,6 @@ export function useEnhancedNotifications() {
 
     loadSettings();
   }, [user]);
-
-  const updateDiscordSettings = async (newSettings: Partial<DiscordSettings>) => {
-    if (!user) return;
-
-    setLoading(true);
-    try {
-      const updatedSettings = { ...discordSettings, ...newSettings };
-      
-      const { error } = await supabase
-        .from('discord_settings')
-        .upsert({
-          user_id: user.id,
-          ...updatedSettings,
-        }, {
-          onConflict: 'user_id'
-        });
-
-      if (error) throw error;
-
-      setDiscordSettings(updatedSettings);
-      
-      toast({
-        title: "Settings Updated",
-        description: "Discord notification settings have been updated.",
-      });
-    } catch (error) {
-      console.error('Error updating Discord settings:', error);
-      toast({
-        title: "Update Failed",
-        description: "Failed to update Discord settings.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const updateNotificationPreferences = async (newPreferences: Partial<NotificationPreferences>) => {
     if (!user) return;
@@ -142,32 +89,36 @@ export function useEnhancedNotifications() {
     }
   };
 
-  const testDiscordWebhook = async (webhookUrl: string) => {
+  const testEmailNotification = async () => {
+    if (!user) return;
+
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('discord-notifications', {
+      const { error } = await supabase.functions.invoke('send-notification-email', {
         body: {
-          action: 'test-webhook',
-          data: { webhookUrl }
+          action: 'send-notification',
+          userId: user.id,
+          data: {
+            type: 'info',
+            title: 'Email Test Successful! ✅',
+            message: 'Your email notification system is working correctly. You\'ll receive academic reminders and updates via email.',
+            metadata: {}
+          }
         }
       });
 
       if (error) throw error;
 
-      if (data?.success) {
-        toast({
-          title: "Test Successful",
-          description: "Discord webhook is working correctly! Check your Discord server for the test message.",
-        });
-        return true;
-      } else {
-        throw new Error(data?.error || 'Test failed');
-      }
+      toast({
+        title: "Test Email Sent",
+        description: "Check your email inbox for the test notification!",
+      });
+      return true;
     } catch (error) {
-      console.error('Error testing Discord webhook:', error);
+      console.error('Error sending test email:', error);
       toast({
         title: "Test Failed",
-        description: error.message || "Failed to send test message to Discord.",
+        description: "Failed to send test email. Please check your notification settings.",
         variant: "destructive",
       });
       return false;
@@ -192,7 +143,7 @@ export function useEnhancedNotifications() {
 
       toast({
         title: "Reminders Generated",
-        description: "Your upcoming reminders have been scheduled.",
+        description: "Your upcoming reminders have been scheduled and will be sent via email.",
       });
     } catch (error) {
       console.error('Error generating reminders:', error);
@@ -221,8 +172,8 @@ export function useEnhancedNotifications() {
       if (error) throw error;
 
       toast({
-        title: "Summary Sent",
-        description: "Daily summary has been sent to your configured channels.",
+        title: "Daily Summary Sent",
+        description: "Your daily summary has been sent to your email address.",
       });
     } catch (error) {
       console.error('Error sending daily summary:', error);
@@ -237,12 +188,10 @@ export function useEnhancedNotifications() {
   };
 
   return {
-    discordSettings,
     notificationPreferences,
     loading,
-    updateDiscordSettings,
     updateNotificationPreferences,
-    testDiscordWebhook,
+    testEmailNotification,
     generateReminders,
     sendDailySummary,
   };

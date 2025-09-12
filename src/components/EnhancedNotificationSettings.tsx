@@ -3,41 +3,20 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
-import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MessageSquare, TestTube, Bell, Clock, CheckCircle, AlertCircle, Send } from "lucide-react";
+import { Mail, TestTube, Bell, Clock, CheckCircle, AlertCircle, Send } from "lucide-react";
 import { useEnhancedNotifications } from "@/hooks/useEnhancedNotifications";
-import { useState } from "react";
 
 export function EnhancedNotificationSettings() {
   const {
-    discordSettings,
     notificationPreferences,
     loading,
-    updateDiscordSettings,
     updateNotificationPreferences,
-    testDiscordWebhook,
+    testEmailNotification,
     generateReminders,
     sendDailySummary,
   } = useEnhancedNotifications();
-
-  const [webhookUrl, setWebhookUrl] = useState(discordSettings?.webhook_url || '');
-  const [username, setUsername] = useState(discordSettings?.username || 'Aqademiq');
-
-  const handleSaveDiscord = async () => {
-    if (webhookUrl && webhookUrl !== discordSettings?.webhook_url) {
-      const testSuccess = await testDiscordWebhook(webhookUrl);
-      if (!testSuccess) return;
-    }
-
-    await updateDiscordSettings({
-      webhook_url: webhookUrl,
-      username: username,
-      notifications_enabled: !!webhookUrl,
-    });
-  };
 
   const formatReminderTiming = (minutes: number[]) => {
     return minutes.map(m => {
@@ -61,163 +40,67 @@ export function EnhancedNotificationSettings() {
 
   return (
     <div className="space-y-6">
-      {/* Discord Integration */}
+      {/* Email Notification System */}
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
-            <MessageSquare className="h-5 w-5 text-primary" />
-            <CardTitle>Discord Integration</CardTitle>
+            <Mail className="h-5 w-5 text-primary" />
+            <CardTitle>Email Notifications</CardTitle>
           </div>
           <CardDescription>
-            Get instant notifications in your Discord server for assignments, exams, and reminders
+            Receive academic reminders and updates directly to your email inbox
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Connection Status */}
+          {/* Email Status */}
           <div className="flex items-center justify-between">
             <div className="space-y-1">
-              <Label className="text-base font-medium">Connection Status</Label>
+              <Label className="text-base font-medium">Email Notifications</Label>
               <div className="flex items-center gap-2">
-                {discordSettings?.notifications_enabled ? (
+                {notificationPreferences?.email_enabled ? (
                   <>
                     <CheckCircle className="h-4 w-4 text-green-500" />
-                    <span className="text-sm text-muted-foreground">Connected</span>
-                    <Badge variant="outline" className="text-green-600 border-green-600">
-                      Active
-                    </Badge>
+                    <span className="text-sm text-muted-foreground">Enabled</span>
                   </>
                 ) : (
                   <>
                     <AlertCircle className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm text-muted-foreground">Not connected</span>
+                    <span className="text-sm text-muted-foreground">Disabled</span>
                   </>
                 )}
               </div>
             </div>
+            <Switch
+              checked={notificationPreferences?.email_enabled || false}
+              onCheckedChange={(checked) => 
+                updateNotificationPreferences({ email_enabled: checked })
+              }
+            />
           </div>
 
           <Separator />
 
-          {/* Webhook Configuration */}
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="webhook-url">Discord Webhook URL</Label>
-              <Input
-                id="webhook-url"
-                type="url"
-                placeholder="https://discord.com/api/webhooks/..."
-                value={webhookUrl}
-                onChange={(e) => setWebhookUrl(e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">
-                Create a webhook in your Discord server settings and paste the URL here
+          {/* Email Test */}
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <Label className="text-base font-medium">Test Email System</Label>
+              <p className="text-sm text-muted-foreground">
+                Send a test email to verify your notification system is working
               </p>
             </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="bot-username">Bot Username</Label>
-              <Input
-                id="bot-username"
-                placeholder="Aqademiq"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-              />
-            </div>
-
-            <div className="flex gap-2">
-              <Button onClick={handleSaveDiscord} disabled={loading}>
-                Save Discord Settings
-              </Button>
-              {webhookUrl && (
-                <Button 
-                  variant="outline" 
-                  onClick={() => testDiscordWebhook(webhookUrl)}
-                  disabled={loading}
-                >
-                  <TestTube className="h-4 w-4 mr-2" />
-                  Test Webhook
-                </Button>
-              )}
-            </div>
+            <Button 
+              variant="outline" 
+              onClick={testEmailNotification}
+              disabled={loading || !notificationPreferences?.email_enabled}
+            >
+              <TestTube className="h-4 w-4 mr-2" />
+              Send Test Email
+            </Button>
           </div>
-
-          {discordSettings?.notifications_enabled && (
-            <>
-              <Separator />
-              
-              {/* Discord Notification Types */}
-              <div className="space-y-4">
-                <Label className="text-base font-medium">Discord Notification Types</Label>
-                
-                <div className="grid grid-cols-1 gap-4">
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label htmlFor="discord-assignments">Assignment Notifications</Label>
-                      <p className="text-sm text-muted-foreground">
-                        Get notified about upcoming assignment deadlines
-                      </p>
-                    </div>
-                    <Switch
-                      id="discord-assignments"
-                      checked={discordSettings.assignment_notifications}
-                      onCheckedChange={(checked) => 
-                        updateDiscordSettings({ assignment_notifications: checked })
-                      }
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label htmlFor="discord-exams">Exam Notifications</Label>
-                      <p className="text-sm text-muted-foreground">
-                        Get notified about upcoming exams
-                      </p>
-                    </div>
-                    <Switch
-                      id="discord-exams"
-                      checked={discordSettings.exam_notifications}
-                      onCheckedChange={(checked) => 
-                        updateDiscordSettings({ exam_notifications: checked })
-                      }
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label htmlFor="discord-reminders">General Reminders</Label>
-                      <p className="text-sm text-muted-foreground">
-                        Get general study reminders and updates
-                      </p>
-                    </div>
-                    <Switch
-                      id="discord-reminders"
-                      checked={discordSettings.reminder_notifications}
-                      onCheckedChange={(checked) => 
-                        updateDiscordSettings({ reminder_notifications: checked })
-                      }
-                    />
-                  </div>
-                </div>
-              </div>
-            </>
-          )}
-
-          {!discordSettings?.notifications_enabled && (
-            <div className="bg-muted/50 p-4 rounded-lg">
-              <h4 className="font-medium mb-2">How to set up Discord notifications:</h4>
-              <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
-                <li>Go to your Discord server settings</li>
-                <li>Navigate to "Integrations" → "Webhooks"</li>
-                <li>Click "Create Webhook" or "New Webhook"</li>
-                <li>Choose a channel and copy the webhook URL</li>
-                <li>Paste the URL above and click "Save"</li>
-              </ol>
-            </div>
-          )}
         </CardContent>
       </Card>
 
-      {/* General Notification Preferences */}
+      {/* Notification Preferences */}
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
@@ -225,7 +108,7 @@ export function EnhancedNotificationSettings() {
             <CardTitle>Notification Preferences</CardTitle>
           </div>
           <CardDescription>
-            Configure when and how you receive notifications
+            Configure when and how you receive academic notifications
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -247,23 +130,6 @@ export function EnhancedNotificationSettings() {
                   onCheckedChange={(checked) => 
                     updateNotificationPreferences({ email_enabled: checked })
                   }
-                />
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label htmlFor="discord-notifications">Discord Notifications</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Receive notifications in Discord
-                  </p>
-                </div>
-                <Switch
-                  id="discord-notifications"
-                  checked={notificationPreferences?.discord_enabled || false}
-                  onCheckedChange={(checked) => 
-                    updateNotificationPreferences({ discord_enabled: checked })
-                  }
-                  disabled={!discordSettings?.notifications_enabled}
                 />
               </div>
 
@@ -344,7 +210,7 @@ export function EnhancedNotificationSettings() {
                 <div className="space-y-0.5">
                   <Label htmlFor="daily-summary">Daily Summary</Label>
                   <p className="text-sm text-muted-foreground">
-                    Receive a daily overview of your academic schedule
+                    Receive a daily overview of your academic schedule via email
                   </p>
                 </div>
                 <Switch
@@ -387,20 +253,41 @@ export function EnhancedNotificationSettings() {
           <div className="space-y-4">
             <Label className="text-base font-medium">Actions</Label>
             
-            <div className="flex gap-2">
-              <Button onClick={generateReminders} disabled={loading}>
+            <div className="flex gap-2 flex-wrap">
+              <Button 
+                onClick={generateReminders} 
+                disabled={loading || !notificationPreferences?.email_enabled}
+              >
                 <Bell className="h-4 w-4 mr-2" />
-                Generate Reminders
+                Generate Email Reminders
               </Button>
               <Button 
                 variant="outline" 
                 onClick={sendDailySummary} 
-                disabled={loading}
+                disabled={loading || !notificationPreferences?.email_enabled}
               >
                 <Send className="h-4 w-4 mr-2" />
                 Send Daily Summary
               </Button>
             </div>
+            
+            {!notificationPreferences?.email_enabled && (
+              <p className="text-sm text-muted-foreground">
+                Enable email notifications to use these features
+              </p>
+            )}
+          </div>
+
+          {/* Email Benefits */}
+          <div className="bg-blue-50 dark:bg-blue-950/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
+            <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-2">✨ Why Email Notifications?</h4>
+            <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1 list-disc list-inside">
+              <li>Never miss important assignment deadlines</li>
+              <li>Get timely exam reminders with study tips</li>
+              <li>Professional email templates for better organization</li>
+              <li>Daily summaries to stay on top of your schedule</li>
+              <li>Works across all devices and platforms</li>
+            </ul>
           </div>
         </CardContent>
       </Card>
