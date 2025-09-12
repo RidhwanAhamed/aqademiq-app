@@ -402,45 +402,6 @@ export type Database = {
           },
         ]
       }
-      discord_settings: {
-        Row: {
-          assignment_notifications: boolean
-          created_at: string
-          exam_notifications: boolean
-          id: string
-          notifications_enabled: boolean
-          reminder_notifications: boolean
-          updated_at: string
-          user_id: string
-          username: string | null
-          webhook_url: string | null
-        }
-        Insert: {
-          assignment_notifications?: boolean
-          created_at?: string
-          exam_notifications?: boolean
-          id?: string
-          notifications_enabled?: boolean
-          reminder_notifications?: boolean
-          updated_at?: string
-          user_id: string
-          username?: string | null
-          webhook_url?: string | null
-        }
-        Update: {
-          assignment_notifications?: boolean
-          created_at?: string
-          exam_notifications?: boolean
-          id?: string
-          notifications_enabled?: boolean
-          reminder_notifications?: boolean
-          updated_at?: string
-          user_id?: string
-          username?: string | null
-          webhook_url?: string | null
-        }
-        Relationships: []
-      }
       exams: {
         Row: {
           course_id: string
@@ -827,7 +788,6 @@ export type Database = {
           created_at: string
           daily_summary: boolean
           deadline_warnings: boolean
-          discord_enabled: boolean
           email_enabled: boolean
           exam_reminders: boolean
           id: string
@@ -841,7 +801,6 @@ export type Database = {
           created_at?: string
           daily_summary?: boolean
           deadline_warnings?: boolean
-          discord_enabled?: boolean
           email_enabled?: boolean
           exam_reminders?: boolean
           id?: string
@@ -855,7 +814,6 @@ export type Database = {
           created_at?: string
           daily_summary?: boolean
           deadline_warnings?: boolean
-          discord_enabled?: boolean
           email_enabled?: boolean
           exam_reminders?: boolean
           id?: string

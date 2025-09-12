@@ -215,17 +215,7 @@ async function scheduleNotification(supabase: any, params: {
     });
   }
 
-  if (preferences.discord_enabled) {
-    notificationsToSchedule.push({
-      user_id,
-      type: 'discord',
-      category: type,
-      title,
-      message,
-      metadata,
-      scheduled_for: scheduled_for.toISOString(),
-    });
-  }
+  // Discord functionality removed - email only notification system
 
   if (preferences.in_app_enabled) {
     notificationsToSchedule.push({
@@ -275,15 +265,15 @@ async function processNotificationQueue(supabase: any) {
       let success = false;
       
       switch (notification.type) {
-        case 'discord':
-          success = await sendDiscordNotification(supabase, notification);
-          break;
         case 'email':
           success = await sendEmailNotification(supabase, notification);
           break;
         case 'in_app':
           success = await sendInAppNotification(supabase, notification);
           break;
+        default:
+          console.log('Unknown notification type:', notification.type);
+          success = false;
       }
 
       if (success) {
@@ -321,32 +311,46 @@ async function processNotificationQueue(supabase: any) {
   console.log(`Processed ${notifications?.length || 0} notifications`);
 }
 
-async function sendDiscordNotification(supabase: any, notification: any): Promise<boolean> {
+// Discord notifications removed - using email-only system
+
+async function sendEmailNotification(supabase: any, notification: any): Promise<boolean> {
   try {
-    const response = await supabase.functions.invoke('discord-notifications', {
+    let action = 'send-notification';
+    let data: any = {
+      type: notification.category,
+      title: notification.title,
+      message: notification.message,
+      metadata: notification.metadata,
+    };
+
+    // Use specific actions for better email formatting
+    if (notification.category === 'assignment_reminder') {
+      action = 'send-assignment-reminder';
+      data = { assignment: notification.metadata };
+    } else if (notification.category === 'exam_reminder') {
+      action = 'send-exam-reminder';
+      data = { exam: notification.metadata };
+    } else if (notification.category === 'deadline_warning') {
+      action = 'send-deadline-warning';
+      data = { 
+        item: notification.metadata,
+        timeRemaining: notification.metadata.time_remaining || 'Soon'
+      };
+    }
+
+    const response = await supabase.functions.invoke('send-notification-email', {
       body: {
-        action: 'send-notification',
+        action,
         userId: notification.user_id,
-        data: {
-          type: notification.category,
-          title: notification.title,
-          message: notification.message,
-          metadata: notification.metadata,
-        }
+        data,
       }
     });
 
     return !response.error && response.data?.success;
   } catch (error) {
-    console.error('Error sending Discord notification:', error);
+    console.error('Error sending email notification:', error);
     return false;
   }
-}
-
-async function sendEmailNotification(supabase: any, notification: any): Promise<boolean> {
-  // TODO: Implement email notifications using Resend or similar service
-  console.log('Email notification (not implemented):', notification.title);
-  return true; // Placeholder success
 }
 
 async function sendInAppNotification(supabase: any, notification: any): Promise<boolean> {
@@ -422,9 +426,9 @@ async function sendDailySummaryToUser(supabase: any, userId: string) {
     ...(upcomingExams.data || [])
   ];
 
-  // Send Discord summary if enabled
-  if (preferences.discord_enabled) {
-    await supabase.functions.invoke('discord-notifications', {
+  // Send email summary if enabled
+  if (preferences.email_enabled) {
+    await supabase.functions.invoke('send-notification-email', {
       body: {
         action: 'send-daily-summary',
         userId,
