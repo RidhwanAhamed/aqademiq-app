@@ -91,7 +91,7 @@ export function AcademicInsightsPanel({
           <CardContent className="p-6 text-center">
             <Lightbulb className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
             <p className="text-muted-foreground">
-              No insights available yet. Continue using StudyFlow to get personalized recommendations!
+              No insights available yet. Continue using Aqademiq to get personalized recommendations!
             </p>
           </CardContent>
         </Card>

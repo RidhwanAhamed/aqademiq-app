@@ -154,7 +154,7 @@ ${exams.length > 0 ? exams.map(e => `- ${e.title}: ${e.exam_date} (${e.duration_
         'Authorization': `Bearer ${openRouterApiKey}`,
         'Content-Type': 'application/json',
         'HTTP-Referer': Deno.env.get('SUPABASE_URL'),
-        'X-Title': 'StudyFlow AI Chat Assistant'
+        'X-Title': 'Aqademiq AI Chat Assistant'
       },
       body: JSON.stringify({
         model: 'google/gemma-2-27b-it',
@@ -181,7 +181,7 @@ ${exams.length > 0 ? exams.map(e => `- ${e.title}: ${e.exam_date} (${e.duration_
 - Detect calendar conflicts, deadline crunches, forgotten tasks—offer actionable resolutions
 - Dynamically adapt plans when students miss sessions or add new commitments
 
-#### 2. Conversational Interface (StudySage)
+#### 2. Conversational Interface (Ada)
 Handle natural language requests like:
 - "I have an exam next Friday—help me plan revision"
 - "Upload syllabus & build out my semester"

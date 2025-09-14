@@ -121,7 +121,7 @@ export default function Settings() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `studyflow-data-${new Date().toISOString().split('T')[0]}.json`;
+      a.download = `aqademiq-data-${new Date().toISOString().split('T')[0]}.json`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -147,7 +147,7 @@ export default function Settings() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Settings</h1>
-          <p className="text-muted-foreground">Customize your StudyFlow experience</p>
+          <p className="text-muted-foreground">Customize your Aqademiq experience</p>
         </div>
       </div>
 
