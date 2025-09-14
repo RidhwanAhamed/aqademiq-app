@@ -100,7 +100,7 @@ export function ThemeCustomizer() {
       root.style.setProperty('--accent', themeData.colors.accent.match(/hsl\(([^)]+)\)/)![1]);
       
       setSelectedColorTheme(themeData.id);
-      localStorage.setItem('studyflow-color-theme', themeData.id);
+      localStorage.setItem('aqademiq-color-theme', themeData.id);
     }
   };
 
@@ -108,7 +108,7 @@ export function ThemeCustomizer() {
     const root = document.documentElement;
     root.style.setProperty('font-size', `${parseFloat(size.scale)}rem`);
     setSelectedFontSize(size.id);
-    localStorage.setItem('studyflow-font-size', size.id);
+    localStorage.setItem('aqademiq-font-size', size.id);
   };
 
   const resetToDefaults = () => {
@@ -127,8 +127,8 @@ export function ThemeCustomizer() {
     setSelectedFontSize('default');
     setTheme('system');
     
-    localStorage.removeItem('studyflow-color-theme');
-    localStorage.removeItem('studyflow-font-size');
+    localStorage.removeItem('aqademiq-color-theme');
+    localStorage.removeItem('aqademiq-font-size');
   };
 
   const togglePreview = () => {

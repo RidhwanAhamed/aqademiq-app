@@ -55,14 +55,14 @@ serve(async (req) => {
         'Authorization': `Bearer ${openRouterApiKey}`,
         'Content-Type': 'application/json',
         'HTTP-Referer': Deno.env.get('SUPABASE_URL'),
-        'X-Title': 'StudyFlow AI Schedule Parser'
+        'X-Title': 'Aqademiq AI Schedule Parser'
       },
       body: JSON.stringify({
         model: 'google/gemma-2-27b-it',
         messages: [
           {
             role: 'system',
-            content: `You are StudySage, an AI assistant that helps students organize their academic schedules. 
+            content: `You are Ada, an AI assistant that helps students organize their academic schedules. 
 
 Your task is to parse academic documents (syllabi, timetables, schedules) and extract structured information about:
 1. Courses (name, code, instructor, credits)
