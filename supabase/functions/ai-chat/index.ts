@@ -36,11 +36,13 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const openRouterApiKey = Deno.env.get('OPENROUTER_API_KEY');
+    const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
     
-    if (!openRouterApiKey) {
-      throw new Error('OpenRouter API key not configured');
+    if (!openaiApiKey) {
+      throw new Error('OpenAI API key not configured');
     }
+
+    console.log('Starting AI chat function with OpenAI API');
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     
@@ -147,17 +149,15 @@ ${exams.length > 0 ? exams.map(e => `- ${e.title}: ${e.exam_date} (${e.duration_
       }
     }
 
-    // Call OpenRouter API with Gemma 3 model
-    const aiResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    // Call OpenAI API with GPT-4o-mini model
+    const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${openRouterApiKey}`,
+        'Authorization': `Bearer ${openaiApiKey}`,
         'Content-Type': 'application/json',
-        'HTTP-Referer': Deno.env.get('SUPABASE_URL'),
-        'X-Title': 'Aqademiq AI Chat Assistant'
       },
       body: JSON.stringify({
-        model: 'google/gemma-2-27b-it',
+        model: 'gpt-4o-mini',
         messages: [
           {
             role: 'system',
@@ -320,7 +320,22 @@ Current conversation context: The student is chatting with you directly for acad
     });
 
     if (!aiResponse.ok) {
-      throw new Error(`AI API error: ${aiResponse.statusText}`);
+      const errorBody = await aiResponse.text();
+      console.error('OpenAI API error:', {
+        status: aiResponse.status,
+        statusText: aiResponse.statusText,
+        body: errorBody
+      });
+      
+      if (aiResponse.status === 429) {
+        throw new Error('Rate limit exceeded. Please try again in a moment.');
+      } else if (aiResponse.status === 400) {
+        throw new Error('Invalid request to AI service. Please try rephrasing your message.');
+      } else if (aiResponse.status >= 500) {
+        throw new Error('AI service is temporarily unavailable. Please try again later.');
+      } else {
+        throw new Error(`AI API error: ${aiResponse.statusText}`);
+      }
     }
 
     const aiResult = await aiResponse.json();
@@ -332,7 +347,8 @@ Current conversation context: The student is chatting with you directly for acad
       JSON.stringify({ 
         response,
         metadata: {
-          model: 'gemma-2-27b-it',
+          model: 'gpt-4o-mini',
+          provider: 'openai',
           timestamp: new Date().toISOString(),
           user_context_included: !!userContext
         }
