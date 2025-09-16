@@ -462,9 +462,10 @@ export function AdaAIChat() {
 
     } catch (error) {
       console.error('Error sending message:', error);
+      const errMsg = (error as any)?.message || 'Failed to send message.';
       toast({
         title: 'Error',
-        description: 'Failed to send message. Please try again.',
+        description: errMsg,
         variant: 'destructive'
       });
     } finally {

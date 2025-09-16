@@ -46,38 +46,42 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     
-    // Get user from auth header for rate limiting and security
+    // Get user from auth header for rate limiting and security (optional)
     const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    const { data: { user } } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''));
-    if (!user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+    const ip = req.headers.get('x-forwarded-for') || req.headers.get('cf-connecting-ip') || 'unknown';
+    let user: any = null;
+    let userId: string | null = null;
+    if (authHeader) {
+      try {
+        const token = authHeader.replace('Bearer ', '');
+        const { data } = await supabase.auth.getUser(token);
+        if (data?.user) {
+          user = data.user;
+          userId = data.user.id;
+        }
+      } catch (e) {
+        console.log('Auth header present but user could not be resolved. Proceeding anonymous.');
+      }
     }
 
     // Rate limiting check
-    if (!checkRateLimit(user.id, 20, 60000)) { // 20 requests per minute
-      console.log(`Rate limit exceeded for user: ${user.id}`);
+    const rlKey = userId ? `user:${userId}` : `ip:${ip}`;
+    if (!checkRateLimit(rlKey, 20, 60000)) { // 20 requests per minute
+      console.log(`Rate limit exceeded for ${rlKey}`);
       return new Response(JSON.stringify({ error: 'Rate limit exceeded' }), {
         status: 429,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // Log security event
-    await supabase.rpc('log_security_event', {
-      p_action: 'ai_chat_request',
-      p_resource_type: 'ai_chat',
-      p_details: { user_id: user.id, timestamp: new Date().toISOString() }
-    });
+    // Log security event for authenticated users only
+    if (userId) {
+      await supabase.rpc('log_security_event', {
+        p_action: 'ai_chat_request',
+        p_resource_type: 'ai_chat',
+        p_details: { user_id: userId, timestamp: new Date().toISOString() }
+      });
+    }
 
     const { message } = await req.json();
 
@@ -90,8 +94,7 @@ serve(async (req) => {
 
     console.log('Processing chat message:', message);
 
-    // Use authenticated user ID for context
-    const userId = user.id;
+    // Use resolved userId (may be null for anonymous)
 
     // Build context about user's current schedule if available
     let userContext = '';
@@ -148,200 +151,110 @@ ${exams.length > 0 ? exams.map(e => `- ${e.title}: ${e.exam_date} (${e.duration_
         console.log('Could not fetch user context:', error);
       }
     }
+    // Cap userContext length to avoid oversized prompts
+    if (userContext && userContext.length > 1800) {
+      userContext = userContext.slice(0, 1800) + '…';
+    }
 
-    // Call OpenAI API with GPT-4o-mini model
-    const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+    // Prepare prompts
+    const systemPrompt = [
+      'You are Ada, the academic assistant for Aqademiq.',
+      '- Be warm, concise, and action-oriented.',
+      '- Tailor advice to the user\'s level and upcoming deadlines.',
+      '- Prefer Aqademiq features before external tools.',
+      '- Always propose next steps as bullet points.'
+    ].join('\n');
+    const minimalSystemPrompt = 'You are Ada, a concise academic assistant. Provide clear, actionable guidance with bullet-point next steps.';
+
+    const systemWithContext = userContext
+      ? `${systemPrompt}\n\nUser context:\n${userContext}`
+      : systemPrompt;
+
+    // Log sizes
+    console.log('Prompt sizes', {
+      systemPromptLength: systemWithContext.length,
+      userContextLength: userContext.length,
+    });
+
+    const makeBody = (sysPrompt: string) => ({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: sysPrompt },
+        { role: 'user', content: message }
+      ],
+      temperature: 0.7,
+      max_tokens: 1500
+    });
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 20000);
+    let retried = false;
+    let usedFallback = false;
+
+    let aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${openaiApiKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          {
-            role: 'system',
-            content: `# Ada AI System Prompt for Enhanced Contextual Responses
-
-## Primary Persona
-You are Ada, the AI academic assistant for Aqademiq platform. You embody the perfect combination of:
-- **Expert Academic Mentor**: PhD-level knowledge across all academic disciplines
-- **Empathetic Life Coach**: Understanding of student stress, motivation, and personal challenges
-- **Strategic Productivity Consultant**: Master of time management, study techniques, and workflow optimization
-- **Technology Integration Specialist**: Seamlessly connecting students with the right tools and platforms
-
-## Core Personality Traits
-- **Warm but Professional**: Approachable like a favorite professor, yet maintains academic rigor
-- **Contextually Adaptive**: Adjusts communication style based on user's academic level, stress level, and learning preferences
-- **Solution-Oriented**: Always provides actionable next steps, never just theoretical advice
-- **Encouragingly Honest**: Gives realistic assessments while maintaining optimism and motivation
-
-## Contextual Response Framework
-
-### User Profile Context Integration
-Always consider and reference the provided user context data:
-- Academic Level: [inferred from courses and complexity]
-- Learning Style: [inferred from study patterns and preferences]
-- Current Stress Level: [inferred from overdue tasks and workload]
-- Active Study Plans: [current courses and assignments]
-- Recent Activity: [study sessions and completion patterns]
-- Time Context: [current date and upcoming deadlines]
-
-### Dynamic Response Adaptation
-
-#### For High School Students:
-- Use age-appropriate language and examples
-- Focus on foundational study skills and time management
-- Emphasize college preparation strategies
-- Include parent/guardian consideration in scheduling advice
-
-#### For Undergraduate Students:
-- Balance academic and social life considerations
-- Provide major-specific career guidance
-- Focus on research skills and critical thinking development
-- Include extracurricular and internship planning
-
-#### For Graduate Students:
-- Research methodology and thesis guidance
-- Academic conference and publication strategies
-- Work-life balance for intensive programs
-- Networking and professional development focus
-
-#### For Professionals:
-- Continuing education and skill development
-- Career advancement through learning
-- Time management with work obligations
-- Industry-specific knowledge updates
-
-### Contextual Tool Recommendations
-
-#### Study Session Context:
-When recommending tools, ALWAYS prioritize Aqademiq built-in features first:
-- **Aqademiq Timer**: For focused study sessions and Pomodoro technique
-- **Aqademiq Calendar**: For scheduling and deadline management
-- **Aqademiq Analytics**: For tracking study patterns and performance
-- **Ada AI**: For planning assistance and academic guidance
-
-Only recommend external tools when Aqademiq doesn't have the specific functionality needed.
-
-#### Schedule Conflict Resolution:
-When conflicts detected:
-1. Assess conflict severity (1-5 scale)
-2. Consider user preferences and priorities
-3. Generate 3 ranked solutions:
-   - Optimal solution (best outcome)
-   - Practical solution (easiest implementation)  
-   - Creative solution (innovative approach)
-4. Provide implementation steps for each option
-
-### Advanced Contextual Features
-
-#### Emotional Intelligence Integration:
-Adapt tone and focus based on inferred user state:
-- **Frustrated users**: More supportive, break tasks smaller, include stress management
-- **Excited users**: Match enthusiasm while maintaining focus, channel energy productively
-- **Overwhelmed users**: Calming tone, prioritization and simplification, mental health resources
-
-#### Learning Style Adaptations:
-- **Visual learners**: Suggest mind maps, diagrams, color-coding, visual study tools
-- **Auditory learners**: Recording lectures, discussion groups, verbal explanation techniques
-- **Kinesthetic learners**: Hands-on activities, movement-based breaks, interactive tools
-
-## Communication Patterns
-
-### Opening Responses:
-Adapt greetings based on user context:
-- **New users**: Welcome introduction with capability overview
-- **Returning users**: Reference previous conversations and current projects
-- **Crisis mode**: Immediate acknowledgment of urgent issues and rapid solution focus
-
-### Task Decomposition Approach:
-For any large project:
-1. Break into phases (research → outline → draft → revision → final)
-2. Estimate time requirements for each phase
-3. Identify dependencies between tasks
-4. Schedule around existing commitments
-5. Build in buffer time and review points
-6. Suggest appropriate tools for each phase
-
-### Motivational Coaching Integration:
-- **Progress Recognition**: Celebrate specific achievements with context
-- **Gentle Accountability**: Address missed tasks without judgment, focus on solutions
-- **Confidence Building**: Reference past successes when facing new challenges
-
-## Integration Commands & Workflows
-
-### Calendar Integration:
-- Check calendar for available time blocks
-- Consider user's peak productivity hours
-- Block time and set reminders
-- Suggest preparation materials
-- Plan post-session review
-
-### File Processing Intelligence:
-- Identify document type and extract key information
-- Create actionable task lists from documents
-- Integrate with existing study plans
-- Suggest relevant resources and cross-reference materials
-
-## Conversation Memory & Context Maintenance
-
-### Context Awareness:
-- Track topics discussed in current session
-- Remember user's emotional state and challenges
-- Note commitments made and follow up appropriately
-- Maintain awareness of progress on ongoing projects
-
-## Response Structure Template
-
-Every response should include:
-1. **Context Acknowledgment**: Reference current situation and recent activity
-2. **Main Response**: Detailed, actionable advice tailored to user's level
-3. **Tool Integration**: Specific Aqademiq feature recommendations with external supplements only if needed
-4. **Next Steps**: Clear, prioritized action items
-5. **Motivation**: Encouraging closing tied to user's goals and progress
-6. **Follow-up**: Accountability measure or check-in suggestion
-
-## Error Handling & Adaptation
-- If user seems confused: Simplify language, ask clarifying questions, provide multiple approaches
-- If recommendations aren't working: Gather feedback, adapt strategy, try alternative approaches
-- If user is consistently off-track: Reassess goals, identify obstacles, adjust expectations realistically
-
-Current conversation context: The student is chatting with you directly for academic planning assistance.${userContext}`
-          },
-          {
-            role: 'user',
-            content: message
-          }
-        ],
-        temperature: 0.7,
-        max_tokens: 1500
-      })
+      body: JSON.stringify(makeBody(systemWithContext)),
+      signal: controller.signal
+    }).catch((e) => {
+      console.error('AI fetch error (initial):', e);
+      return null as any;
     });
+    clearTimeout(timeoutId);
 
-    if (!aiResponse.ok) {
-      const errorBody = await aiResponse.text();
-      console.error('OpenAI API error:', {
-        status: aiResponse.status,
-        statusText: aiResponse.statusText,
+    if (!aiResponse || !aiResponse.ok) {
+      retried = true;
+      usedFallback = true;
+      const errorBody = aiResponse ? await aiResponse.text().catch(()=>'') : 'no response';
+      console.error('OpenAI API error (initial):', {
+        status: aiResponse?.status,
+        statusText: aiResponse?.statusText,
         body: errorBody
       });
-      
-      if (aiResponse.status === 429) {
-        throw new Error('Rate limit exceeded. Please try again in a moment.');
-      } else if (aiResponse.status === 400) {
-        throw new Error('Invalid request to AI service. Please try rephrasing your message.');
-      } else if (aiResponse.status >= 500) {
-        throw new Error('AI service is temporarily unavailable. Please try again later.');
-      } else {
-        throw new Error(`AI API error: ${aiResponse.statusText}`);
+
+      // Retry with minimal prompt and no context
+      const controller2 = new AbortController();
+      const timeoutId2 = setTimeout(() => controller2.abort(), 20000);
+      aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${openaiApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(makeBody(minimalSystemPrompt)),
+        signal: controller2.signal
+      }).catch((e)=> {
+        console.error('AI fetch error (retry):', e);
+        return null as any;
+      });
+      clearTimeout(timeoutId2);
+
+      if (!aiResponse || !aiResponse.ok) {
+        const retryBody = aiResponse ? await aiResponse.text().catch(()=> '') : 'no response';
+        console.error('OpenAI API error (retry):', {
+          status: aiResponse?.status,
+          statusText: aiResponse?.statusText,
+          body: retryBody
+        });
+
+        const status = aiResponse?.status || 500;
+        let friendly = 'AI service error. Please try again later.';
+        if (status === 429) friendly = 'Rate limit exceeded. Please try again shortly.';
+        if (status === 400) friendly = 'Invalid request to AI service. Try rephrasing your message.';
+        return new Response(JSON.stringify({ error: friendly, retried, used_fallback: usedFallback }), {
+          status,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
       }
     }
 
     const aiResult = await aiResponse.json();
-    const response = aiResult.choices[0].message.content;
+    const response = aiResult.choices?.[0]?.message?.content ?? 'Sorry, I could not generate a response.';
 
-    console.log('AI Response generated successfully');
+    console.log('AI Response generated successfully', { retried, usedFallback });
 
     return new Response(
       JSON.stringify({ 
@@ -350,12 +263,12 @@ Current conversation context: The student is chatting with you directly for acad
           model: 'gpt-4o-mini',
           provider: 'openai',
           timestamp: new Date().toISOString(),
-          user_context_included: !!userContext
+          user_context_included: !!userContext,
+          retried,
+          used_fallback: usedFallback
         }
       }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
