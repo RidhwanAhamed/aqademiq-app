@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { GraduationCap, Brain, Eye, EyeOff, Mail, Lock, Loader2, CheckCircle, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Book, Eye, EyeOff, Mail, Lock, Loader2, CheckCircle, RefreshCw, AlertTriangle } from 'lucide-react';
 import { supabase } from "@/integrations/supabase/client";
 import { NetworkStatusIndicator } from '@/components/NetworkStatusIndicator';
 import { analyzeError, retryWithBackoff, isOnline } from '@/utils/networkErrorHandler';
@@ -361,11 +361,10 @@ export default function Auth() {
       >
         <Card className="backdrop-blur-xl bg-card/80 border-border/50 shadow-2xl">
           <CardHeader className="space-y-4 text-center">
-            <div className="flex items-center justify-center space-x-2">
-              <div className="h-10 w-10 rounded-xl bg-gradient-primary flex items-center justify-center">
-                <Brain className="h-6 w-6 text-white" />
+            <div className="flex items-center justify-center">
+              <div className="h-12 w-12 rounded-xl bg-gradient-primary flex items-center justify-center">
+                <Book className="h-7 w-7 text-white" />
               </div>
-              <GraduationCap className="h-8 w-8 text-primary" />
             </div>
             <div>
               <CardTitle className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">
