@@ -1,4 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { logger } from '@/utils/logger';
@@ -654,8 +656,44 @@ export function AdaAIChat() {
                 : "bg-white text-black border-black"
             )
           )}>
-            <div className="whitespace-pre-wrap break-words text-sm leading-relaxed">
-              {message.message}
+            <div className="text-sm leading-relaxed prose prose-sm max-w-none dark:prose-invert">
+              <ReactMarkdown 
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  // Style headings
+                  h1: ({...props}) => <h1 className="text-lg font-bold mb-2 text-foreground" {...props} />,
+                  h2: ({...props}) => <h2 className="text-base font-semibold mb-2 text-foreground" {...props} />,
+                  h3: ({...props}) => <h3 className="text-sm font-medium mb-1 text-foreground" {...props} />,
+                  
+                  // Style paragraphs
+                  p: ({...props}) => <p className="mb-2 last:mb-0 text-foreground" {...props} />,
+                  
+                  // Style lists
+                  ul: ({...props}) => <ul className="list-disc list-inside mb-2 space-y-1 text-foreground" {...props} />,
+                  ol: ({...props}) => <ol className="list-decimal list-inside mb-2 space-y-1 text-foreground" {...props} />,
+                  li: ({...props}) => <li className="text-foreground" {...props} />,
+                  
+                  // Style emphasis
+                  strong: ({...props}) => <strong className="font-semibold text-foreground" {...props} />,
+                  em: ({...props}) => <em className="italic text-foreground" {...props} />,
+                  
+                  // Style code blocks and inline code
+                  code: ({children, className, ...props}) => {
+                    const isInline = !className || !className.includes('language-');
+                    return isInline 
+                      ? <code className="bg-muted px-1.5 py-0.5 rounded text-xs font-mono text-foreground" {...props}>{children}</code>
+                      : <code className="block bg-muted p-3 rounded-md text-xs font-mono overflow-x-auto text-foreground" {...props}>{children}</code>;
+                  },
+                  
+                  // Style pre blocks
+                  pre: ({...props}) => <pre className="bg-muted p-3 rounded-md overflow-x-auto mb-2" {...props} />,
+                  
+                  // Style blockquotes
+                  blockquote: ({...props}) => <blockquote className="border-l-4 border-primary pl-4 italic text-muted-foreground mb-2" {...props} />,
+                }}
+              >
+                {message.message}
+              </ReactMarkdown>
             </div>
             
             {/* File attachment indicator */}
