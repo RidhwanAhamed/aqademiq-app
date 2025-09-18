@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { GraduationCap, Brain, ArrowRight, BookOpen, Calendar, BarChart3 } from "lucide-react";
+import { ArrowRight, BookOpen, Calendar, BarChart3 } from "lucide-react";
 
 export default function Welcome() {
   const navigate = useNavigate();
@@ -30,11 +30,12 @@ export default function Welcome() {
         <CardContent className="p-8 text-center space-y-8">
           {/* Logo and Branding */}
           <div className="space-y-4">
-            <div className="flex items-center justify-center space-x-3 mb-4">
-              <div className="h-16 w-16 rounded-2xl bg-gradient-primary flex items-center justify-center shadow-primary">
-                <Brain className="h-8 w-8 text-white" />
-              </div>
-              <GraduationCap className="h-12 w-12 text-primary" />
+            <div className="flex items-center justify-center mb-4">
+              <img 
+                src="/assets/aqademiq-icon.png" 
+                alt="Aqademiq" 
+                className="h-16 w-16 rounded-2xl"
+              />
             </div>
             
             <div className="space-y-3">
