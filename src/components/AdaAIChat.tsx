@@ -48,7 +48,9 @@ import {
   VolumeX,
   Loader2,
   MessageCircle,
-  Paperclip
+  Paperclip,
+  Maximize2,
+  Minimize2
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -87,7 +89,12 @@ interface AccessibilitySettings {
   focusOutlines: boolean;
 }
 
-export function AdaAIChat() {
+interface AdaAIChatProps {
+  isFullScreen?: boolean;
+  onFullScreenToggle?: () => void;
+}
+
+export function AdaAIChat({ isFullScreen = false, onFullScreenToggle }: AdaAIChatProps = {}) {
   const { user } = useAuth();
   const { toast } = useToast();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -146,6 +153,17 @@ export function AdaAIChat() {
   useEffect(() => {
     scrollToBottom();
   }, [messages, isProcessing]);
+
+  useEffect(() => {
+    const handleEscKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isFullScreen && onFullScreenToggle) {
+        onFullScreenToggle();
+      }
+    };
+
+    document.addEventListener('keydown', handleEscKey);
+    return () => document.removeEventListener('keydown', handleEscKey);
+  }, [isFullScreen, onFullScreenToggle]);
 
   useEffect(() => {
     // Apply accessibility settings
@@ -814,6 +832,17 @@ export function AdaAIChat() {
             </div>
             
             <div className="flex items-center gap-2">
+              {onFullScreenToggle && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={onFullScreenToggle}
+                  className="h-8 w-8 p-0"
+                  aria-label={isFullScreen ? "Exit full screen" : "Enter full screen"}
+                >
+                  {isFullScreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+                </Button>
+              )}
               <Button
                 size="sm"
                 variant="ghost"
