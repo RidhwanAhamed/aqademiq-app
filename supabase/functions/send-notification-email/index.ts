@@ -18,10 +18,60 @@ serve(async (req) => {
   }
 
   try {
+    // Get the JWT token from the request header
+    const authHeader = req.headers.get('authorization');
+    if (!authHeader) {
+      return new Response(JSON.stringify({ 
+        success: false, 
+        error: 'Missing authorization header' 
+      }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Create authenticated client
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    
+    let user = null;
+    
+    // Check if it's an internal call using service role key
+    const token = authHeader.replace('Bearer ', '');
+    if (token === supabaseServiceKey) {
+      // Internal service call - skip user validation but still validate userId
+      console.log('Internal service call detected');
+    } else {
+      // Verify JWT and get user for external calls
+      const { data: { user: authUser }, error: authError } = await supabase.auth.getUser(token);
+      
+      if (authError || !authUser) {
+        console.error('Authentication error:', authError);
+        return new Response(JSON.stringify({ 
+          success: false, 
+          error: 'Invalid authentication token' 
+        }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      
+      user = authUser;
+    }
+
     const { action, userId, data } = await req.json();
 
-    console.log('Email notification action:', action, 'for user:', userId);
+    // Verify the user can only send emails for themselves (unless it's an internal call)
+    if (user && userId !== user.id) {
+      return new Response(JSON.stringify({ 
+        success: false, 
+        error: 'Unauthorized: Cannot send emails for other users' 
+      }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    console.log('Email notification action:', action, 'for authenticated user:', userId);
 
     // Get user profile for personalization
     const { data: profile } = await supabase

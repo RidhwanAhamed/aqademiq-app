@@ -20,3 +20,12 @@ verify_jwt = false
 
 [functions.security-middleware]
 verify_jwt = false
+
+[functions.send-notification-email]
+verify_jwt = true
+
+[functions.enhanced-reminders]
+verify_jwt = true
+
+[functions.send-early-access-email]
+verify_jwt = false
