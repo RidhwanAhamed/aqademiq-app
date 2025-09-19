@@ -94,6 +94,13 @@ export function useEnhancedNotifications() {
 
     setLoading(true);
     try {
+      // Get the current session to pass the JWT token
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        throw new Error('No valid session found. Please sign in again.');
+      }
+
       const { error } = await supabase.functions.invoke('send-notification-email', {
         body: {
           action: 'send-notification',
@@ -104,6 +111,9 @@ export function useEnhancedNotifications() {
             message: 'Your email notification system is working correctly. You\'ll receive academic reminders and updates via email.',
             metadata: {}
           }
+        },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
         }
       });
 
@@ -132,10 +142,20 @@ export function useEnhancedNotifications() {
 
     setLoading(true);
     try {
+      // Get the current session to pass the JWT token
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        throw new Error('No valid session found. Please sign in again.');
+      }
+
       const { error } = await supabase.functions.invoke('enhanced-reminders', {
         body: {
           action: 'generate-reminders',
           userId: user.id
+        },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
         }
       });
 
@@ -162,10 +182,20 @@ export function useEnhancedNotifications() {
 
     setLoading(true);
     try {
+      // Get the current session to pass the JWT token
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        throw new Error('No valid session found. Please sign in again.');
+      }
+
       const { error } = await supabase.functions.invoke('enhanced-reminders', {
         body: {
           action: 'send-daily-summary',
           userId: user.id
+        },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
         }
       });
 

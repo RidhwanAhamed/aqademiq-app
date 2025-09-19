@@ -16,14 +16,57 @@ serve(async (req) => {
   }
 
   try {
+    // Get the JWT token from the request header
+    const authHeader = req.headers.get('authorization');
+    if (!authHeader) {
+      return new Response(JSON.stringify({ 
+        success: false, 
+        error: 'Missing authorization header' 
+      }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Create authenticated client
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    
+    // Verify JWT and get user
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    
+    if (authError || !user) {
+      console.error('Authentication error:', authError);
+      return new Response(JSON.stringify({ 
+        success: false, 
+        error: 'Invalid authentication token' 
+      }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     const { action, userId } = await req.json();
 
-    console.log('Enhanced reminders action:', action, 'for user:', userId);
+    // Verify the user can only perform actions for themselves
+    if (userId && userId !== user.id) {
+      return new Response(JSON.stringify({ 
+        success: false, 
+        error: 'Unauthorized: Cannot perform actions for other users' 
+      }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Use authenticated user's ID if not provided
+    const targetUserId = userId || user.id;
+
+    console.log('Enhanced reminders action:', action, 'for authenticated user:', targetUserId);
 
     switch (action) {
       case 'generate-reminders': {
-        await generateRemindersForUser(supabase, userId);
+        await generateRemindersForUser(supabase, targetUserId);
         
         return new Response(JSON.stringify({ success: true }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -31,6 +74,17 @@ serve(async (req) => {
       }
 
       case 'process-queue': {
+        // Only allow system/admin users to process the entire queue
+        if (userId && userId !== user.id) {
+          return new Response(JSON.stringify({ 
+            success: false, 
+            error: 'Unauthorized: Cannot process notification queue for other users' 
+          }), {
+            status: 403,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+        
         await processNotificationQueue(supabase);
         
         return new Response(JSON.stringify({ success: true }), {
@@ -39,7 +93,7 @@ serve(async (req) => {
       }
 
       case 'send-daily-summary': {
-        await sendDailySummaryToUser(supabase, userId);
+        await sendDailySummaryToUser(supabase, targetUserId);
         
         return new Response(JSON.stringify({ success: true }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -47,10 +101,11 @@ serve(async (req) => {
       }
 
       case 'cleanup-old-notifications': {
-        // Clean up notifications older than 30 days
+        // Clean up user's own notifications older than 30 days
         const { error } = await supabase
           .from('notification_queue')
           .delete()
+          .eq('user_id', targetUserId)
           .lt('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
 
         if (error) throw error;
@@ -346,7 +401,8 @@ async function sendEmailNotification(supabase: any, notification: any): Promise<
       }
     });
 
-    return !response.error && response.data?.success;
+    const result = await response.json();
+    return response.ok && result?.success;
   } catch (error) {
     console.error('Error sending email notification:', error);
     return false;
@@ -428,16 +484,25 @@ async function sendDailySummaryToUser(supabase: any, userId: string) {
 
   // Send email summary if enabled
   if (preferences.email_enabled) {
-    await supabase.functions.invoke('send-notification-email', {
-      body: {
+    const response = await fetch(`${supabaseUrl}/functions/v1/send-notification-email`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${supabaseServiceKey}`,
+      },
+      body: JSON.stringify({
         action: 'send-daily-summary',
         userId,
         data: {
           todayItems,
           upcomingItems,
         }
-      }
+      })
     });
+
+    if (!response.ok) {
+      console.error('Failed to send daily summary email:', await response.text());
+    }
   }
 
   console.log('Daily summary sent to user:', userId);
