@@ -20,6 +20,7 @@ import { MemoizedQuickStats } from '@/components/MemoizedQuickStats';
 export default function Calendar() {
   const [view, setView] = useState<'week' | 'month'>('week');
   const [activeTab, setActiveTab] = useState('calendar');
+  const [currentDate, setCurrentDate] = useState(new Date());
   
   // Use optimized calendar hook for real-time events
   const { events, loading: calendarLoading } = useOptimizedRealtimeCalendar();
@@ -92,7 +93,7 @@ export default function Calendar() {
   }, [updateScheduleBlock]);
 
   const handleDateChange = useCallback((date: Date) => {
-    console.log('Date changed:', date);
+    setCurrentDate(date);
   }, []);
 
   return (
@@ -153,7 +154,7 @@ export default function Calendar() {
           ) : (
             <CalendarErrorBoundaryWrapper>
               <NativeCalendarView
-                selectedDate={new Date()}
+                selectedDate={currentDate}
                 onDateChange={handleDateChange}
               />
             </CalendarErrorBoundaryWrapper>
