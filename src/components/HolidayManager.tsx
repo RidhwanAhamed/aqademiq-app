@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CalendarIcon, Plus, Trash2 } from "lucide-react";
-import { format } from "date-fns";
+import { format, parseISO, isWithinInterval } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -165,6 +165,14 @@ export function HolidayManager() {
   const { holidays, loading, deleteHoliday } = useHolidays();
   const { toast } = useToast();
 
+  // Check if a holiday is currently active based on dates
+  const isHolidayCurrentlyActive = (holiday: any) => {
+    const now = new Date();
+    const startDate = parseISO(holiday.start_date);
+    const endDate = parseISO(holiday.end_date);
+    return isWithinInterval(now, { start: startDate, end: endDate });
+  };
+
   const handleDelete = async (id: string) => {
     try {
       const { error } = await deleteHoliday(id);
@@ -213,7 +221,7 @@ export function HolidayManager() {
                 <div>
                   <div className="flex items-center gap-2">
                     <h4 className="font-medium">{holiday.name}</h4>
-                    {holiday.is_active && (
+                    {isHolidayCurrentlyActive(holiday) && (
                       <Badge variant="outline" className="text-primary">Active</Badge>
                     )}
                   </div>
