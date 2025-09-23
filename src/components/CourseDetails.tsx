@@ -37,11 +37,13 @@ export function CourseDetails({ course, open, onOpenChange, onEdit }: CourseDeta
 
   const courseAssignments = assignments.filter(a => a.course_id === course.id);
   const courseExams = exams.filter(e => e.course_id === course.id);
+  const completedAssignments = courseAssignments.filter(a => a.is_completed);
   const completedExams = courseExams.filter(e => e.grade_received);
   
-  // Calculate progress based on completed exams vs expected exams
-  const expectedExams = course.expected_exams || 4;
-  const examProgress = (completedExams.length / expectedExams) * 100;
+  // Calculate progress based on both assignments and exams (matching database logic)
+  const totalItems = courseAssignments.length + courseExams.length;
+  const completedItems = completedAssignments.length + completedExams.length;
+  const overallProgress = totalItems > 0 ? (completedItems / totalItems) * 100 : 0;
 
   return (
     <>
@@ -85,10 +87,10 @@ export function CourseDetails({ course, open, onOpenChange, onEdit }: CourseDeta
                     <span className="text-sm font-medium">Progress</span>
                   </div>
                   <div className="space-y-2">
-                    <div className="text-2xl font-bold">{Math.round(examProgress)}%</div>
-                    <Progress value={examProgress} className="h-2" />
+                    <div className="text-2xl font-bold">{Math.round(overallProgress)}%</div>
+                    <Progress value={overallProgress} className="h-2" />
                     <div className="text-xs text-muted-foreground">
-                      {completedExams.length} of {expectedExams} exams completed
+                      {completedItems} of {totalItems} items completed
                     </div>
                   </div>
                 </CardContent>
