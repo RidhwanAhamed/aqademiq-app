@@ -11,13 +11,12 @@ const Ada = () => {
   const [tipsOpen, setTipsOpen] = useState(false);
   const [formatsOpen, setFormatsOpen] = useState(false);
   const [accessibilityOpen, setAccessibilityOpen] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
   const [isFullScreen, setIsFullScreen] = useState(false);
 
   const handleRefreshChat = () => {
-    // Call the chat component's refresh function
-    if ((window as any).adaRefreshHandler) {
-      (window as any).adaRefreshHandler();
-    }
+    // Clear all chat messages and reset
+    setRefreshKey(prev => prev + 1);
   };
 
   const handleFullScreenToggle = () => {
@@ -124,11 +123,11 @@ const Ada = () => {
       {isFullScreen && (
         <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm">
           <div className="h-full flex flex-col">
-                     <AdaAIChat 
-                      isFullScreen={isFullScreen}
-                      onFullScreenToggle={handleFullScreenToggle}
-                      onRefresh={handleRefreshChat}
-                    />
+            <AdaAIChat 
+              key={refreshKey} 
+              isFullScreen={isFullScreen}
+              onFullScreenToggle={handleFullScreenToggle}
+            />
           </div>
         </div>
       )}
@@ -202,9 +201,9 @@ const Ada = () => {
                   </CardHeader>
                   <div className="flex-1 overflow-hidden">
                     <AdaAIChat 
+                      key={refreshKey} 
                       isFullScreen={isFullScreen}
                       onFullScreenToggle={handleFullScreenToggle}
-                      onRefresh={handleRefreshChat}
                     />
                   </div>
                 </Card>
