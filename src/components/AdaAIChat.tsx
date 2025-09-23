@@ -136,7 +136,7 @@ export function AdaAIChat({ isFullScreen = false, onFullScreenToggle, onRefresh 
 
   useEffect(() => {
     // Initialize chat session when user is available
-    if (user && !isLoadingChat) {
+    if (user) {
       initializeChatSession().then(({ messages: loadedMessages, hasHistory }) => {
         // If no previous messages, show welcome message
         if (!hasHistory || loadedMessages.length === 0) {
@@ -152,9 +152,20 @@ export function AdaAIChat({ isFullScreen = false, onFullScreenToggle, onRefresh 
           // Load previous messages
           setMessages(loadedMessages);
         }
+      }).catch((error) => {
+        logger.error('Failed to initialize chat session', error);
+        // Set a fallback welcome message even on error
+        const fallbackMessage: ChatMessage = {
+          id: `fallback-${Date.now()}`,
+          message: `👋 Hi there! I'm Ada AI, your study assistant. Ready to help you organize your academic life!`,
+          is_user: false,
+          created_at: new Date().toISOString(),
+          metadata: { welcome: true, fallback: true }
+        };
+        setMessages([fallbackMessage]);
       });
     }
-  }, [user, isLoadingChat, initializeChatSession]);
+  }, [user?.id, initializeChatSession]);
 
   useEffect(() => {
     scrollToBottom();
