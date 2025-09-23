@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -8,130 +8,93 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { AddStudySessionDialog } from "@/components/AddStudySessionDialog";
-
-type TimerMode = 'focus' | 'short-break' | 'long-break';
-
-const TIMER_PRESETS = {
-  focus: 25 * 60, // 25 minutes
-  'short-break': 5 * 60, // 5 minutes
-  'long-break': 15 * 60, // 15 minutes
-};
+import { useBackgroundTimer, type TimerMode } from "@/hooks/useBackgroundTimer";
 
 export default function Timer() {
-  const [mode, setMode] = useState<TimerMode>('focus');
-  const [timeLeft, setTimeLeft] = useState(TIMER_PRESETS.focus);
-  const [isRunning, setIsRunning] = useState(false);
-  const [sessionsCompleted, setSessionsCompleted] = useState(0);
-  const [totalFocusTime, setTotalFocusTime] = useState(0);
-  const [currentSessionStart, setCurrentSessionStart] = useState<Date | null>(null);
   const [showStudySessionDialog, setShowStudySessionDialog] = useState(false);
+  const [currentSessionStart, setCurrentSessionStart] = useState<Date | null>(null);
   
-  const intervalRef = useRef<NodeJS.Timeout>();
+  const { 
+    mode, 
+    timeLeft, 
+    isRunning, 
+    sessionsCompleted, 
+    totalFocusTime,
+    startTimer: startBackgroundTimer,
+    pauseTimer,
+    resetTimer: resetBackgroundTimer,
+    setMode,
+    presets
+  } = useBackgroundTimer();
+  
   const { toast } = useToast();
   const { user } = useAuth();
 
+  // Track timer completion for database logging
   useEffect(() => {
-    if (isRunning && timeLeft > 0) {
-      intervalRef.current = setInterval(() => {
-        setTimeLeft((prev) => prev - 1);
-      }, 1000);
-    } else {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-    }
-
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-    };
-  }, [isRunning, timeLeft]);
-
-  useEffect(() => {
-    if (timeLeft === 0 && isRunning) {
+    if (timeLeft === 0 && !isRunning && sessionsCompleted > 0) {
       handleTimerComplete();
     }
-  }, [timeLeft, isRunning]);
+  }, [timeLeft, isRunning, sessionsCompleted]);
 
   const handleTimerComplete = async () => {
-    setIsRunning(false);
-    
-    if (mode === 'focus') {
-      setSessionsCompleted(prev => prev + 1);
-      if (currentSessionStart) {
-        const sessionDuration = Math.floor((Date.now() - currentSessionStart.getTime()) / 1000 / 60);
-        setTotalFocusTime(prev => prev + sessionDuration);
+    if (mode === 'focus' && currentSessionStart) {
+      const sessionDuration = presets.focus / 60; // Convert seconds to minutes
+      
+      // Save study session to database
+      if (user) {
+        const endTime = new Date();
+        const { error } = await supabase.from('study_sessions').insert({
+          user_id: user.id,
+          title: 'Pomodoro Focus Session',
+          scheduled_start: currentSessionStart.toISOString(),
+          scheduled_end: endTime.toISOString(),
+          actual_start: currentSessionStart.toISOString(),
+          actual_end: endTime.toISOString(),
+          status: 'completed'
+        });
         
-        // Save study session to database
-        if (user) {
-          const { error } = await supabase.from('study_sessions').insert({
-            user_id: user.id,
-            title: 'Pomodoro Focus Session',
-            scheduled_start: currentSessionStart.toISOString(),
-            scheduled_end: new Date().toISOString(),
-            actual_start: currentSessionStart.toISOString(),
-            actual_end: new Date().toISOString(),
-            status: 'completed'
-          });
+        if (!error) {
+          // Update user stats with the study session duration
+          const durationHours = sessionDuration / 60; // Convert minutes to hours
           
-          if (!error) {
-            // Update user stats with the study session duration
-            const durationHours = sessionDuration / 60; // Convert minutes to hours
+          try {
+            // Use the database function to update study stats
+            const { error: statsError } = await supabase
+              .rpc('update_user_study_stats', {
+                p_user_id: user.id,
+                p_study_hours: durationHours
+              });
             
-            try {
-              // Use the database function to update study stats
-              const { error: statsError } = await supabase
-                .rpc('update_user_study_stats', {
-                  p_user_id: user.id,
-                  p_study_hours: durationHours
-                });
-              
-              if (statsError) {
-                console.error('Error updating study stats:', statsError);
-              }
-            } catch (err) {
-              console.error('Error updating study stats:', err);
+            if (statsError) {
+              console.error('Error updating study stats:', statsError);
             }
+          } catch (err) {
+            console.error('Error updating study stats:', err);
           }
         }
       }
       
-      toast({
-        title: "Focus session complete!",
-        description: "Time for a well-deserved break.",
-      });
-      
-      // Auto-switch to break
+      // Auto-switch to break after focus session
       const nextMode = sessionsCompleted % 4 === 3 ? 'long-break' : 'short-break';
       setMode(nextMode);
-      setTimeLeft(TIMER_PRESETS[nextMode]);
-    } else {
-      toast({
-        title: "Break complete!",
-        description: "Ready for another focus session?",
-      });
-      
-      // Auto-switch back to focus
+    } else if (mode !== 'focus') {
+      // Auto-switch back to focus after break
       setMode('focus');
-      setTimeLeft(TIMER_PRESETS.focus);
     }
+    
+    setCurrentSessionStart(null);
   };
 
   const startTimer = () => {
-    setIsRunning(true);
+    startBackgroundTimer();
     if (!currentSessionStart && mode === 'focus') {
       setCurrentSessionStart(new Date());
     }
   };
 
-  const pauseTimer = () => {
-    setIsRunning(false);
-  };
-
   const resetTimer = () => {
-    setIsRunning(false);
-    setTimeLeft(TIMER_PRESETS[mode]);
+    resetBackgroundTimer();
     setCurrentSessionStart(null);
   };
 
@@ -157,7 +120,7 @@ export default function Timer() {
     }
   };
 
-  const progress = ((TIMER_PRESETS[mode] - timeLeft) / TIMER_PRESETS[mode]) * 100;
+  const progress = ((presets[mode] - timeLeft) / presets[mode]) * 100;
 
   return (
     <div className="p-6 space-y-6">
@@ -187,12 +150,11 @@ export default function Timer() {
           </CardHeader>
           <CardContent className="text-center space-y-6">
             <div className="space-y-4">
-              <Select 
+                <Select 
                 value={mode} 
                 onValueChange={(value: TimerMode) => {
                   if (!isRunning) {
                     setMode(value);
-                    setTimeLeft(TIMER_PRESETS[value]);
                   }
                 }}
                 disabled={isRunning}
