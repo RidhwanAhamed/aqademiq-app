@@ -4,6 +4,7 @@ import remarkGfm from 'remark-gfm';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { logger } from '@/utils/logger';
+import { useChatPersistence } from '@/hooks/useChatPersistence';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -92,21 +93,30 @@ interface AccessibilitySettings {
 interface AdaAIChatProps {
   isFullScreen?: boolean;
   onFullScreenToggle?: () => void;
+  onRefresh?: () => void;
 }
 
-export function AdaAIChat({ isFullScreen = false, onFullScreenToggle }: AdaAIChatProps = {}) {
+export function AdaAIChat({ isFullScreen = false, onFullScreenToggle, onRefresh }: AdaAIChatProps = {}) {
   const { user } = useAuth();
   const { toast } = useToast();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [conflicts, setConflicts] = useState<ScheduleConflict[]>([]);
-  const [messageCount, setMessageCount] = useState(0);
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   const [showAccessibility, setShowAccessibility] = useState(false);
-  const [welcomeMessageShown, setWelcomeMessageShown] = useState(false);
   const [showEnhancedUpload, setShowEnhancedUpload] = useState(false);
+  
+  // Chat persistence hook
+  const {
+    isLoading: isLoadingChat,
+    chatState,
+    initializeChatSession,
+    clearChatHistory,
+    incrementMessageCount,
+    updateAccessibilitySettings
+  } = useChatPersistence(user?.id);
   
   // Enhanced conflict detection
   const { 
@@ -114,13 +124,8 @@ export function AdaAIChat({ isFullScreen = false, onFullScreenToggle }: AdaAICha
     loading: isDetecting 
   } = useAdvancedConflictDetection();
   
-  // Accessibility state
-  const [accessibilitySettings, setAccessibilitySettings] = useState<AccessibilitySettings>({
-    fontSize: 16,
-    highContrast: false,
-    soundEnabled: true,
-    focusOutlines: true
-  });
+  // Get accessibility settings from persistence hook
+  const accessibilitySettings = chatState.accessibilitySettings;
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -130,25 +135,26 @@ export function AdaAIChat({ isFullScreen = false, onFullScreenToggle }: AdaAICha
   const MESSAGE_LIMIT = 10;
 
   useEffect(() => {
-    // Clear everything when component is refreshed/reset and show welcome message
-    setMessages([]);
-    setConflicts([]);
-    setMessageCount(0);
-    setInputMessage('');
-    
-    // Show Ada's welcome message
-    if (!welcomeMessageShown && user) {
-      const welcomeMessage: ChatMessage = {
-        id: `welcome-${Date.now()}`,
-        message: `👋 Hi there! I'm Ada AI, your personal study strategist and productivity engine.\n\nI'm here to help you:\n• **Plan & organize** your academic schedule\n• **Break down** large assignments into manageable tasks\n• **Detect conflicts** and suggest solutions\n• **Parse syllabi & timetables** from files you upload\n• **Optimize** your study sessions for maximum effectiveness\n\nJust ask me things like:\n- "Help me plan for my exam next Friday"\n- "Optimize my schedule this week"\n- "I missed yesterday's study session, what now?"\n\nOr simply **upload your syllabus** and I'll structure it into your calendar automatically! 📚✨`,
-        is_user: false,
-        created_at: new Date().toISOString(),
-        metadata: { welcome: true }
-      };
-      setMessages([welcomeMessage]);
-      setWelcomeMessageShown(true);
+    // Initialize chat session when user is available
+    if (user && !isLoadingChat) {
+      initializeChatSession().then(({ messages: loadedMessages, hasHistory }) => {
+        // If no previous messages, show welcome message
+        if (!hasHistory || loadedMessages.length === 0) {
+          const welcomeMessage: ChatMessage = {
+            id: `welcome-${Date.now()}`,
+            message: `👋 Hi there! I'm Ada AI, your personal study strategist and productivity engine.\n\nI'm here to help you:\n• **Plan & organize** your academic schedule\n• **Break down** large assignments into manageable tasks\n• **Detect conflicts** and suggest solutions\n• **Parse syllabi & timetables** from files you upload\n• **Optimize** your study sessions for maximum effectiveness\n\nJust ask me things like:\n- "Help me plan for my exam next Friday"\n- "Optimize my schedule this week"\n- "I missed yesterday's study session, what now?"\n\nOr simply **upload your syllabus** and I'll structure it into your calendar automatically! 📚✨`,
+            is_user: false,
+            created_at: new Date().toISOString(),
+            metadata: { welcome: true }
+          };
+          setMessages([welcomeMessage]);
+        } else {
+          // Load previous messages
+          setMessages(loadedMessages);
+        }
+      });
     }
-  }, [user, welcomeMessageShown]);
+  }, [user, isLoadingChat, initializeChatSession]);
 
   useEffect(() => {
     scrollToBottom();
@@ -165,12 +171,32 @@ export function AdaAIChat({ isFullScreen = false, onFullScreenToggle }: AdaAICha
     return () => document.removeEventListener('keydown', handleEscKey);
   }, [isFullScreen, onFullScreenToggle]);
 
-  useEffect(() => {
-    // Apply accessibility settings
-    document.documentElement.style.fontSize = `${accessibilitySettings.fontSize}px`;
-    document.documentElement.classList.toggle('high-contrast', accessibilitySettings.highContrast);
-    document.documentElement.classList.toggle('focus-outlines', accessibilitySettings.focusOutlines);
-  }, [accessibilitySettings]);
+  // Expose refresh functionality to parent component
+  const handleRefreshChat = () => {
+    clearChatHistory().then(() => {
+      setMessages([]);
+      setConflicts([]);
+      setInputMessage('');
+      
+      // Show fresh welcome message
+      const welcomeMessage: ChatMessage = {
+        id: `welcome-${Date.now()}`,
+        message: `👋 Hi there! I'm Ada AI, your personal study strategist and productivity engine.\n\nI'm here to help you:\n• **Plan & organize** your academic schedule\n• **Break down** large assignments into manageable tasks\n• **Detect conflicts** and suggest solutions\n• **Parse syllabi & timetables** from files you upload\n• **Optimize** your study sessions for maximum effectiveness\n\nJust ask me things like:\n- "Help me plan for my exam next Friday"\n- "Optimize my schedule this week"\n- "I missed yesterday's study session, what now?"\n\nOr simply **upload your syllabus** and I'll structure it into your calendar automatically! 📚✨`,
+        is_user: false,
+        created_at: new Date().toISOString(),
+        metadata: { welcome: true }
+      };
+      setMessages([welcomeMessage]);
+    });
+  };
+
+  // Call parent refresh handler if provided
+  React.useEffect(() => {
+    if (onRefresh) {
+      // Replace parent's refresh function with our internal one
+      (window as any).adaRefreshHandler = handleRefreshChat;
+    }
+  }, [onRefresh, handleRefreshChat]);
 
   const scrollToBottom = () => {
     setTimeout(() => {
@@ -438,7 +464,7 @@ export function AdaAIChat({ isFullScreen = false, onFullScreenToggle }: AdaAICha
     if (!inputMessage.trim() || !user || isProcessing) return;
 
     // Check message limit
-    if (messageCount >= MESSAGE_LIMIT) {
+    if (chatState.messageCount >= MESSAGE_LIMIT) {
       setShowUpgrade(true);
       return;
     }
@@ -452,7 +478,7 @@ export function AdaAIChat({ isFullScreen = false, onFullScreenToggle }: AdaAICha
       const savedUserMessage = await saveChatMessage(userMessage, true);
       if (savedUserMessage) {
         setMessages(prev => [...prev, savedUserMessage]);
-        setMessageCount(prev => prev + 1);
+        incrementMessageCount();
       }
 
       // Get AI response
@@ -858,12 +884,12 @@ export function AdaAIChat({ isFullScreen = false, onFullScreenToggle }: AdaAICha
           {/* Message limit indicator */}
           <div className="mt-2 flex items-center justify-between text-xs">
             <span className="text-muted-foreground">
-              Messages: {messageCount}/{MESSAGE_LIMIT}
+              Messages: {chatState.messageCount}/{MESSAGE_LIMIT}
             </span>
             <div className="w-32 bg-muted rounded-full h-1">
               <div 
                 className="bg-primary h-1 rounded-full transition-all duration-300"
-                style={{ width: `${(messageCount / MESSAGE_LIMIT) * 100}%` }}
+                style={{ width: `${(chatState.messageCount / MESSAGE_LIMIT) * 100}%` }}
               />
             </div>
           </div>
@@ -894,7 +920,7 @@ export function AdaAIChat({ isFullScreen = false, onFullScreenToggle }: AdaAICha
                   step={2}
                   value={[accessibilitySettings.fontSize]}
                   onValueChange={(value) => 
-                    setAccessibilitySettings(prev => ({ ...prev, fontSize: value[0] }))
+                    updateAccessibilitySettings({ fontSize: value[0] })
                   }
                   className="w-full"
                 />
@@ -908,7 +934,7 @@ export function AdaAIChat({ isFullScreen = false, onFullScreenToggle }: AdaAICha
                     id="high-contrast"
                     checked={accessibilitySettings.highContrast}
                     onCheckedChange={(checked) => 
-                      setAccessibilitySettings(prev => ({ ...prev, highContrast: checked }))
+                      updateAccessibilitySettings({ highContrast: checked })
                     }
                   />
                 </div>
@@ -919,7 +945,7 @@ export function AdaAIChat({ isFullScreen = false, onFullScreenToggle }: AdaAICha
                     id="sound-enabled"
                     checked={accessibilitySettings.soundEnabled}
                     onCheckedChange={(checked) => 
-                      setAccessibilitySettings(prev => ({ ...prev, soundEnabled: checked }))
+                      updateAccessibilitySettings({ soundEnabled: checked })
                     }
                   />
                 </div>
@@ -930,7 +956,7 @@ export function AdaAIChat({ isFullScreen = false, onFullScreenToggle }: AdaAICha
                     id="focus-outlines"
                     checked={accessibilitySettings.focusOutlines}
                     onCheckedChange={(checked) => 
-                      setAccessibilitySettings(prev => ({ ...prev, focusOutlines: checked }))
+                      updateAccessibilitySettings({ focusOutlines: checked })
                     }
                   />
                 </div>
@@ -992,7 +1018,15 @@ export function AdaAIChat({ isFullScreen = false, onFullScreenToggle }: AdaAICha
           
           <ScrollArea className="h-full">
             <div ref={chatContainerRef} className="p-4 sm:p-6 space-y-4" role="log" aria-live="polite" aria-label="Chat messages">
-              {messages.length === 0 ? (
+              {/* Loading state for chat initialization */}
+              {isLoadingChat ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="text-center space-y-2">
+                    <Loader2 className="w-6 h-6 animate-spin mx-auto text-primary" />
+                    <p className="text-sm text-muted-foreground">Loading your chat history...</p>
+                  </div>
+                </div>
+              ) : messages.length === 0 ? (
                 <div className="text-center py-12 space-y-4">
                   <div className="w-16 h-16 mx-auto rounded-full bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center">
                     <MessageCircle className="w-8 h-8 text-primary" />
@@ -1058,7 +1092,6 @@ export function AdaAIChat({ isFullScreen = false, onFullScreenToggle }: AdaAICha
                   )}
                 </>
               )}
-              <div ref={messagesEndRef} />
             </div>
           </ScrollArea>
         </div>
