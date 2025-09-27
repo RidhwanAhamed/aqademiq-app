@@ -5,6 +5,9 @@ import { Badge } from "@/components/ui/badge";
 import { useState } from "react";
 import { useEnhancedAnalytics } from "@/hooks/useEnhancedAnalytics";
 import { useCourses } from "@/hooks/useCourses";
+import { useAssignments } from "@/hooks/useAssignments";
+import { useStudySessions } from "@/hooks/useStudySessions";
+import { useFallbackAnalytics } from "@/hooks/useFallbackAnalytics";
 import { AdvancedPerformanceChart } from "@/components/analytics/AdvancedPerformanceChart";
 import { AcademicGoalsPanel } from "@/components/analytics/AcademicGoalsPanel";
 import { AcademicInsightsPanel } from "@/components/analytics/AcademicInsightsPanel";
@@ -29,6 +32,8 @@ import { supabase } from "@/integrations/supabase/client";
 
 export default function Analytics() {
   const { courses } = useCourses();
+  const { assignments } = useAssignments();
+  const { studySessions } = useStudySessions();
   const {
     measurePerformance,
     useIntersectionObserver,
@@ -56,8 +61,22 @@ export default function Analytics() {
     getHighRiskGoals,
     getDecliningCourses,
     getCriticalRisks,
-    isEmpty
+    isEmpty,
+    getDataRequirements
   } = useEnhancedAnalytics();
+  
+  // Get fallback analytics when no processed data exists
+  const {
+    fallbackMetrics,
+    fallbackGradeForecasts,
+    fallbackStudyAnalytics,
+    fallbackPerformanceRisks,
+    hasFallbackData
+  } = useFallbackAnalytics({
+    courses,
+    assignments,
+    studySessions
+  });
 
   // AI Insights Modal state
   const [aiModalOpen, setAiModalOpen] = useState(false);
@@ -101,10 +120,15 @@ export default function Analytics() {
     }
   };
 
-  // Calculate hero KPIs
+  // Use fallback data when processed analytics are empty
+  const effectiveGradeForecasts = gradeForecasts.length > 0 ? gradeForecasts : fallbackGradeForecasts;
+  const effectiveStudyAnalytics = studyAnalytics.length > 0 ? studyAnalytics : fallbackStudyAnalytics;
+  const effectivePerformanceRisks = performanceRisks.length > 0 ? performanceRisks : fallbackPerformanceRisks;
+  
+  // Calculate hero KPIs using fallback data when needed
   const overallGPA = performanceMetrics
     .filter(m => m.metric_type === 'overall_grade')
-    .reduce((acc, m) => Math.max(acc, m.metric_value), 0);
+    .reduce((acc, m) => Math.max(acc, m.metric_value), 0) || fallbackMetrics.overallGPA;
     
   const semesterProgress = Math.min(
     (goalsProgress.total > 0 ? (goalsProgress.onTrack / goalsProgress.total) * 100 : 0),
@@ -113,12 +137,12 @@ export default function Analytics() {
   
   const studyStreak = performanceMetrics
     .filter(m => m.metric_type === 'study_consistency')
-    .reduce((acc, m) => Math.max(acc, m.metric_value), 0);
+    .reduce((acc, m) => Math.max(acc, m.metric_value), 0) || fallbackMetrics.studyConsistency;
 
-  const criticalAlertsCount = criticalRisks.length + highRiskGoals.length + decliningCourses.length;
+  const criticalAlertsCount = effectivePerformanceRisks.length + highRiskGoals.length + decliningCourses.length;
 
-  // Calculate additional metrics for hero KPIs
-  const studyHoursThisWeek = studyAnalytics
+  // Calculate additional metrics for hero KPIs using fallback data
+  const studyHoursThisWeek = effectiveStudyAnalytics
     .filter(session => {
       const sessionDate = new Date(session.session_date);
       const weekStart = new Date();
@@ -147,12 +171,7 @@ export default function Analytics() {
   if (!loading && isEmptyState) {
     return (
       <div className="p-6">
-        <AnalyticsEmptyState dataRequirements={{
-          courses: courses.length > 0,
-          assignments: false,
-          studySessions: false,
-          grades: false
-        }} />
+        <AnalyticsEmptyState dataRequirements={getDataRequirements()} />
       </div>
     );
   }
@@ -205,7 +224,9 @@ export default function Analytics() {
             <div>
               <span className="font-medium">Critical Attention Required!</span>
               <p className="text-sm">
-                {criticalRisks.length} high-risk areas, {highRiskGoals.length} goals at risk, {decliningCourses.length} declining courses
+                {effectivePerformanceRisks.length} performance risks detected
+                {highRiskGoals.length > 0 && `, ${highRiskGoals.length} goals at risk`}
+                {decliningCourses.length > 0 && `, ${decliningCourses.length} declining courses`}
               </p>
             </div>
             <Button 
@@ -213,7 +234,7 @@ export default function Analytics() {
               size="sm"
               onClick={() => handleNeedAIInsights('critical_insights', { 
                 alertsCount: criticalAlertsCount,
-                risks: criticalRisks,
+                risks: effectivePerformanceRisks,
                 goals: highRiskGoals,
                 courses: decliningCourses
               })}
@@ -285,7 +306,7 @@ export default function Analytics() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Study Sessions</p>
-                <p className="text-2xl font-bold">{studyAnalytics.length}</p>
+                <p className="text-2xl font-bold">{effectiveStudyAnalytics.length}</p>
               </div>
               <TrendingUp className="w-8 h-8 text-info" />
             </div>
@@ -301,8 +322,8 @@ export default function Analytics() {
         overallGPA={overallGPA}
         goalsProgress={goalsProgress}
         decliningCourses={decliningCourses}
-        criticalRisks={criticalRisks}
-        studyAnalytics={studyAnalytics}
+        criticalRisks={effectivePerformanceRisks}
+        studyAnalytics={effectiveStudyAnalytics}
         onNeedAIInsights={handleNeedAIInsights}
       />
 
@@ -373,7 +394,7 @@ export default function Analytics() {
 
         <TabsContent value="forecasting" className="space-y-6">
           <PredictiveTrendChart
-            gradeForecasts={gradeForecasts}
+            gradeForecasts={effectiveGradeForecasts}
             courses={courses}
             onNeedAIInsights={handleNeedAIInsights}
           />
@@ -381,9 +402,9 @@ export default function Analytics() {
 
         <TabsContent value="mobile" className="space-y-6">
           <MobileOptimizedCharts
-            gradeForecasts={gradeForecasts}
+            gradeForecasts={effectiveGradeForecasts}
             performanceMetrics={performanceMetrics}
-            studyAnalytics={studyAnalytics}
+            studyAnalytics={effectiveStudyAnalytics}
             courses={courses}
             onNeedAIInsights={handleNeedAIInsights}
           />
@@ -402,8 +423,8 @@ export default function Analytics() {
         <TabsContent value="predictive" className="space-y-6">
           <PredictiveInsightsPanel
             goalPredictions={goalPredictions}
-            gradeForecasts={gradeForecasts}
-            performanceRisks={performanceRisks}
+            gradeForecasts={effectiveGradeForecasts}
+            performanceRisks={effectivePerformanceRisks}
             academicGoals={academicGoals}
             onNeedAIInsights={handleNeedAIInsights}
           />

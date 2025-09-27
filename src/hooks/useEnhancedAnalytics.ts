@@ -91,6 +91,11 @@ export function useEnhancedAnalytics() {
   const [gradeForecasts, setGradeForecasts] = useState<GradeForecast[]>([]);
   const [performanceRisks, setPerformanceRisks] = useState<PerformanceRisk[]>([]);
   
+  // User data states for empty state checking
+  const [userCourses, setUserCourses] = useState<any[]>([]);
+  const [userAssignments, setUserAssignments] = useState<any[]>([]);
+  const [userStudySessions, setUserStudySessions] = useState<any[]>([]);
+  
   const [loading, setLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
@@ -209,11 +214,15 @@ export function useEnhancedAnalytics() {
     if (!user) return;
 
     try {
-      const [metricsData, goalsData, insightsData, analyticsData] = await Promise.all([
+      const [metricsData, goalsData, insightsData, analyticsData, coursesData, assignmentsData, studySessionsData] = await Promise.all([
         supabase.from('performance_analytics').select('*').eq('user_id', user.id).order('calculation_date', { ascending: false }),
         supabase.from('academic_goals').select('*').eq('user_id', user.id).eq('is_active', true).order('priority'),
         supabase.from('academic_insights').select('*').eq('user_id', user.id).eq('is_dismissed', false).order('created_at', { ascending: false }),
-        supabase.from('study_session_analytics').select('*').eq('user_id', user.id).order('session_date', { ascending: false }).limit(30)
+        supabase.from('study_session_analytics').select('*').eq('user_id', user.id).order('session_date', { ascending: false }).limit(30),
+        // Load actual user data for empty state checking
+        supabase.from('courses').select('*').eq('user_id', user.id).eq('is_active', true),
+        supabase.from('assignments').select('*').eq('user_id', user.id),
+        supabase.from('study_sessions').select('*').eq('user_id', user.id)
       ]);
 
       setPerformanceMetrics(metricsData.data || []);
@@ -223,6 +232,11 @@ export function useEnhancedAnalytics() {
         action_items: Array.isArray(insight.action_items) ? insight.action_items : []
       })));
       setStudyAnalytics(analyticsData.data || []);
+      
+      // Set user data for empty state checking
+      setUserCourses(coursesData.data || []);
+      setUserAssignments(assignmentsData.data || []);
+      setUserStudySessions(studySessionsData.data || []);
     } catch (error) {
       console.error('Error loading basic analytics data:', error);
     }
@@ -505,11 +519,23 @@ export function useEnhancedAnalytics() {
     getDecliningCourses,
     getCriticalRisks,
 
+    // Data requirements for empty state
+    getDataRequirements: () => ({
+      courses: userCourses.length > 0,
+      assignments: userAssignments.length > 0,
+      studySessions: userStudySessions.filter(session => session.status === 'completed').length > 0,
+      grades: userAssignments.filter(assignment => assignment.grade_points != null).length > 0
+    }),
+
     // Legacy compatibility
     refreshMetrics: refreshAllData,
     getMetricsByCourse: (courseId: string) => performanceMetrics.filter(metric => metric.course_id === courseId),
     getGoalsByCourse: (courseId: string) => academicGoals.filter(goal => goal.course_id === courseId),
     getInsightsByCourse: (courseId: string) => academicInsights.filter(insight => insight.related_course_id === courseId),
-    isEmpty: () => performanceMetrics.length === 0 && academicGoals.length === 0 && academicInsights.length === 0
+    isEmpty: () => {
+      // Check if user has any data to analyze, not just processed analytics
+      const hasUserData = userCourses.length > 0 || userAssignments.length > 0 || userStudySessions.length > 0;
+      return !hasUserData;
+    }
   };
 }
