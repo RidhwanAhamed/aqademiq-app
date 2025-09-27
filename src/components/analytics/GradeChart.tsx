@@ -1,12 +1,16 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { GradeData } from "@/hooks/useUserStats";
+import { Brain, TrendingDown } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 
 interface GradeChartProps {
   data: GradeData[];
+  onNeedAIInsights?: (context: string, data: any) => void;
 }
 
-export function GradeChart({ data }: GradeChartProps) {
+export function GradeChart({ data, onNeedAIInsights }: GradeChartProps) {
   // Group grades by course and calculate averages
   const courseGrades = data.reduce((acc, grade) => {
     if (!acc[grade.course]) {
@@ -44,10 +48,36 @@ export function GradeChart({ data }: GradeChartProps) {
     return null;
   };
 
+  const hasLowGrades = chartData.some(course => course.average < 6.0);
+
   return (
     <Card className="bg-gradient-card">
       <CardHeader>
-        <CardTitle>Grade Distribution by Course</CardTitle>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <CardTitle>Grade Distribution by Course</CardTitle>
+            {hasLowGrades && (
+              <Badge variant="destructive" className="flex items-center gap-1">
+                <TrendingDown className="w-3 h-3" />
+                Low Grades Detected
+              </Badge>
+            )}
+          </div>
+          <Button 
+            variant="outline"
+            size="sm"
+            onClick={() => onNeedAIInsights?.('grade_improvement', {
+              chartData,
+              data,
+              hasLowGrades,
+              averageGrade: chartData.reduce((sum, course) => sum + course.average, 0) / chartData.length
+            })}
+            className="bg-gradient-card hover:bg-gradient-card/80"
+          >
+            <Brain className="w-4 h-4 mr-2" />
+            Grade Strategy
+          </Button>
+        </div>
       </CardHeader>
       <CardContent>
         {chartData.length === 0 ? (

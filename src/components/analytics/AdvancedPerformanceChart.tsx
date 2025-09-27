@@ -1,7 +1,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
-import { TrendingUp, TrendingDown, Target, Clock } from "lucide-react";
+import { TrendingUp, TrendingDown, Target, Clock, Brain } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 interface PerformanceMetric {
   id: string;
@@ -16,9 +17,10 @@ interface PerformanceMetric {
 interface AdvancedPerformanceChartProps {
   metrics: PerformanceMetric[];
   courses: Array<{ id: string; name: string; color: string }>;
+  onNeedAIInsights?: (context: string, data: any) => void;
 }
 
-export function AdvancedPerformanceChart({ metrics, courses }: AdvancedPerformanceChartProps) {
+export function AdvancedPerformanceChart({ metrics, courses, onNeedAIInsights }: AdvancedPerformanceChartProps) {
   // Transform metrics for chart display
   const chartData = metrics
     .filter(m => m.metric_type === 'grade_trend')
@@ -73,10 +75,25 @@ export function AdvancedPerformanceChart({ metrics, courses }: AdvancedPerforman
       {/* Grade Trends Chart */}
       <Card className="bg-gradient-card">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <TrendingUp className="w-5 h-5" />
-            Grade Trends Over Time
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <TrendingUp className="w-5 h-5" />
+              <CardTitle>Grade Trends Over Time</CardTitle>
+            </div>
+            <Button 
+              variant="outline"
+              size="sm"
+              onClick={() => onNeedAIInsights?.('performance_trends', {
+                chartData,
+                metrics,
+                courses
+              })}
+              className="bg-gradient-card hover:bg-gradient-card/80"
+            >
+              <Brain className="w-4 h-4 mr-2" />
+              AI Analysis
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={300}>
@@ -114,10 +131,25 @@ export function AdvancedPerformanceChart({ metrics, courses }: AdvancedPerforman
         {/* Study Efficiency */}
         <Card className="bg-gradient-card">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Clock className="w-5 h-5" />
-              Study Efficiency by Course
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Clock className="w-5 h-5" />
+                <CardTitle>Study Efficiency by Course</CardTitle>
+              </div>
+              <Button 
+                variant="outline"
+                size="sm"
+                onClick={() => onNeedAIInsights?.('study_efficiency', {
+                  studyEfficiencyData,
+                  metrics,
+                  courses
+                })}
+                className="bg-gradient-card hover:bg-gradient-card/80"
+              >
+                <Brain className="w-4 h-4 mr-2" />
+                Optimize
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
@@ -145,10 +177,25 @@ export function AdvancedPerformanceChart({ metrics, courses }: AdvancedPerforman
         {/* Deadline Adherence */}
         <Card className="bg-gradient-card">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Target className="w-5 h-5" />
-              Deadline Adherence
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Target className="w-5 h-5" />
+                <CardTitle>Deadline Adherence</CardTitle>
+              </div>
+              <Button 
+                variant="outline"
+                size="sm"
+                onClick={() => onNeedAIInsights?.('deadline_adherence', {
+                  deadlineAdherenceData,
+                  metrics,
+                  courses
+                })}
+                className="bg-gradient-card hover:bg-gradient-card/80"
+              >
+                <Brain className="w-4 h-4 mr-2" />
+                Improve
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">

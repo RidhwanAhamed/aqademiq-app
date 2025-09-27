@@ -1,7 +1,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { MoreHorizontal, BookOpen } from "lucide-react";
+import { MoreHorizontal, BookOpen, Brain } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -29,9 +29,10 @@ interface CourseCardProps {
   onEdit?: (course: Course) => void;
   onDelete?: (courseId: string) => void;
   onClick?: () => void;
+  onNeedAIInsights?: (context: string, data: any) => void;
 }
 
-export function CourseCard({ course, onEdit, onDelete, onClick }: CourseCardProps) {
+export function CourseCard({ course, onEdit, onDelete, onClick, onNeedAIInsights }: CourseCardProps) {
   const [showDetails, setShowDetails] = useState(false);
   const colorClass = colorVariants[course.color as keyof typeof colorVariants] || colorVariants.blue;
 
@@ -98,9 +99,31 @@ export function CourseCard({ course, onEdit, onDelete, onClick }: CourseCardProp
           
           <div className="flex justify-between items-center text-sm">
             <span className="text-muted-foreground">Credits: {course.credits}</span>
-            {course.target_grade && (
-              <Badge variant="outline">Target: {course.target_grade}</Badge>
-            )}
+            <div className="flex items-center gap-2">
+              {course.target_grade && (
+                <Badge variant="outline">Target: {course.target_grade}</Badge>
+              )}
+              {onNeedAIInsights && (course.progress_percentage < 50 || (course.current_gpa && course.current_gpa < 2.5)) && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onNeedAIInsights('course_improvement', {
+                      course,
+                      isLowPerformance: course.current_gpa && course.current_gpa < 2.5,
+                      isLowProgress: course.progress_percentage < 50,
+                      currentGpa: course.current_gpa,
+                      progress: course.progress_percentage
+                    });
+                  }}
+                  className="text-xs h-6 px-2"
+                >
+                  <Brain className="w-3 h-3 mr-1" />
+                  Help
+                </Button>
+              )}
+            </div>
           </div>
           
           {course.instructor && (

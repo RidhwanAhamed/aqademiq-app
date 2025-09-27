@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Plus, Calendar, Target, Zap, Clock } from "lucide-react";
+import { Plus, Calendar, Target, Zap, Clock, Brain } from "lucide-react";
 import { CourseCard } from "./CourseCard";
 import { TodayTimeline } from "./TodayTimeline";
 import { QuickStats } from "./QuickStats";
@@ -15,14 +15,46 @@ import { useUserStats } from "@/hooks/useUserStats";
 import { RevisionTasksPanel } from "./RevisionTasksPanel";
 import { MarketplaceTeaserCard } from "./MarketplaceTeaserCard";
 import { format, isAfter, isBefore, addDays } from "date-fns";
+import { AIInsightModal } from "./analytics/AIInsightModal";
+import { supabase } from "@/integrations/supabase/client";
 
 export function Dashboard() {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showStudySessionDialog, setShowStudySessionDialog] = useState(false);
+  const [aiModalOpen, setAiModalOpen] = useState(false);
+  const [aiContext, setAiContext] = useState<string>('');
+  const [aiContextData, setAiContextData] = useState<any>(null);
+  
   const { courses } = useCourses();
   const { assignments } = useAssignments();
   const { exams } = useExams();
   const { stats } = useUserStats();
+
+  const handleNeedAIInsights = (context: string, data: any) => {
+    setAiContext(context);
+    setAiContextData(data);
+    setAiModalOpen(true);
+  };
+
+  const generateAIInsights = async (context: string, data: any, customQuery?: string) => {
+    try {
+      const { data: result, error } = await supabase.functions.invoke('ai-insights', {
+        body: {
+          task_type: context,
+          title: `AI Insights for ${context}`,
+          description: customQuery || `Generate insights for ${context}`,
+          context_data: data,
+          course_info: courses.map(c => ({ id: c.id, name: c.name }))
+        }
+      });
+
+      if (error) throw error;
+      return result;
+    } catch (error) {
+      console.error('Error generating AI insights:', error);
+      throw error;
+    }
+  };
 
   // Get upcoming assignments and exams (next 7 days)
   const upcoming = [
@@ -84,10 +116,27 @@ export function Dashboard() {
           {/* Courses Overview */}
           <Card className="bg-gradient-card shadow-card">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Target className="w-5 h-5 text-primary" />
-                Course Progress
-              </CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <Target className="w-5 h-5 text-primary" />
+                  Course Progress
+                </CardTitle>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleNeedAIInsights('course_overview', {
+                    courses,
+                    coursesNeedingHelp: courses.filter(c => 
+                      (c.progress_percentage < 50) || (c.current_gpa && c.current_gpa < 2.5)
+                    ).length,
+                    totalCourses: courses.length
+                  })}
+                  className="bg-gradient-card hover:bg-gradient-card/80"
+                >
+                  <Brain className="w-3 h-3 mr-1" />
+                  Course Help
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               {courses.length === 0 ? (
@@ -98,7 +147,11 @@ export function Dashboard() {
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                   {courses.slice(0, 4).map((course) => (
-                    <CourseCard key={course.id} course={course} />
+                    <CourseCard 
+                      key={course.id} 
+                      course={course} 
+                      onNeedAIInsights={handleNeedAIInsights}
+                    />
                   ))}
                 </div>
               )}
@@ -177,10 +230,27 @@ export function Dashboard() {
           {/* AI Insights */}
           <Card className="bg-gradient-card shadow-card border-primary/20">
             <CardHeader className="pb-3">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />
-                AI Insights
-              </CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />
+                  AI Insights
+                </CardTitle>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleNeedAIInsights('dashboard_overview', {
+                    courses,
+                    assignments,
+                    exams,
+                    stats,
+                    upcoming
+                  })}
+                  className="bg-gradient-card hover:bg-gradient-card/80"
+                >
+                  <Brain className="w-3 h-3 mr-1" />
+                  Ask Ada
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="space-y-2 sm:space-y-3">
@@ -227,6 +297,15 @@ export function Dashboard() {
       <AddStudySessionDialog
         open={showStudySessionDialog}
         onOpenChange={setShowStudySessionDialog}
+      />
+
+      {/* AI Insight Modal */}
+      <AIInsightModal
+        open={aiModalOpen}
+        onOpenChange={setAiModalOpen}
+        context={aiContext}
+        contextData={aiContextData}
+        onGenerateInsights={generateAIInsights}
       />
     </div>
   );
