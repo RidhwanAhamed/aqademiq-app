@@ -40,7 +40,7 @@ export default function Analytics() {
     getDecliningCourses,
     getCriticalRisks,
     isEmpty
-  } = useAdvancedAnalytics();
+  } = useEnhancedAnalytics();
 
   // AI Insights Modal state
   const [aiModalOpen, setAiModalOpen] = useState(false);

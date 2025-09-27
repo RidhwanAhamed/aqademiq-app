@@ -247,7 +247,7 @@ export function useEnhancedAnalytics() {
             probability_percentage: data[0].probability_percentage,
             risk_level: data[0].risk_level,
             recommended_actions: Array.isArray(data[0].recommended_actions) 
-              ? data[0].recommended_actions 
+              ? (data[0].recommended_actions as string[]) 
               : []
           });
         }
@@ -304,7 +304,7 @@ export function useEnhancedAnalytics() {
       setPerformanceRisks((data || []).map(risk => ({
         ...risk,
         recommended_actions: Array.isArray(risk.recommended_actions) 
-          ? risk.recommended_actions 
+          ? (risk.recommended_actions as string[]) 
           : []
       })));
     } catch (error) {
