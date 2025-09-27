@@ -1,5 +1,4 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -8,12 +7,11 @@ import {
   TrendingUp, 
   AlertTriangle, 
   Target, 
-  Brain,
   ArrowRight,
   Clock,
-  BookOpen,
-  Lightbulb
+  BookOpen
 } from "lucide-react";
+import { InlineInsightCard } from "./InlineInsightCard";
 
 interface GoalPrediction {
   goal_id: string;
@@ -52,15 +50,13 @@ interface PredictiveInsightsPanelProps {
   gradeForecasts: GradeForecast[];
   performanceRisks: PerformanceRisk[];
   academicGoals: AcademicGoal[];
-  onNeedAIInsights?: (context: string, data: any) => void;
 }
 
 export function PredictiveInsightsPanel({ 
   goalPredictions, 
   gradeForecasts, 
   performanceRisks,
-  academicGoals,
-  onNeedAIInsights 
+  academicGoals
 }: PredictiveInsightsPanelProps) {
   const getRiskBadge = (severity: string) => {
     switch (severity) {
@@ -89,7 +85,7 @@ export function PredictiveInsightsPanel({
 
   return (
     <div className="space-y-6">
-      {/* Critical Alerts Section */}
+      {/* Critical Alerts Section with AI Insights */}
       {(criticalRisks.length > 0 || highRiskGoals.length > 0 || decliningCourses.length > 0) && (
         <div className="space-y-4">
           <div className="flex items-center gap-2">
@@ -100,7 +96,7 @@ export function PredictiveInsightsPanel({
           {criticalRisks.map((risk, index) => (
             <Alert key={index} className="border-destructive/50 bg-destructive/5">
               <AlertTriangle className="h-4 w-4" />
-              <AlertDescription className="flex items-center justify-between">
+              <AlertDescription>
                 <div>
                   <p className="font-medium">{risk.description}</p>
                   {risk.affected_courses.length > 0 && (
@@ -109,40 +105,34 @@ export function PredictiveInsightsPanel({
                     </p>
                   )}
                 </div>
-                {onNeedAIInsights && (
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => onNeedAIInsights('performance_risk', risk)}
-                    className="bg-background"
-                  >
-                    <Brain className="w-4 h-4 mr-2" />
-                    Need AI Insights?
-                  </Button>
-                )}
               </AlertDescription>
             </Alert>
           ))}
+
+          {/* AI Insight Card for Critical Alerts */}
+          {criticalRisks.length > 0 && (
+            <InlineInsightCard
+              context="critical_alerts"
+              data={{ 
+                alertsCount: criticalRisks.length,
+                risks: criticalRisks.map(r => r.risk_type),
+                affectedCourses: criticalRisks.flatMap(r => r.affected_courses)
+              }}
+              title="Get Emergency Help"
+              description="AI-powered action plan for your critical academic issues"
+              variant="critical"
+            />
+          )}
         </div>
       )}
 
       {/* Grade Forecasts */}
       <Card className="bg-gradient-card">
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader>
           <div className="flex items-center gap-2">
             <BookOpen className="w-5 h-5 text-primary" />
             <CardTitle>Grade Forecasts</CardTitle>
           </div>
-          {onNeedAIInsights && (
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => onNeedAIInsights('grade_trends', gradeForecasts)}
-            >
-              <Brain className="w-4 h-4 mr-2" />
-              Need AI Insights?
-            </Button>
-          )}
         </CardHeader>
         <CardContent>
           {gradeForecasts.length === 0 ? (
@@ -170,19 +160,25 @@ export function PredictiveInsightsPanel({
                     <Badge variant={forecast.confidence_level === 'high' ? 'default' : 'secondary'}>
                       {forecast.confidence_level} confidence
                     </Badge>
-                    {forecast.trend_direction === 'declining' && onNeedAIInsights && (
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => onNeedAIInsights('declining_course', forecast)}
-                      >
-                        <Lightbulb className="w-4 h-4 mr-1" />
-                        Get Help
-                      </Button>
-                    )}
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+
+          {/* AI Insight for Declining Courses */}
+          {decliningCourses.length > 0 && (
+            <div className="mt-6">
+              <InlineInsightCard
+                context="declining_course"
+                data={{
+                  courses: decliningCourses,
+                  count: decliningCourses.length
+                }}
+                title="Course Recovery Plan"
+                description="AI-powered strategies to improve declining course performance"
+                variant="warning"
+              />
             </div>
           )}
         </CardContent>
@@ -190,21 +186,11 @@ export function PredictiveInsightsPanel({
 
       {/* Goal Achievement Predictions */}
       <Card className="bg-gradient-card">
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader>
           <div className="flex items-center gap-2">
             <Target className="w-5 h-5 text-primary" />
             <CardTitle>Goal Achievement Predictions</CardTitle>
           </div>
-          {onNeedAIInsights && (
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => onNeedAIInsights('goal_strategy', goalPredictions)}
-            >
-              <Brain className="w-4 h-4 mr-2" />
-              Need AI Insights?
-            </Button>
-          )}
         </CardHeader>
         <CardContent>
           {goalPredictions.length === 0 ? (
@@ -246,24 +232,13 @@ export function PredictiveInsightsPanel({
                         <div className="mt-3 p-3 rounded bg-muted/50">
                           <p className="text-sm font-medium mb-2">Recommended Actions:</p>
                           <ul className="text-sm text-muted-foreground space-y-1">
-                            {prediction.recommended_actions.slice(0, 3).map((action, index) => (
-                              <li key={index} className="flex items-start gap-2">
-                                <ArrowRight className="w-3 h-3 mt-0.5 flex-shrink-0" />
-                                {action}
-                              </li>
-                            ))}
-                          </ul>
-                          {prediction.recommended_actions.length > 3 && onNeedAIInsights && (
-                            <Button 
-                              variant="link" 
-                              size="sm" 
-                              className="p-0 h-auto text-xs mt-2"
-                              onClick={() => onNeedAIInsights('goal_detailed_strategy', { goal, prediction })}
-                            >
-                              <Brain className="w-3 h-3 mr-1" />
-                              Get detailed AI strategy
-                            </Button>
-                          )}
+                          {prediction.recommended_actions.slice(0, 3).map((action, index) => (
+                            <li key={index} className="flex items-start gap-2">
+                              <ArrowRight className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                              {action}
+                            </li>
+                          ))}
+                        </ul>
                         </div>
                       )}
                     </div>
@@ -277,21 +252,11 @@ export function PredictiveInsightsPanel({
 
       {/* Performance Risk Analysis */}
       <Card className="bg-gradient-card">
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader>
           <div className="flex items-center gap-2">
             <AlertTriangle className="w-5 h-5 text-primary" />
             <CardTitle>Performance Risk Analysis</CardTitle>
           </div>
-          {onNeedAIInsights && (
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => onNeedAIInsights('risk_mitigation', performanceRisks)}
-            >
-              <Brain className="w-4 h-4 mr-2" />
-              Need AI Insights?
-            </Button>
-          )}
         </CardHeader>
         <CardContent>
           {performanceRisks.length === 0 ? (
@@ -325,17 +290,6 @@ export function PredictiveInsightsPanel({
                           </li>
                         ))}
                       </ul>
-                      {onNeedAIInsights && (
-                        <Button 
-                          variant="link" 
-                          size="sm" 
-                          className="p-0 h-auto text-xs mt-2"
-                          onClick={() => onNeedAIInsights('detailed_risk_plan', risk)}
-                        >
-                          <Brain className="w-3 h-3 mr-1" />
-                          Get detailed recovery plan
-                        </Button>
-                      )}
                     </div>
                   )}
                 </div>

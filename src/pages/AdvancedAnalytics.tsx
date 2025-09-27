@@ -426,7 +426,6 @@ export default function Analytics() {
             gradeForecasts={effectiveGradeForecasts}
             performanceRisks={effectivePerformanceRisks}
             academicGoals={academicGoals}
-            onNeedAIInsights={handleNeedAIInsights}
           />
         </TabsContent>
 
