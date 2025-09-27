@@ -16,14 +16,26 @@ import { PredictiveTrendChart } from "@/components/analytics/PredictiveTrendChar
 import { StudyPatternHeatmap } from "@/components/analytics/StudyPatternHeatmap";
 import { PerformanceHeroKPIs } from "@/components/analytics/PerformanceHeroKPIs";
 import { InteractiveInsightsSummary } from "@/components/analytics/InteractiveInsightsSummary";
+import { MobileOptimizedCharts } from "@/components/analytics/MobileOptimizedCharts";
+import { AccessibleAnalytics } from "@/components/analytics/AccessibleAnalytics";
 import { RealTimeUpdateIndicator } from "@/components/analytics/RealTimeUpdateIndicator";
-import { BarChart3, Target, Lightbulb, RefreshCw, TrendingUp, AlertCircle, Brain, Zap } from "lucide-react";
+import { BarChart3, Target, Lightbulb, RefreshCw, TrendingUp, AlertCircle, Brain, Zap, Activity } from "lucide-react";
+import { OptimizedLoadingStates } from "@/components/analytics/OptimizedLoadingStates";
+import { PerformanceMonitor } from "@/components/analytics/PerformanceMonitor";
+import { usePerformanceOptimization } from "@/hooks/usePerformanceOptimization";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { supabase } from "@/integrations/supabase/client";
 
 export default function Analytics() {
   const { courses } = useCourses();
+  const {
+    measurePerformance,
+    useIntersectionObserver,
+    getCachedData,
+    setCachedData,
+    settings: perfSettings
+  } = usePerformanceOptimization();
   const {
     performanceMetrics,
     academicGoals,
@@ -119,24 +131,14 @@ export default function Analytics() {
 
   if (loading && isEmptyState) {
     return (
-      <div className="p-6 space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <Skeleton className="h-8 w-64 mb-2" />
-            <Skeleton className="h-4 w-96" />
-          </div>
-          <Skeleton className="h-10 w-32" />
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {[1, 2, 3].map((i) => (
-            <Card key={i} className="bg-gradient-card">
-              <CardContent className="p-6">
-                <Skeleton className="h-16 w-full" />
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-        <Skeleton className="h-96 w-full" />
+      <div className="p-6">
+        <OptimizedLoadingStates
+          isLoading={true}
+          hasError={false}
+          loadingMessage="Analyzing your academic data..."
+          animationType="shimmer"
+          showSkeleton={true}
+        />
       </div>
     );
   }
@@ -306,10 +308,11 @@ export default function Analytics() {
 
       {/* Main Content Tabs */}
       <Tabs defaultValue="forecasting" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="forecasting" className="flex items-center gap-2">
             <TrendingUp className="w-4 h-4" />
-            Forecasting
+            <span className="hidden sm:inline">Forecasting</span>
+            <span className="sm:hidden">Forecast</span>
             {(decliningCourses.length > 0 || criticalRisks.length > 0) && (
               <Badge variant="destructive" className="ml-1">
                 {decliningCourses.length + criticalRisks.length}
@@ -318,11 +321,23 @@ export default function Analytics() {
           </TabsTrigger>
           <TabsTrigger value="patterns" className="flex items-center gap-2">
             <BarChart3 className="w-4 h-4" />
-            Patterns
+            <span className="hidden sm:inline">Patterns</span>
+            <span className="sm:hidden">Pattern</span>
+          </TabsTrigger>
+          <TabsTrigger value="mobile" className="flex items-center gap-2">
+            <Brain className="w-4 h-4" />
+            <span className="hidden sm:inline">Mobile</span>
+            <span className="sm:hidden">Mobile</span>
+          </TabsTrigger>
+          <TabsTrigger value="accessibility" className="flex items-center gap-2">
+            <Target className="w-4 h-4" />
+            <span className="hidden sm:inline">Accessibility</span>
+            <span className="sm:hidden">A11y</span>
           </TabsTrigger>
           <TabsTrigger value="predictive" className="flex items-center gap-2">
             <Zap className="w-4 h-4" />
-            Predictive
+            <span className="hidden sm:inline">Predictive</span>
+            <span className="sm:hidden">Predict</span>
             {criticalAlertsCount > 0 && (
               <Badge variant="destructive" className="ml-1">
                 {criticalAlertsCount}
@@ -331,7 +346,8 @@ export default function Analytics() {
           </TabsTrigger>
           <TabsTrigger value="goals" className="flex items-center gap-2">
             <Target className="w-4 h-4" />
-            Goals
+            <span className="hidden sm:inline">Goals</span>
+            <span className="sm:hidden">Goals</span>
             {goalsProgress.total > 0 && (
               <Badge variant="secondary" className="ml-1">
                 {goalsProgress.total}
@@ -340,12 +356,18 @@ export default function Analytics() {
           </TabsTrigger>
           <TabsTrigger value="insights" className="flex items-center gap-2">
             <Lightbulb className="w-4 h-4" />
-            AI Insights
+            <span className="hidden sm:inline">AI Insights</span>
+            <span className="sm:hidden">AI</span>
             {unreadInsightsCount > 0 && (
               <Badge variant="default" className="bg-primary text-primary-foreground ml-1">
                 {unreadInsightsCount}
               </Badge>
             )}
+          </TabsTrigger>
+          <TabsTrigger value="performance" className="flex items-center gap-2">
+            <Activity className="w-4 h-4" />
+            <span className="hidden sm:inline">Monitor</span>
+            <span className="sm:hidden">Perf</span>
           </TabsTrigger>
         </TabsList>
 
@@ -357,9 +379,22 @@ export default function Analytics() {
           />
         </TabsContent>
 
-        <TabsContent value="patterns" className="space-y-6">
-          <StudyPatternHeatmap
+        <TabsContent value="mobile" className="space-y-6">
+          <MobileOptimizedCharts
+            gradeForecasts={gradeForecasts}
+            performanceMetrics={performanceMetrics}
             studyAnalytics={studyAnalytics}
+            courses={courses}
+            onNeedAIInsights={handleNeedAIInsights}
+          />
+        </TabsContent>
+
+        <TabsContent value="accessibility" className="space-y-6">
+          <AccessibleAnalytics
+            overallGPA={overallGPA}
+            semesterProgress={semesterProgress}
+            studyStreak={studyStreak}
+            criticalAlertsCount={criticalAlertsCount}
             onNeedAIInsights={handleNeedAIInsights}
           />
         </TabsContent>
@@ -390,6 +425,10 @@ export default function Analytics() {
             onDismissInsight={dismissInsight}
             onMarkAsRead={markInsightAsRead}
           />
+        </TabsContent>
+
+        <TabsContent value="performance" className="space-y-6">
+          <PerformanceMonitor />
         </TabsContent>
       </Tabs>
 
