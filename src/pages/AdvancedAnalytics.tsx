@@ -333,6 +333,7 @@ export default function Analytics() {
           <AdvancedPerformanceChart 
             metrics={performanceMetrics} 
             courses={courses}
+            onNeedAIInsights={handleNeedAIInsights}
           />
         </TabsContent>
 
