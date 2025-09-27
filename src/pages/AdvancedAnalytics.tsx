@@ -12,6 +12,11 @@ import { PredictiveInsightsPanel } from "@/components/analytics/PredictiveInsigh
 import { EnhancedHeroKPIs } from "@/components/analytics/EnhancedHeroKPIs";
 import { AIInsightModal } from "@/components/analytics/AIInsightModal";
 import { AnalyticsEmptyState } from "@/components/analytics/AnalyticsEmptyState";
+import { PredictiveTrendChart } from "@/components/analytics/PredictiveTrendChart";
+import { StudyPatternHeatmap } from "@/components/analytics/StudyPatternHeatmap";
+import { PerformanceHeroKPIs } from "@/components/analytics/PerformanceHeroKPIs";
+import { InteractiveInsightsSummary } from "@/components/analytics/InteractiveInsightsSummary";
+import { RealTimeUpdateIndicator } from "@/components/analytics/RealTimeUpdateIndicator";
 import { BarChart3, Target, Lightbulb, RefreshCw, TrendingUp, AlertCircle, Brain, Zap } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -100,6 +105,18 @@ export default function Analytics() {
 
   const criticalAlertsCount = criticalRisks.length + highRiskGoals.length + decliningCourses.length;
 
+  // Calculate additional metrics for hero KPIs
+  const studyHoursThisWeek = studyAnalytics
+    .filter(session => {
+      const sessionDate = new Date(session.session_date);
+      const weekStart = new Date();
+      weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+      return sessionDate >= weekStart;
+    })
+    .reduce((total, session) => total + (session.effective_study_minutes || 0), 0) / 60;
+
+  const goalsAchieved = academicGoals.filter(goal => goal.is_achieved).length;
+
   if (loading && isEmptyState) {
     return (
       <div className="p-6 space-y-6">
@@ -139,48 +156,42 @@ export default function Analytics() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6 animate-fade-in">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-4xl font-bold text-foreground bg-gradient-text bg-clip-text text-transparent">
+        <div className="space-y-2">
+          <h1 className="text-4xl font-bold text-foreground bg-gradient-text bg-clip-text text-transparent animate-fade-in">
             Advanced Analytics
           </h1>
-          <p className="text-muted-foreground mt-2">
+          <p className="text-muted-foreground">
             Real-time insights, predictive analytics, and AI-powered academic recommendations
           </p>
-          {lastUpdated && (
-            <p className="text-xs text-muted-foreground mt-1">
-              Last updated: {lastUpdated.toLocaleTimeString()}
-            </p>
-          )}
+          <RealTimeUpdateIndicator
+            lastUpdated={lastUpdated}
+            isLoading={loading}
+            onRefresh={handleRefreshMetrics}
+          />
         </div>
         <div className="flex items-center gap-3">
           <Button 
             variant="outline"
             onClick={() => handleNeedAIInsights('critical_insights', { alertsCount: criticalAlertsCount })}
-            className="bg-gradient-card hover:bg-gradient-card/80"
+            className="bg-gradient-card hover:bg-gradient-card/80 animate-fade-in"
           >
             <Brain className="w-4 h-4 mr-2" />
             AI Coach
-          </Button>
-          <Button 
-            onClick={handleRefreshMetrics}
-            disabled={loading}
-            className="bg-gradient-primary hover:opacity-90"
-          >
-            <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
           </Button>
         </div>
       </div>
 
       {/* Hero KPIs */}
-      <EnhancedHeroKPIs
+      <PerformanceHeroKPIs
         overallGPA={overallGPA}
         semesterProgress={semesterProgress}
         studyStreak={studyStreak}
         criticalAlertsCount={criticalAlertsCount}
+        studyHoursThisWeek={studyHoursThisWeek}
+        goalsAchieved={goalsAchieved}
         onNeedAIInsights={handleNeedAIInsights}
       />
 
@@ -283,9 +294,32 @@ export default function Analytics() {
         </Card>
       </div>
 
+      {/* Interactive Summary - Always visible */}
+      <InteractiveInsightsSummary
+        overallGPA={overallGPA}
+        goalsProgress={goalsProgress}
+        decliningCourses={decliningCourses}
+        criticalRisks={criticalRisks}
+        studyAnalytics={studyAnalytics}
+        onNeedAIInsights={handleNeedAIInsights}
+      />
+
       {/* Main Content Tabs */}
-      <Tabs defaultValue="predictive" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
+      <Tabs defaultValue="forecasting" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-5">
+          <TabsTrigger value="forecasting" className="flex items-center gap-2">
+            <TrendingUp className="w-4 h-4" />
+            Forecasting
+            {(decliningCourses.length > 0 || criticalRisks.length > 0) && (
+              <Badge variant="destructive" className="ml-1">
+                {decliningCourses.length + criticalRisks.length}
+              </Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="patterns" className="flex items-center gap-2">
+            <BarChart3 className="w-4 h-4" />
+            Patterns
+          </TabsTrigger>
           <TabsTrigger value="predictive" className="flex items-center gap-2">
             <Zap className="w-4 h-4" />
             Predictive
@@ -294,10 +328,6 @@ export default function Analytics() {
                 {criticalAlertsCount}
               </Badge>
             )}
-          </TabsTrigger>
-          <TabsTrigger value="performance" className="flex items-center gap-2">
-            <BarChart3 className="w-4 h-4" />
-            Performance
           </TabsTrigger>
           <TabsTrigger value="goals" className="flex items-center gap-2">
             <Target className="w-4 h-4" />
@@ -319,20 +349,27 @@ export default function Analytics() {
           </TabsTrigger>
         </TabsList>
 
+        <TabsContent value="forecasting" className="space-y-6">
+          <PredictiveTrendChart
+            gradeForecasts={gradeForecasts}
+            courses={courses}
+            onNeedAIInsights={handleNeedAIInsights}
+          />
+        </TabsContent>
+
+        <TabsContent value="patterns" className="space-y-6">
+          <StudyPatternHeatmap
+            studyAnalytics={studyAnalytics}
+            onNeedAIInsights={handleNeedAIInsights}
+          />
+        </TabsContent>
+
         <TabsContent value="predictive" className="space-y-6">
           <PredictiveInsightsPanel
             goalPredictions={goalPredictions}
             gradeForecasts={gradeForecasts}
             performanceRisks={performanceRisks}
             academicGoals={academicGoals}
-            onNeedAIInsights={handleNeedAIInsights}
-          />
-        </TabsContent>
-
-        <TabsContent value="performance" className="space-y-6">
-          <AdvancedPerformanceChart 
-            metrics={performanceMetrics} 
-            courses={courses}
             onNeedAIInsights={handleNeedAIInsights}
           />
         </TabsContent>
