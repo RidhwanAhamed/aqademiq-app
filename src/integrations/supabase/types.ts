@@ -1760,6 +1760,15 @@ export type Database = {
         }
         Returns: undefined
       }
+      calculate_goal_achievement_probability: {
+        Args: { p_goal_id: string }
+        Returns: {
+          goal_id: string
+          probability_percentage: number
+          recommended_actions: Json
+          risk_level: string
+        }[]
+      }
       calculate_performance_metrics: {
         Args: { p_user_id: string }
         Returns: undefined
@@ -1785,6 +1794,16 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: boolean
       }
+      detect_performance_risks: {
+        Args: { p_user_id: string }
+        Returns: {
+          affected_courses: string[]
+          description: string
+          recommended_actions: Json
+          risk_type: string
+          severity: string
+        }[]
+      }
       detect_schedule_conflicts: {
         Args: {
           p_end_time: string
@@ -1807,6 +1826,18 @@ export type Database = {
       encrypt_token: {
         Args: { p_token: string }
         Returns: string
+      }
+      forecast_grade_trend: {
+        Args: { p_course_id?: string; p_user_id: string }
+        Returns: {
+          confidence_level: string
+          course_id: string
+          course_name: string
+          current_average: number
+          projected_30_days: number
+          projected_semester_end: number
+          trend_direction: string
+        }[]
       }
       generate_recurring_assignments: {
         Args: Record<PropertyKey, never>

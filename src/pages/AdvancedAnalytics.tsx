@@ -2,15 +2,20 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { useAdvancedAnalytics } from "@/hooks/useAdvancedAnalytics";
+import { useState } from "react";
+import { useEnhancedAnalytics } from "@/hooks/useEnhancedAnalytics";
 import { useCourses } from "@/hooks/useCourses";
 import { AdvancedPerformanceChart } from "@/components/analytics/AdvancedPerformanceChart";
 import { AcademicGoalsPanel } from "@/components/analytics/AcademicGoalsPanel";
 import { AcademicInsightsPanel } from "@/components/analytics/AcademicInsightsPanel";
+import { PredictiveInsightsPanel } from "@/components/analytics/PredictiveInsightsPanel";
+import { EnhancedHeroKPIs } from "@/components/analytics/EnhancedHeroKPIs";
+import { AIInsightModal } from "@/components/analytics/AIInsightModal";
 import { AnalyticsEmptyState } from "@/components/analytics/AnalyticsEmptyState";
-import { BarChart3, Target, Lightbulb, RefreshCw, TrendingUp, AlertCircle } from "lucide-react";
+import { BarChart3, Target, Lightbulb, RefreshCw, TrendingUp, AlertCircle, Brain, Zap } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function Analytics() {
   const { courses } = useCourses();
@@ -19,26 +24,81 @@ export default function Analytics() {
     academicGoals,
     academicInsights,
     studyAnalytics,
+    goalPredictions,
+    gradeForecasts,
+    performanceRisks,
     loading,
+    lastUpdated,
     createGoal,
     updateGoal,
     dismissInsight,
     markInsightAsRead,
-    refreshMetrics,
+    refreshAllData,
     getUnreadInsightsCount,
     getActiveGoalsProgress,
-    getDataRequirements,
+    getHighRiskGoals,
+    getDecliningCourses,
+    getCriticalRisks,
     isEmpty
   } = useAdvancedAnalytics();
 
+  // AI Insights Modal state
+  const [aiModalOpen, setAiModalOpen] = useState(false);
+  const [aiContext, setAiContext] = useState<string>('');
+  const [aiContextData, setAiContextData] = useState<any>(null);
+
   const unreadInsightsCount = getUnreadInsightsCount();
   const goalsProgress = getActiveGoalsProgress();
-  const dataRequirements = getDataRequirements();
+  const highRiskGoals = getHighRiskGoals();
+  const decliningCourses = getDecliningCourses();
+  const criticalRisks = getCriticalRisks();
   const isEmptyState = isEmpty();
 
   const handleRefreshMetrics = async () => {
-    await refreshMetrics();
+    await refreshAllData();
   };
+
+  const handleNeedAIInsights = (context: string, data: any) => {
+    setAiContext(context);
+    setAiContextData(data);
+    setAiModalOpen(true);
+  };
+
+  const generateAIInsights = async (context: string, data: any, customQuery?: string) => {
+    try {
+      const { data: result, error } = await supabase.functions.invoke('ai-insights', {
+        body: {
+          task_type: context,
+          title: `AI Insights for ${context}`,
+          description: customQuery || `Generate insights for ${context}`,
+          context_data: data,
+          course_info: courses.map(c => ({ id: c.id, name: c.name }))
+        }
+      });
+
+      if (error) throw error;
+      return result;
+    } catch (error) {
+      console.error('Error generating AI insights:', error);
+      throw error;
+    }
+  };
+
+  // Calculate hero KPIs
+  const overallGPA = performanceMetrics
+    .filter(m => m.metric_type === 'overall_grade')
+    .reduce((acc, m) => Math.max(acc, m.metric_value), 0);
+    
+  const semesterProgress = Math.min(
+    (goalsProgress.total > 0 ? (goalsProgress.onTrack / goalsProgress.total) * 100 : 0),
+    100
+  );
+  
+  const studyStreak = performanceMetrics
+    .filter(m => m.metric_type === 'study_consistency')
+    .reduce((acc, m) => Math.max(acc, m.metric_value), 0);
+
+  const criticalAlertsCount = criticalRisks.length + highRiskGoals.length + decliningCourses.length;
 
   if (loading && isEmptyState) {
     return (
@@ -68,7 +128,12 @@ export default function Analytics() {
   if (!loading && isEmptyState) {
     return (
       <div className="p-6">
-        <AnalyticsEmptyState dataRequirements={dataRequirements} />
+        <AnalyticsEmptyState dataRequirements={{
+          courses: courses.length > 0,
+          assignments: false,
+          studySessions: false,
+          grades: false
+        }} />
       </div>
     );
   }
@@ -76,34 +141,74 @@ export default function Analytics() {
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Analytics</h1>
-          <p className="text-muted-foreground">
-            Deep insights into your academic performance and personalized recommendations
+          <h1 className="text-4xl font-bold text-foreground bg-gradient-text bg-clip-text text-transparent">
+            Advanced Analytics
+          </h1>
+          <p className="text-muted-foreground mt-2">
+            Real-time insights, predictive analytics, and AI-powered academic recommendations
           </p>
+          {lastUpdated && (
+            <p className="text-xs text-muted-foreground mt-1">
+              Last updated: {lastUpdated.toLocaleTimeString()}
+            </p>
+          )}
         </div>
-        <Button 
-          onClick={handleRefreshMetrics}
-          disabled={loading}
-          className="bg-gradient-primary hover:opacity-90"
-        >
-          <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-          Refresh Metrics
-        </Button>
+        <div className="flex items-center gap-3">
+          <Button 
+            variant="outline"
+            onClick={() => handleNeedAIInsights('critical_insights', { alertsCount: criticalAlertsCount })}
+            className="bg-gradient-card hover:bg-gradient-card/80"
+          >
+            <Brain className="w-4 h-4 mr-2" />
+            AI Coach
+          </Button>
+          <Button 
+            onClick={handleRefreshMetrics}
+            disabled={loading}
+            className="bg-gradient-primary hover:opacity-90"
+          >
+            <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+        </div>
       </div>
 
-      {/* Data Quality Alert */}
-      {(!dataRequirements.grades || !dataRequirements.studySessions) && (
-        <Alert>
+      {/* Hero KPIs */}
+      <EnhancedHeroKPIs
+        overallGPA={overallGPA}
+        semesterProgress={semesterProgress}
+        studyStreak={studyStreak}
+        criticalAlertsCount={criticalAlertsCount}
+        onNeedAIInsights={handleNeedAIInsights}
+      />
+
+      {/* Critical Alerts */}
+      {criticalAlertsCount > 0 && (
+        <Alert className="border-destructive/50 bg-destructive/5">
           <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            {!dataRequirements.grades && !dataRequirements.studySessions 
-              ? "Add grades to assignments and complete study sessions for richer analytics insights."
-              : !dataRequirements.grades 
-              ? "Add grades to assignments to see performance trends."
-              : "Complete some study sessions to track productivity patterns."
-            }
+          <AlertDescription className="flex items-center justify-between">
+            <div>
+              <span className="font-medium">Critical Attention Required!</span>
+              <p className="text-sm">
+                {criticalRisks.length} high-risk areas, {highRiskGoals.length} goals at risk, {decliningCourses.length} declining courses
+              </p>
+            </div>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => handleNeedAIInsights('critical_insights', { 
+                alertsCount: criticalAlertsCount,
+                risks: criticalRisks,
+                goals: highRiskGoals,
+                courses: decliningCourses
+              })}
+              className="ml-4"
+            >
+              <Brain className="w-4 h-4 mr-2" />
+              Get AI Help
+            </Button>
           </AlertDescription>
         </Alert>
       )}
@@ -179,8 +284,17 @@ export default function Analytics() {
       </div>
 
       {/* Main Content Tabs */}
-      <Tabs defaultValue="performance" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
+      <Tabs defaultValue="predictive" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="predictive" className="flex items-center gap-2">
+            <Zap className="w-4 h-4" />
+            Predictive
+            {criticalAlertsCount > 0 && (
+              <Badge variant="destructive" className="ml-1">
+                {criticalAlertsCount}
+              </Badge>
+            )}
+          </TabsTrigger>
           <TabsTrigger value="performance" className="flex items-center gap-2">
             <BarChart3 className="w-4 h-4" />
             Performance
@@ -196,7 +310,7 @@ export default function Analytics() {
           </TabsTrigger>
           <TabsTrigger value="insights" className="flex items-center gap-2">
             <Lightbulb className="w-4 h-4" />
-            Insights
+            AI Insights
             {unreadInsightsCount > 0 && (
               <Badge variant="default" className="bg-primary text-primary-foreground ml-1">
                 {unreadInsightsCount}
@@ -204,6 +318,16 @@ export default function Analytics() {
             )}
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="predictive" className="space-y-6">
+          <PredictiveInsightsPanel
+            goalPredictions={goalPredictions}
+            gradeForecasts={gradeForecasts}
+            performanceRisks={performanceRisks}
+            academicGoals={academicGoals}
+            onNeedAIInsights={handleNeedAIInsights}
+          />
+        </TabsContent>
 
         <TabsContent value="performance" className="space-y-6">
           <AdvancedPerformanceChart 
@@ -230,6 +354,15 @@ export default function Analytics() {
           />
         </TabsContent>
       </Tabs>
+
+      {/* AI Insight Modal */}
+      <AIInsightModal
+        open={aiModalOpen}
+        onOpenChange={setAiModalOpen}
+        context={aiContext}
+        contextData={aiContextData}
+        onGenerateInsights={generateAIInsights}
+      />
     </div>
   );
 }
