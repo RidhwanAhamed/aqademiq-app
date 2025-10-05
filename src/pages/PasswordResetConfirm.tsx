@@ -36,6 +36,8 @@ export default function PasswordResetConfirm() {
   const [loading, setLoading] = useState(false);
   const [resetStatus, setResetStatus] = useState<'form' | 'success' | 'error'>('form');
   const [errorMessage, setErrorMessage] = useState('');
+  const [sessionCheckedAt, setSessionCheckedAt] = useState<Date | null>(null);
+  const [resendingEmail, setResendingEmail] = useState(false);
 
   const form = useForm<ResetPasswordFormData>({
     resolver: zodResolver(resetPasswordSchema),
@@ -45,18 +47,33 @@ export default function PasswordResetConfirm() {
   useEffect(() => {
     // Check if we have valid reset session
     const checkResetSession = async () => {
+      setSessionCheckedAt(new Date());
       const { data: { session }, error } = await supabase.auth.getSession();
       
       // Check URL params for errors
       const error_param = searchParams.get('error');
       const error_description = searchParams.get('error_description');
       
-      if (error_param || error) {
+      console.log('Reset session check:', {
+        hasSession: !!session,
+        hasError: !!error,
+        urlError: error_param,
+        timestamp: new Date().toISOString()
+      });
+      
+      if (error_param) {
         setResetStatus('error');
-        setErrorMessage(error_description || error?.message || 'Password reset session invalid or expired');
+        if (error_param === 'access_denied') {
+          setErrorMessage('Reset link has expired or already been used. Links are valid for 24 hours and can only be used once.');
+        } else {
+          setErrorMessage(error_description || 'Password reset link is invalid or has expired.');
+        }
+      } else if (error) {
+        setResetStatus('error');
+        setErrorMessage(`Session error: ${error.message}. Please request a new password reset.`);
       } else if (!session?.user) {
         setResetStatus('error');
-        setErrorMessage('Password reset session not found. Please request a new password reset.');
+        setErrorMessage('No active reset session found. The link may have expired. Password reset links are valid for 24 hours.');
       }
     };
 
@@ -107,13 +124,48 @@ export default function PasswordResetConfirm() {
     }
   };
 
-  const handleRequestNewReset = () => {
-    navigate('/auth', { 
-      state: { 
-        message: 'Please enter your email to request a new password reset.',
-        showForgotPassword: true
-      } 
-    });
+  const handleRequestNewReset = async () => {
+    const email = searchParams.get('email');
+    
+    if (email) {
+      // Try to resend directly if we have the email
+      setResendingEmail(true);
+      try {
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${window.location.origin}/auth/reset-password`,
+        });
+        
+        if (!error) {
+          toast({
+            title: "New reset email sent!",
+            description: "Check your inbox for the new password reset link. It will be valid for 24 hours.",
+          });
+          // Don't navigate away, let user know to check email
+          setErrorMessage('New reset email sent! Check your inbox and spam folder. The link is valid for 24 hours.');
+        } else {
+          throw error;
+        }
+      } catch (error) {
+        console.error('Resend error:', error);
+        // Fall back to navigation
+        navigate('/auth', { 
+          state: { 
+            message: 'Please enter your email to request a new password reset.',
+            showForgotPassword: true
+          } 
+        });
+      } finally {
+        setResendingEmail(false);
+      }
+    } else {
+      // No email in URL, navigate to auth page
+      navigate('/auth', { 
+        state: { 
+          message: 'Please enter your email to request a new password reset.',
+          showForgotPassword: true
+        } 
+      });
+    }
   };
 
   const handleBackToLogin = () => {
@@ -315,24 +367,50 @@ export default function PasswordResetConfirm() {
                   </div>
                 </div>
                 
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <h2 className="text-xl font-semibold text-foreground">Password Reset Failed</h2>
                   <p className="text-muted-foreground">
-                    We couldn't reset your password. The reset link may have expired or already been used.
+                    The reset link has expired or already been used. Password reset links are valid for 24 hours and can only be used once.
                   </p>
+                  
                   {errorMessage && (
-                    <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 p-2 rounded">
-                      {errorMessage}
-                    </p>
+                    <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
+                      <p className="text-sm text-red-600 dark:text-red-400">
+                        <strong>Error Details:</strong> {errorMessage}
+                      </p>
+                      {sessionCheckedAt && (
+                        <p className="text-xs text-red-500 dark:text-red-300 mt-2">
+                          Checked at: {sessionCheckedAt.toLocaleString()}
+                        </p>
+                      )}
+                    </div>
                   )}
+                  
+                  <div className="p-3 bg-muted/50 rounded-lg text-left">
+                    <p className="text-sm font-medium mb-2">Why did this happen?</p>
+                    <ul className="text-xs text-muted-foreground space-y-1 list-disc list-inside ml-2">
+                      <li>The link was opened after 24 hours</li>
+                      <li>The link was already used once</li>
+                      <li>Email delivery was delayed</li>
+                      <li>Link was opened multiple times</li>
+                    </ul>
+                  </div>
                 </div>
 
                 <div className="space-y-3">
                   <Button 
                     onClick={handleRequestNewReset} 
                     className="w-full bg-gradient-primary hover:opacity-90 transition-all duration-200"
+                    disabled={resendingEmail}
                   >
-                    Request New Password Reset
+                    {resendingEmail ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Sending New Link...
+                      </>
+                    ) : (
+                      'Request New Password Reset'
+                    )}
                   </Button>
                   
                   <Button 
@@ -342,6 +420,12 @@ export default function PasswordResetConfirm() {
                   >
                     Back to Sign In
                   </Button>
+                  
+                  <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                    <p className="text-xs text-blue-800 dark:text-blue-200">
+                      <strong>💡 Tip:</strong> The new reset link will be valid for 24 hours. Make sure to use it promptly after receiving the email.
+                    </p>
+                  </div>
                 </div>
               </motion.div>
             )}

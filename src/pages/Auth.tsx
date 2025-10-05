@@ -49,6 +49,8 @@ export default function Auth() {
   const [authError, setAuthError] = useState<string | null>(null);
   const [networkError, setNetworkError] = useState<string | null>(null);
   const [isRetrying, setIsRetrying] = useState(false);
+  const [resetEmailSent, setResetEmailSent] = useState(false);
+  const [resetEmailTimestamp, setResetEmailTimestamp] = useState<Date | null>(null);
   
   const { signIn, signUp, user } = useAuth();
   const { toast } = useToast();
@@ -313,11 +315,37 @@ export default function Auth() {
     );
     
     if (!result.error) {
+      setResetEmailSent(true);
+      setResetEmailTimestamp(new Date());
+      setVerificationEmail(email);
       toast({
-        title: "Password reset email sent",
-        description: "Check your email for password reset instructions.",
+        title: "Password reset email sent!",
+        description: "Check your email for password reset instructions. The link is valid for 24 hours.",
       });
-      setActiveTab('signin');
+      setActiveTab('forgot');
+    }
+    
+    setLoading(false);
+  };
+
+  const handleResendPasswordReset = async () => {
+    if (!verificationEmail) return;
+    
+    setLoading(true);
+    
+    const result = await performAuthOperation(
+      () => supabase.auth.resetPasswordForEmail(verificationEmail, {
+        redirectTo: `${window.location.origin}/auth/reset-password`,
+      }),
+      "Resend password reset"
+    );
+    
+    if (!result.error) {
+      setResetEmailTimestamp(new Date());
+      toast({
+        title: "Reset email resent!",
+        description: "Check your inbox for the new password reset link.",
+      });
     }
     
     setLoading(false);
@@ -437,7 +465,90 @@ export default function Auth() {
             )}
             
             <AnimatePresence mode="wait">
-              {activeTab === 'verify' ? (
+              {activeTab === 'forgot' ? (
+                <motion.div
+                  key="forgot"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  className="space-y-6 text-center"
+                >
+                  <div className="space-y-4">
+                    <div className="flex justify-center">
+                      <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
+                        <Mail className="h-8 w-8 text-primary" />
+                      </div>
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold">Password Reset Email Sent!</h3>
+                      <p className="text-sm text-muted-foreground">
+                        We've sent password reset instructions to:
+                      </p>
+                      <p className="font-medium text-primary">{verificationEmail}</p>
+                    </div>
+                    
+                    {/* Email Delivery Instructions */}
+                    <div className="p-4 bg-muted/50 rounded-lg space-y-3 text-left">
+                      <div className="flex items-start gap-2">
+                        <CheckCircle className="h-4 w-4 text-green-500 mt-0.5" />
+                        <div className="text-sm">
+                          <p className="font-medium text-green-700 dark:text-green-300">Email Sent Successfully</p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {resetEmailTimestamp && `Sent at ${resetEmailTimestamp.toLocaleTimeString()}`}
+                          </p>
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-2 text-xs text-muted-foreground">
+                        <p className="font-medium text-foreground">⏱️ Expected delivery: 30 seconds - 5 minutes</p>
+                        <p className="font-medium text-foreground">⏳ Reset link valid for: 24 hours</p>
+                        
+                        <div className="pt-2 border-t border-border">
+                          <p className="font-medium text-foreground mb-1">If you don't see the email:</p>
+                          <ul className="list-disc list-inside space-y-1 ml-2">
+                            <li>Check your spam/junk folder</li>
+                            <li>Wait up to 5 minutes for delivery</li>
+                            <li>Verify you entered the correct email</li>
+                            <li>Check if email filters are blocking it</li>
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex flex-col gap-2">
+                      <Button
+                        onClick={handleResendPasswordReset}
+                        variant="outline"
+                        disabled={loading}
+                        className="w-full"
+                      >
+                        {loading ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Sending...
+                          </>
+                        ) : (
+                          <>
+                            <RefreshCw className="mr-2 h-4 w-4" />
+                            Resend Reset Email
+                          </>
+                        )}
+                      </Button>
+                      
+                      <Button
+                        onClick={() => {
+                          setActiveTab('signin');
+                          setResetEmailSent(false);
+                        }}
+                        variant="ghost"
+                        className="w-full"
+                      >
+                        Back to Sign In
+                      </Button>
+                    </div>
+                  </div>
+                </motion.div>
+              ) : activeTab === 'verify' ? (
                 <motion.div
                   key="verify"
                   initial={{ opacity: 0, x: 20 }}
