@@ -45,21 +45,13 @@ export default function PasswordResetConfirm() {
   });
 
   useEffect(() => {
-    // Check if we have valid reset session
+    // Check if we have valid reset session with retry logic
     const checkResetSession = async () => {
       setSessionCheckedAt(new Date());
-      const { data: { session }, error } = await supabase.auth.getSession();
       
-      // Check URL params for errors
+      // Check URL params for errors first
       const error_param = searchParams.get('error');
       const error_description = searchParams.get('error_description');
-      
-      console.log('Reset session check:', {
-        hasSession: !!session,
-        hasError: !!error,
-        urlError: error_param,
-        timestamp: new Date().toISOString()
-      });
       
       if (error_param) {
         setResetStatus('error');
@@ -68,13 +60,45 @@ export default function PasswordResetConfirm() {
         } else {
           setErrorMessage(error_description || 'Password reset link is invalid or has expired.');
         }
-      } else if (error) {
+        return;
+      }
+      
+      // Retry session check up to 6 times over 2 seconds
+      // This handles cases where email scanners or slow auth processes delay the session
+      let session = null;
+      let lastError = null;
+      
+      for (let attempt = 1; attempt <= 6; attempt++) {
+        const { data, error } = await supabase.auth.getSession();
+        
+        console.log(`Reset session check (attempt ${attempt}/6):`, {
+          hasSession: !!data.session,
+          hasError: !!error,
+          timestamp: new Date().toISOString()
+        });
+        
+        if (data.session?.user) {
+          session = data.session;
+          break;
+        }
+        
+        lastError = error;
+        
+        // Wait before next attempt (exponential backoff: 100ms, 200ms, 300ms, 400ms, 500ms, 600ms)
+        if (attempt < 6) {
+          await new Promise(resolve => setTimeout(resolve, attempt * 100));
+        }
+      }
+      
+      // After all retries, check if we have a valid session
+      if (lastError) {
         setResetStatus('error');
-        setErrorMessage(`Session error: ${error.message}. Please request a new password reset.`);
+        setErrorMessage(`Session error: ${lastError.message}. Please request a new password reset.`);
       } else if (!session?.user) {
         setResetStatus('error');
         setErrorMessage('No active reset session found. The link may have expired. Password reset links are valid for 24 hours.');
       }
+      // If we have a session, form stays in 'form' status (default)
     };
 
     checkResetSession();
