@@ -42,6 +42,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUser(null);
           setError(null);
           setLoading(false);
+        } else if (event === 'PASSWORD_RECOVERY') {
+          // Handle password recovery - navigate to reset page and preserve session
+          if (session) {
+            setSession(session);
+            setUser(session.user);
+            setError(null);
+            
+            const currentPath = window.location.pathname;
+            if (!currentPath.includes('/auth/reset-password')) {
+              window.history.replaceState({}, '', '/auth/reset-password');
+            }
+          }
+          setLoading(false);
         } else if (event === 'SIGNED_IN') {
           if (session) {
             setSession(session);
@@ -49,8 +62,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setError(null);
             
             // Handle successful sign in - redirect to dashboard
+            // BUT don't redirect if we're on the password reset page
             const currentPath = window.location.pathname;
-            if (currentPath.includes('/auth') || currentPath === '/welcome') {
+            if ((currentPath.includes('/auth') || currentPath === '/welcome') && 
+                !currentPath.includes('/auth/reset-password')) {
               setTimeout(() => {
                 window.location.href = '/';
               }, 100);
