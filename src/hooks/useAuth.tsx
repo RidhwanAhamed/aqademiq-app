@@ -61,6 +61,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setUser(session.user);
             setError(null);
             
+            // Check if this is a password recovery flow
+            const urlHash = window.location.hash;
+            const urlSearch = window.location.search;
+            const isRecovery = urlHash.includes('type=recovery') || 
+                              urlHash.includes('recovery_token') || 
+                              urlSearch.includes('type=recovery') || 
+                              urlSearch.includes('recovery_token');
+            
+            if (isRecovery) {
+              // Redirect to reset password page and preserve the session
+              window.history.replaceState({}, '', '/auth/reset-password');
+              setLoading(false);
+              return;
+            }
+            
             // Handle successful sign in - redirect to dashboard
             // BUT don't redirect if we're on the password reset page
             const currentPath = window.location.pathname;
