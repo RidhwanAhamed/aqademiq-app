@@ -29,7 +29,7 @@ const examSchema = z.object({
     .optional()
     .refine(val => !val || /^[a-zA-Z0-9\s\-_&.()#]+$/.test(val), "Location contains invalid characters"),
   exam_type: z.string(),
-  duration_minutes: z.number().min(30).max(480),
+  duration_minutes: z.number().min(5).max(480),
   notes: z.string().max(500, "Notes too long").optional(),
 });
 
@@ -198,7 +198,7 @@ export function AddExamDialog({ open, onOpenChange, preselectedCourse }: AddExam
                 type="number"
                 value={duration}
                 onChange={(e) => setDuration(e.target.value)}
-                min="30"
+                min="5"
                 max="480"
               />
             </div>

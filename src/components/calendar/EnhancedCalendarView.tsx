@@ -601,7 +601,7 @@ export function EnhancedCalendarView({
                   type="number"
                   value={quickAddData.duration}
                   onChange={(e) => setQuickAddData(prev => ({ ...prev, duration: parseInt(e.target.value) }))}
-                  min="15"
+                  min="5"
                   step="15"
                 />
               </div>
