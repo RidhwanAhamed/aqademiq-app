@@ -57,6 +57,23 @@ export default function Auth() {
   const navigate = useNavigate();
   const location = useLocation();
 
+  // Check for password recovery flow on mount
+  useEffect(() => {
+    const urlHash = window.location.hash;
+    const urlSearch = window.location.search;
+    const isRecovery = urlHash.includes('type=recovery') || 
+                      urlHash.includes('recovery_token') || 
+                      urlSearch.includes('type=recovery') || 
+                      urlSearch.includes('recovery_token');
+    
+    if (isRecovery) {
+      // Immediately redirect to reset password page
+      window.history.replaceState({}, '', '/auth/reset-password' + urlHash + urlSearch);
+      window.location.href = '/auth/reset-password' + urlHash + urlSearch;
+      return;
+    }
+  }, []);
+
   // Clear session storage on mount to handle corrupted sessions
   useEffect(() => {
     const clearCorruptedSession = async () => {
@@ -78,10 +95,20 @@ export default function Auth() {
     clearCorruptedSession();
   }, []);
 
-  // If user is already authenticated, redirect them
+  // If user is already authenticated, redirect them (unless in recovery flow)
   useEffect(() => {
     if (user && !loading) {
-      navigate('/');
+      const urlHash = window.location.hash;
+      const urlSearch = window.location.search;
+      const isRecovery = urlHash.includes('type=recovery') || 
+                        urlHash.includes('recovery_token') || 
+                        urlSearch.includes('type=recovery') || 
+                        urlSearch.includes('recovery_token');
+      
+      // Don't redirect if this is a password recovery flow
+      if (!isRecovery) {
+        navigate('/');
+      }
     }
   }, [user, loading, navigate]);
 
