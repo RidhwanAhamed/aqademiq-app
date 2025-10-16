@@ -274,24 +274,9 @@ export function AddStudySessionDialog({ open, onOpenChange }: AddStudySessionDia
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">None</SelectItem>
-                  <SelectItem value="course">
-                    <div className="flex items-center gap-2">
-                      <BookOpen className="w-4 h-4" />
-                      Course
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="assignment">
-                    <div className="flex items-center gap-2">
-                      <Target className="w-4 h-4" />
-                      Assignment
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="exam">
-                    <div className="flex items-center gap-2">
-                      <Calendar className="w-4 h-4" />
-                      Exam
-                    </div>
-                  </SelectItem>
+                  <SelectItem value="course">Course</SelectItem>
+                  <SelectItem value="assignment">Assignment</SelectItem>
+                  <SelectItem value="exam">Exam</SelectItem>
                 </SelectContent>
               </Select>
             </div>
