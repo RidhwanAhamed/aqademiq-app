@@ -261,16 +261,22 @@ export function AddStudySessionDialog({ open, onOpenChange }: AddStudySessionDia
               <Label>Associate with (optional)</Label>
               <Select 
                 value={formData.associationType} 
-                onValueChange={(value: any) => setFormData({ 
-                  ...formData, 
-                  associationType: value,
-                  courseId: "",
-                  assignmentId: "",
-                  examId: ""
-                })}
+                onValueChange={(value: any) => {
+                  console.debug('[AddStudySessionDialog] associationType:', value, { 
+                    assignmentsCount: assignments?.length, 
+                    examsCount: exams?.length 
+                  });
+                  setFormData({ 
+                    ...formData, 
+                    associationType: value,
+                    courseId: "",
+                    assignmentId: "",
+                    examId: ""
+                  });
+                }}
               >
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue placeholder="None" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">None</SelectItem>
@@ -284,7 +290,7 @@ export function AddStudySessionDialog({ open, onOpenChange }: AddStudySessionDia
             {formData.associationType === "course" && (
               <div className="space-y-2">
                 <Label>Course</Label>
-                <Select value={formData.courseId} onValueChange={(value) => setFormData({ ...formData, courseId: value })}>
+                <Select value={formData.courseId || undefined} onValueChange={(value) => setFormData({ ...formData, courseId: value })}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select a course" />
                   </SelectTrigger>
@@ -303,12 +309,12 @@ export function AddStudySessionDialog({ open, onOpenChange }: AddStudySessionDia
               <>
                 <div className="space-y-2">
                   <Label>Course (optional filter)</Label>
-                  <Select value={formData.courseId} onValueChange={(value) => setFormData({ ...formData, courseId: value, assignmentId: "" })}>
+                  <Select value={formData.courseId || undefined} onValueChange={(value) => setFormData({ ...formData, courseId: value === "__all__" ? "" : value, assignmentId: "" })}>
                     <SelectTrigger>
                       <SelectValue placeholder="Filter by course" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">All courses</SelectItem>
+                      <SelectItem value="__all__">All courses</SelectItem>
                        {courses?.map((course) => (
                          <SelectItem key={course.id} value={course.id}>
                            {course.name}
@@ -319,7 +325,7 @@ export function AddStudySessionDialog({ open, onOpenChange }: AddStudySessionDia
                 </div>
                 <div className="space-y-2">
                   <Label>Assignment</Label>
-                  <Select value={formData.assignmentId} onValueChange={(value) => setFormData({ ...formData, assignmentId: value })}>
+                  <Select value={formData.assignmentId || undefined} onValueChange={(value) => setFormData({ ...formData, assignmentId: value })}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select an assignment" />
                     </SelectTrigger>
@@ -331,7 +337,7 @@ export function AddStudySessionDialog({ open, onOpenChange }: AddStudySessionDia
                            </SelectItem>
                          ))
                        ) : (
-                         <SelectItem value="" disabled>No assignments available</SelectItem>
+                         <SelectItem value="__empty__" disabled>No assignments available</SelectItem>
                        )}
                     </SelectContent>
                   </Select>
@@ -343,12 +349,12 @@ export function AddStudySessionDialog({ open, onOpenChange }: AddStudySessionDia
               <>
                 <div className="space-y-2">
                   <Label>Course (optional filter)</Label>
-                  <Select value={formData.courseId} onValueChange={(value) => setFormData({ ...formData, courseId: value, examId: "" })}>
+                  <Select value={formData.courseId || undefined} onValueChange={(value) => setFormData({ ...formData, courseId: value === "__all__" ? "" : value, examId: "" })}>
                     <SelectTrigger>
                       <SelectValue placeholder="Filter by course" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">All courses</SelectItem>
+                      <SelectItem value="__all__">All courses</SelectItem>
                        {courses?.map((course) => (
                          <SelectItem key={course.id} value={course.id}>
                            {course.name}
@@ -359,7 +365,7 @@ export function AddStudySessionDialog({ open, onOpenChange }: AddStudySessionDia
                 </div>
                 <div className="space-y-2">
                   <Label>Exam</Label>
-                  <Select value={formData.examId} onValueChange={(value) => setFormData({ ...formData, examId: value })}>
+                  <Select value={formData.examId || undefined} onValueChange={(value) => setFormData({ ...formData, examId: value })}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select an exam" />
                     </SelectTrigger>
@@ -371,7 +377,7 @@ export function AddStudySessionDialog({ open, onOpenChange }: AddStudySessionDia
                            </SelectItem>
                          ))
                        ) : (
-                         <SelectItem value="" disabled>No exams available</SelectItem>
+                         <SelectItem value="__empty__" disabled>No exams available</SelectItem>
                        )}
                     </SelectContent>
                   </Select>
