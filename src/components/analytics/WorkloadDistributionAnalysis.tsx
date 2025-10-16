@@ -113,9 +113,11 @@ export function WorkloadDistributionAnalysis({ assignments, exams, courses }: Wo
     const avgHoursPerWeek = totalHours / totalWeeks;
     
     // Find peak workload week
-    const peakWeek = workloadAnalysis.reduce((peak, week) => 
-      week.totalItems > peak.totalItems ? week : peak, workloadAnalysis[0] || { totalItems: 0 }
-    );
+    const peakWeek = workloadAnalysis.length > 0 
+      ? workloadAnalysis.reduce((peak, week) => 
+          week.totalItems > peak.totalItems ? week : peak
+        )
+      : null;
     
     return {
       totalWeeks,
@@ -298,7 +300,7 @@ export function WorkloadDistributionAnalysis({ assignments, exams, courses }: Wo
           </div>
 
           {/* Peak Workload Alert */}
-          {overallStats.peakWeek && overallStats.peakWeek.totalItems > 0 && (
+          {overallStats.peakWeek && 'week' in overallStats.peakWeek && overallStats.peakWeek.totalItems > 0 && (
             <div className="p-3 bg-warning/5 border border-warning/20 rounded-lg">
               <div className="flex items-start gap-3">
                 <AlertTriangle className="w-5 h-5 text-warning mt-0.5" />
