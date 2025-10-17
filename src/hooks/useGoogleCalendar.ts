@@ -50,16 +50,65 @@ export function useGoogleCalendar() {
           setSettings(settingsData);
         }
 
-        // Check token status using secure function
-        const { data: hasTokens, error: tokenError } = await supabase
-          .rpc('has_google_tokens');
+        // FIX 2: First, try to refresh tokens if they exist but are expired
+        let connectionStatus = false;
+        try {
+          console.log('🔄 Attempting to refresh Google tokens...');
+          const { data: refreshResult, error: refreshError } = await supabase
+            .functions.invoke('google-oauth', {
+              body: { action: 'refresh', userId: user.id }
+            });
+          
+          if (!refreshError && refreshResult?.access_token) {
+            // Tokens were successfully refreshed
+            connectionStatus = true;
+            console.log('✅ Tokens refreshed successfully on app load');
+          } else if (refreshError) {
+            console.log('⚠️ Token refresh attempt failed:', refreshError.message);
+          }
+        } catch (refreshError) {
+          console.log('ℹ️ Token refresh skipped (user may not have connected yet)');
+        }
+
+        // If refresh failed or wasn't needed, check existing tokens
+        // FIX 1 & 4: Use corrected RPC call with user.id parameter and retry logic
+        if (!connectionStatus) {
+          let retries = 3;
+          let hasTokens = false;
+          
+          while (retries > 0) {
+            try {
+              console.log(`📋 Checking token status (attempt ${4 - retries}/3)...`);
+              const { data, error } = await supabase
+                .rpc('has_google_tokens', { p_user_id: user.id });
+              
+              if (error) {
+                console.error('❌ RPC error on attempt', 4 - retries, ':', error.message);
+              } else if (data !== null && data !== undefined) {
+                hasTokens = !!data;
+                connectionStatus = hasTokens;
+                console.log(`✅ Token status check successful: ${connectionStatus ? 'CONNECTED' : 'NOT CONNECTED'}`);
+                break;
+              }
+            } catch (e) {
+              console.error('❌ Error calling has_google_tokens:', e);
+            }
+            
+            retries--;
+            if (retries > 0) {
+              console.log(`⏳ Retrying token check... (${retries} attempts remaining)`);
+              await new Promise(resolve => setTimeout(resolve, 500)); // Wait 500ms before retry
+            }
+          }
+        }
 
         setTokenStatus({
-          isConnected: !tokenError && !!hasTokens,
+          isConnected: connectionStatus,
           expiresAt: null, // We don't expose expiry details for security
         });
       } catch (error) {
-        console.error('Error loading Google Calendar data:', error);
+        console.error('❌ Error loading Google Calendar data:', error);
+        setTokenStatus({ isConnected: false, expiresAt: null });
       }
     };
 
@@ -257,7 +306,7 @@ export function useGoogleCalendar() {
 
       // Check token status using secure function
       const { data: hasTokens, error: tokenError } = await supabase
-        .rpc('has_google_tokens');
+        .rpc('has_google_tokens', { p_user_id: user.id });
 
       if (!tokenError && hasTokens) {
         setTokenStatus({
@@ -310,7 +359,7 @@ export function useGoogleCalendar() {
     try {
       // Use secure function to revoke tokens
       const { data: revoked, error } = await supabase
-        .rpc('revoke_google_tokens');
+        .rpc('revoke_google_tokens', { p_user_id: user.id });
 
       if (error || !revoked) throw new Error('Failed to revoke Google tokens');
 
