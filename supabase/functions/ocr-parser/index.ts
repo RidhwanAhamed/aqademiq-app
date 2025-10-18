@@ -13,11 +13,56 @@ serve(async (req) => {
   }
 
   try {
-    const { file_data, file_type, file_id } = await req.json();
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = await import('https://esm.sh/@supabase/supabase-js@2').then(m => 
+      m.createClient(supabaseUrl, supabaseServiceKey)
+    );
 
-    if (!file_data) {
+    const payload = await req.json();
+    const { file_id, file_data, file_type: clientFileType } = payload;
+
+    let fileBuffer: Uint8Array | null = null;
+    let fileType = clientFileType || 'application/pdf';
+    let fileName = 'upload.jpg';
+
+    // Prefer storage fetch by file_id
+    if (file_id) {
+      console.log(`Fetching file from storage: ${file_id}`);
+      const { data: fileRow, error: fileRowErr } = await supabase
+        .from('file_uploads')
+        .select('file_url, file_type')
+        .eq('id', file_id)
+        .maybeSingle();
+      
+      if (fileRowErr || !fileRow?.file_url) {
+        throw new Error('File not found or missing storage path');
+      }
+      
+      fileType = fileRow.file_type || fileType;
+      
+      const { data: storageFile, error: dlErr } = await supabase
+        .storage
+        .from('study-files')
+        .download(fileRow.file_url);
+      
+      if (dlErr || !storageFile) {
+        throw new Error('Could not download file from storage');
+      }
+      
+      fileBuffer = new Uint8Array(await storageFile.arrayBuffer());
+    } else if (file_data) {
+      // Legacy: base64 path
+      console.log('Using legacy base64 file data');
+      const binaryString = atob(file_data);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      fileBuffer = bytes;
+    } else {
       return new Response(
-        JSON.stringify({ error: 'No file data provided' }),
+        JSON.stringify({ error: 'No file provided (need file_id or file_data)' }),
         { 
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -25,7 +70,8 @@ serve(async (req) => {
       );
     }
 
-    console.log('Processing file:', { file_type, file_id });
+    fileName = fileType.includes('pdf') ? 'upload.pdf' : 'upload.jpg';
+    console.log('Processing file:', { file_type: fileType, fileName, file_id });
 
     // Use OCR Space API for text extraction
     const ocrApiKey = Deno.env.get('OCR_SPACE_API_KEY');
@@ -33,18 +79,10 @@ serve(async (req) => {
       throw new Error('OCR API key not configured');
     }
 
-    // Convert base64 to blob for OCR Space API
+    // Create blob for OCR Space API
     const formData = new FormData();
-    
-    // Create blob from base64
-    const binaryString = atob(file_data);
-    const bytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
-    }
-    
-    const blob = new Blob([bytes], { type: file_type });
-    formData.append('file', blob, 'upload.jpg');
+    const blob = new Blob([fileBuffer], { type: fileType });
+    formData.append('file', blob, fileName);
     formData.append('apikey', ocrApiKey);
     formData.append('language', 'eng');
     formData.append('isOverlayRequired', 'false');
