@@ -250,20 +250,26 @@ export function AdaAIChat({ isFullScreen = false, onFullScreenToggle }: AdaAICha
 
       if (fileError) throw fileError;
 
-      // Process file with enhanced AI pipeline
-      await processFileWithEnhancedAI(fileRecord.id, file);
+      // Generate signed URL for file access (1 hour expiry)
+      const { data: signed } = await supabase.storage
+        .from('study-files')
+        .createSignedUrl(uploadData.path, 3600);
 
-      // Add user message about file upload
+      // Add user message about file upload with signed URL
       const userMessage = await saveChatMessage(
         `I've uploaded a file: ${file.name}`,
         true,
-        fileRecord.id
+        fileRecord.id,
+        { file_url: signed?.signedUrl, original_name: file.name }
       );
 
       if (userMessage) {
         setMessages(prev => [...prev, userMessage]);
         playNotificationSound();
       }
+
+      // Process file with enhanced AI pipeline
+      await processFileWithEnhancedAI(fileRecord.id, file);
 
     } catch (error) {
       console.error('Error uploading file:', error);
@@ -287,29 +293,36 @@ export function AdaAIChat({ isFullScreen = false, onFullScreenToggle }: AdaAICha
 
   const processFileWithEnhancedAI = async (fileId: string, file: File) => {
     try {
-      // Step 1: Enhanced OCR with fallback system
+      // Show progress: Uploading → OCR → Parsing
+      const progressMessage = await saveChatMessage(
+        '⏳ Processing your file...\n\n📤 **Phase 1:** Uploading ✓\n🔍 **Phase 2:** Extracting text (OCR)...',
+        false,
+        fileId,
+        { processing: true, phase: 'ocr' }
+      );
+      
+      if (progressMessage) {
+        setMessages(prev => [...prev, progressMessage]);
+      }
+
+      // Step 1: Enhanced OCR with fallback system (no base64, use file_id)
       let ocrResult;
       
       if (file.type.startsWith('image/') || file.type === 'application/pdf') {
-        const base64 = await fileToBase64(file);
-        
-        // Try enhanced OCR parser first
+        // Try enhanced OCR parser first (pass file_id, not base64)
         const { data: enhancedOcrResult, error: enhancedOcrError } = await supabase.functions.invoke('enhanced-ocr-parser', {
           body: { 
-            file_data: base64, 
-            file_type: file.type,
             file_id: fileId,
             use_fallback: false 
           }
         });
 
         if (enhancedOcrError || !enhancedOcrResult?.success) {
+          console.log('Enhanced OCR failed, trying basic OCR...');
           // Fallback to basic OCR
           const { data: basicOcrResult, error: basicOcrError } = await supabase.functions.invoke('ocr-parser', {
             body: { 
-              file_data: base64, 
-              file_type: file.type,
-              file_id: fileId 
+              file_id: fileId
             }
           });
           
@@ -319,14 +332,24 @@ export function AdaAIChat({ isFullScreen = false, onFullScreenToggle }: AdaAICha
           ocrResult = enhancedOcrResult;
         }
 
-        // Update file record with OCR results
+        console.log(`OCR completed: ${ocrResult.text?.length || 0} characters extracted`);
+      }
+
+      // Update progress: OCR complete, now parsing
+      if (progressMessage) {
         await supabase
-          .from('file_uploads')
-          .update({ 
-            ocr_text: ocrResult.text,
-            status: 'ocr_completed'
+          .from('chat_messages')
+          .update({
+            message: '⏳ Processing your file...\n\n📤 **Phase 1:** Uploading ✓\n🔍 **Phase 2:** Extracting text (OCR) ✓\n🧠 **Phase 3:** AI parsing...',
+            metadata: { processing: true, phase: 'parsing' }
           })
-          .eq('id', fileId);
+          .eq('id', progressMessage.id);
+        
+        setMessages(prev => prev.map(m => 
+          m.id === progressMessage.id 
+            ? { ...m, message: '⏳ Processing your file...\n\n📤 **Phase 1:** Uploading ✓\n🔍 **Phase 2:** Extracting text (OCR) ✓\n🧠 **Phase 3:** AI parsing...' }
+            : m
+        ));
       }
 
       // Step 2: Advanced schedule parsing with conflict detection
@@ -341,7 +364,18 @@ export function AdaAIChat({ isFullScreen = false, onFullScreenToggle }: AdaAICha
         }
       });
 
-      if (parseError) throw parseError;
+      if (parseError) {
+        console.error('Advanced parsing error:', parseError);
+        throw parseError;
+      }
+
+      console.log('Parsing complete:', {
+        courses: parseResult.schedule_data?.courses?.length || 0,
+        classes: parseResult.schedule_data?.classes?.length || 0,
+        assignments: parseResult.schedule_data?.assignments?.length || 0,
+        exams: parseResult.schedule_data?.exams?.length || 0,
+        conflicts: parseResult.conflicts?.length || 0
+      });
 
       // Step 3: Real-time conflict detection
       if (parseResult.schedule_data) {
@@ -349,7 +383,12 @@ export function AdaAIChat({ isFullScreen = false, onFullScreenToggle }: AdaAICha
         parseResult.conflicts = [...(parseResult.conflicts || []), ...detectedConflicts];
       }
 
-      // Save AI response with enhanced metadata
+      // Remove progress message and save final AI response with enhanced metadata
+      if (progressMessage) {
+        setMessages(prev => prev.filter(m => m.id !== progressMessage.id));
+        await supabase.from('chat_messages').delete().eq('id', progressMessage.id);
+      }
+
       const aiMessage = await saveChatMessage(
         parseResult.response,
         false,
@@ -366,7 +405,8 @@ export function AdaAIChat({ isFullScreen = false, onFullScreenToggle }: AdaAICha
           processing_stats: {
             ocr_confidence: ocrResult?.confidence || 0,
             document_type: parseResult.document_type,
-            processing_time: parseResult.processing_time
+            processing_time: parseResult.processing_time,
+            phases_completed: ['upload', 'ocr', 'parsing']
           }
         }
       );
@@ -381,18 +421,30 @@ export function AdaAIChat({ isFullScreen = false, onFullScreenToggle }: AdaAICha
         }
       }
 
+      console.log('✅ File processing complete');
+
     } catch (error) {
-      console.error('Error processing file with enhanced AI:', error);
+      console.error('❌ Error processing file with enhanced AI:', error);
       const errorMessage = await saveChatMessage(
-        'I encountered an error processing your file with the enhanced AI system. The error has been logged for improvement. Please try uploading it again or contact support if the issue persists.',
+        `I encountered an error processing your file: **${error.message || 'Unknown error'}**\n\nPlease try uploading it again. If the issue persists, the file format may not be supported or the document quality may need improvement.`,
         false,
         fileId,
-        { error: error.message, timestamp: new Date().toISOString() }
+        { 
+          error: error.message, 
+          timestamp: new Date().toISOString(),
+          processing_failed: true 
+        }
       );
       
       if (errorMessage) {
         setMessages(prev => [...prev, errorMessage]);
       }
+      
+      toast({
+        title: 'Processing Error',
+        description: error.message || 'Failed to process file',
+        variant: 'destructive'
+      });
     }
   };
 

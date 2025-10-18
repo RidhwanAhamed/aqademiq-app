@@ -93,11 +93,8 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    // OpenRouter is optional - used as fallback if OpenAI fails
     const openRouterApiKey = Deno.env.get('OPENROUTER_API_KEY');
-    
-    if (!openRouterApiKey) {
-      throw new Error('OpenRouter API key not configured');
-    }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const { 
@@ -135,13 +132,18 @@ serve(async (req) => {
     // Get user's existing courses and schedule for context
     const userContext = await getUserContext(supabase, user_id);
 
-    // Advanced AI parsing with enhanced prompts and context
-    const parsedData = await advancedAIParsing(
-      fileData.ocr_text, 
-      fileData.parsed_data, 
-      userContext,
-      openRouterApiKey
-    );
+    // Advanced AI parsing with chunking for large documents
+    const textToParse = fileData.ocr_text || '';
+    console.log(`Processing OCR text: ${textToParse.length} characters`);
+    
+    const parsedData = textToParse.length > 10000
+      ? await parseInChunks(textToParse, userContext, openRouterApiKey)
+      : await advancedAIParsing(
+          extractRelevantLines(textToParse), 
+          fileData.parsed_data, 
+          userContext,
+          openRouterApiKey
+        );
 
     // Intelligent conflict detection with existing schedule
     const conflicts = await detectAdvancedConflicts(supabase, user_id, parsedData);
@@ -240,11 +242,93 @@ async function getUserContext(supabase: any, userId: string) {
   };
 }
 
+// Helper: Extract only OCR lines containing dates/times/course codes
+function extractRelevantLines(ocr: string): string {
+  const relevantPattern = /(mon|tue|wed|thu|fri|sat|sun|am|pm|\b\d{1,2}:\d{2}\b|\b[A-Z]{2,4}\s?\d{3,4}\b|\b\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4}\b)/i;
+  const lines = ocr.split('\n').filter(line => relevantPattern.test(line));
+  return lines.length > 100 ? lines.join('\n') : ocr; // Fallback to full text if filtered is too small
+}
+
+// Helper: Chunk large text to avoid token overflows
+function chunkText(text: string, chunkSize = 8000): string[] {
+  const chunks: string[] = [];
+  for (let i = 0; i < text.length; i += chunkSize) {
+    chunks.push(text.slice(i, i + chunkSize));
+  }
+  return chunks;
+}
+
+// Helper: Parse text in chunks and merge results
+async function parseInChunks(
+  ocrText: string, 
+  userContext: any, 
+  apiKey?: string
+): Promise<ParsedScheduleData> {
+  console.log('Chunking large document for processing...');
+  const chunks = chunkText(ocrText, 8000);
+  const partials: ParsedScheduleData[] = [];
+  
+  for (let i = 0; i < chunks.length; i++) {
+    console.log(`Processing chunk ${i + 1}/${chunks.length}`);
+    const partial = await advancedAIParsing(
+      extractRelevantLines(chunks[i]), 
+      undefined, 
+      userContext, 
+      apiKey
+    );
+    partials.push(partial);
+  }
+  
+  return mergeParsedPartials(partials);
+}
+
+// Helper: Merge multiple parsed chunks into one result
+function mergeParsedPartials(parts: ParsedScheduleData[]): ParsedScheduleData {
+  const merged: ParsedScheduleData = {
+    courses: [],
+    classes: [],
+    assignments: [],
+    exams: [],
+    important_dates: [],
+    metadata: {
+      ...parts[0]?.metadata,
+      merged: true,
+      chunks_processed: parts.length
+    }
+  };
+  
+  const pushUnique = (arr: any[], item: any, keyFn: (x: any) => string) => {
+    if (!arr.some(a => keyFn(a) === keyFn(item))) {
+      arr.push(item);
+    }
+  };
+  
+  for (const part of parts) {
+    (part.courses || []).forEach(c => 
+      pushUnique(merged.courses, c, x => `${x.code}|${x.name}`)
+    );
+    (part.classes || []).forEach(c => 
+      pushUnique(merged.classes, c, x => `${x.course_code}|${x.day_of_week}|${x.start_time}|${x.end_time}`)
+    );
+    (part.assignments || []).forEach(a => 
+      pushUnique(merged.assignments, a, x => `${x.title}|${x.due_date}`)
+    );
+    (part.exams || []).forEach(e => 
+      pushUnique(merged.exams, e, x => `${x.title}|${x.date}`)
+    );
+    (part.important_dates || []).forEach(d => 
+      pushUnique(merged.important_dates, d, x => `${x.title}|${x.date}`)
+    );
+  }
+  
+  return merged;
+}
+
 async function advancedAIParsing(
   ocrText: string, 
   existingParsedData: any, 
   userContext: any,
-  apiKey: string
+  apiKey?: string
 ): Promise<ParsedScheduleData> {
   
   console.log('Starting advanced AI parsing with enhanced context...');
@@ -391,13 +475,16 @@ Provide comprehensive analysis with high accuracy and detailed metadata.`;
           { role: 'user', content: userPrompt }
         ],
         temperature: 0.1, // Low temperature for consistent parsing
-        max_tokens: 4000
+        max_tokens: 2500 // Reduced to avoid token overflow
       })
     });
 
     if (!response.ok) {
-      // Fallback to OpenRouter if OpenAI fails
-      console.log('OpenAI failed, using OpenRouter fallback...');
+      // Fallback to OpenRouter if configured
+      console.log('OpenAI failed, trying OpenRouter fallback if available...');
+      if (!apiKey) {
+        throw new Error('Parsing failed with OpenAI and no OpenRouter API key is configured for fallback');
+      }
       return await fallbackAIParsing(ocrText, userContext, apiKey);
     }
 

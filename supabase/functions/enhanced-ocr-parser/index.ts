@@ -32,11 +32,50 @@ serve(async (req) => {
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    const { file_data, file_type, file_id, options = {} } = await req.json();
+    const payload = await req.json();
+    const { file_id, file_data, file_type: clientFileType, options = {} } = payload;
 
-    if (!file_data) {
+    let fileBuffer: Uint8Array | null = null;
+    let fileType = clientFileType || 'application/pdf';
+    let fileName = 'upload.jpg'; // default
+
+    // Prefer storage fetch by file_id (avoids large base64 payloads)
+    if (file_id) {
+      console.log(`Fetching file from storage: ${file_id}`);
+      const { data: fileRow, error: fileRowErr } = await supabase
+        .from('file_uploads')
+        .select('file_url, file_type')
+        .eq('id', file_id)
+        .maybeSingle();
+      
+      if (fileRowErr || !fileRow?.file_url) {
+        throw new Error('File not found or missing storage path');
+      }
+      
+      fileType = fileRow.file_type || fileType;
+      
+      const { data: storageFile, error: dlErr } = await supabase
+        .storage
+        .from('study-files')
+        .download(fileRow.file_url);
+      
+      if (dlErr || !storageFile) {
+        throw new Error('Could not download file from storage');
+      }
+      
+      fileBuffer = new Uint8Array(await storageFile.arrayBuffer());
+    } else if (file_data) {
+      // Legacy: base64 path (keep for backwards compatibility)
+      console.log('Using legacy base64 file data');
+      const binaryString = atob(file_data);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      fileBuffer = bytes;
+    } else {
       return new Response(
-        JSON.stringify({ error: 'No file data provided' }),
+        JSON.stringify({ error: 'No file provided (need file_id or file_data)' }),
         { 
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -44,20 +83,22 @@ serve(async (req) => {
       );
     }
 
-    console.log('Enhanced OCR processing:', { file_type, file_id, options });
+    // Build correct filename by MIME type
+    fileName = fileType.includes('pdf') ? 'upload.pdf' : 'upload.jpg';
+    console.log('Enhanced OCR processing:', { file_type: fileType, fileName, file_id, options });
 
     // Multi-layered OCR processing
     let ocrResult: OCRResult;
 
     try {
       // Primary OCR using OCR Space API (high accuracy for printed text)
-      ocrResult = await primaryOCR(file_data, file_type, ocrSpaceApiKey);
+      ocrResult = await primaryOCR(fileBuffer, fileType, fileName, ocrSpaceApiKey);
       console.log('Primary OCR successful:', { confidence: ocrResult.confidence });
       
       // If confidence is low, try fallback methods
       if (ocrResult.confidence < 0.8) {
         console.log('Low confidence, attempting fallback OCR...');
-        const fallbackResult = await fallbackOCR(file_data, file_type);
+        const fallbackResult = await fallbackOCR(fileBuffer, fileType);
         
         // Use hybrid approach - combine results if both have reasonable confidence
         if (fallbackResult.confidence > 0.6) {
@@ -69,7 +110,7 @@ serve(async (req) => {
       console.error('Primary OCR failed, using fallback:', primaryError);
       
       // Fallback OCR processing
-      ocrResult = await fallbackOCR(file_data, file_type);
+      ocrResult = await fallbackOCR(fileBuffer, fileType);
       
       if (!ocrResult.text || ocrResult.text.length < 10) {
         throw new Error('Both primary and fallback OCR methods failed to extract meaningful text');
@@ -137,20 +178,20 @@ serve(async (req) => {
   }
 });
 
-async function primaryOCR(fileData: string, fileType: string, apiKey: string): Promise<OCRResult> {
+async function primaryOCR(
+  fileBuffer: Uint8Array, 
+  fileType: string, 
+  fileName: string, 
+  apiKey: string
+): Promise<OCRResult> {
   const startTime = Date.now();
+  
+  console.log(`Primary OCR with ${fileName}, type: ${fileType}`);
   
   // Enhanced OCR Space API request with optimized settings
   const formData = new FormData();
-  
-  const binaryString = atob(fileData);
-  const bytes = new Uint8Array(binaryString.length);
-  for (let i = 0; i < binaryString.length; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
-  }
-  
-  const blob = new Blob([bytes], { type: fileType });
-  formData.append('file', blob, 'upload.jpg');
+  const blob = new Blob([fileBuffer], { type: fileType });
+  formData.append('file', blob, fileName);
   formData.append('apikey', apiKey);
   formData.append('language', 'eng');
   formData.append('isOverlayRequired', 'true'); // Get coordinate data
@@ -190,7 +231,7 @@ async function primaryOCR(fileData: string, fileType: string, apiKey: string): P
   };
 }
 
-async function fallbackOCR(fileData: string, fileType: string): Promise<OCRResult> {
+async function fallbackOCR(fileBuffer: Uint8Array, fileType: string): Promise<OCRResult> {
   const startTime = Date.now();
   
   // Simulate Tesseract.js or alternative OCR processing
