@@ -31,7 +31,7 @@ export default function Analytics() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="space-y-2">
-          <h1 className="text-4xl font-bold text-foreground">
+          <h1 className="text-3xl font-bold text-foreground">
             Analytics
           </h1>
           <p className="text-muted-foreground">
