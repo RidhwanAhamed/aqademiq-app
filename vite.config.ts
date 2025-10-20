@@ -120,7 +120,7 @@ export default defineConfig(({ mode }) => ({
         navigateFallbackDenylist: [/^\/api/, /^\/auth/]
       },
       devOptions: {
-        enabled: false,
+        enabled: true,
         type: 'module'
       }
     })
