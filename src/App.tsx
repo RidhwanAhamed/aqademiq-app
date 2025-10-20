@@ -30,6 +30,7 @@ import Courses from "./pages/Courses";
 import Assignments from "./pages/Assignments";
 import Timer from "./pages/Timer";
 import Settings from "./pages/Settings";
+import Install from "./pages/Install";
 import NotFound from "./pages/NotFound";
 
 const App = () => (
@@ -50,6 +51,7 @@ const App = () => (
             <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="/auth/verify" element={<EmailVerification />} />
             <Route path="/auth/reset-password" element={<PasswordResetConfirm />} />
+            <Route path="/install" element={<Install />} />
             <Route path="/" element={<AppLayout />}>
               <Route index element={<Index />} />
               <Route path="calendar" element={
