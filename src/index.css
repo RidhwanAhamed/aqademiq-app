@@ -81,6 +81,15 @@ All colors MUST be HSL.
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     --transition-quick: all 0.15s ease-out;
 
+    /* Mobile-First Touch Targets */
+    --touch-target-min: 48px;
+    --touch-target-comfortable: 56px;
+    --touch-spacing: 8px;
+    
+    /* Mobile-First Spacing */
+    --mobile-padding: 1rem;
+    --desktop-padding: 1.5rem;
+
     --radius: 0.5rem;
 
     --sidebar-background: 0 0% 98%;
@@ -166,5 +175,18 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground;
+  }
+  
+  /* Smooth scrolling for mobile */
+  html {
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* Safe area insets for iOS notch */
+  body {
+    padding-top: env(safe-area-inset-top);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
   }
 }
