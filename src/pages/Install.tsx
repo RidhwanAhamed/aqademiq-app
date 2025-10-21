@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Download, Smartphone, Monitor, CheckCircle2 } from "lucide-react";
+import { Download, Smartphone, Monitor, CheckCircle2, HelpCircle, Mail } from "lucide-react";
 import { toast } from "sonner";
 
 const Install = () => {
@@ -53,6 +53,14 @@ const Install = () => {
     }
 
     setDeferredPrompt(null);
+  };
+
+  const handleEmailSupport = () => {
+    const subject = encodeURIComponent('Installation Help Needed - Aqademiq');
+    const body = encodeURIComponent(
+      `Hi Aqademiq Team,\n\nI need help installing the Aqademiq app.\n\nMy device information:\n- Platform: ${platform}\n- Browser: ${navigator.userAgent}\n\nIssue description:\n\n\nThanks!`
+    );
+    window.location.href = `mailto:contact@aqademiq.com?subject=${subject}&body=${body}`;
   };
 
   if (isInstalled) {
@@ -183,6 +191,27 @@ const Install = () => {
         <Button variant="outline" onClick={() => window.location.href = '/'}>
           Skip for now
         </Button>
+      </div>
+
+      <div className="mt-8">
+        <Card className="p-6 bg-gradient-to-r from-muted/50 to-muted/30 border-muted">
+          <div className="flex flex-col items-center gap-4">
+            <div className="flex items-center gap-3 text-muted-foreground">
+              <HelpCircle className="w-5 h-5" />
+              <p className="text-sm">
+                Having trouble installing? We're here to help!
+              </p>
+            </div>
+            <Button 
+              variant="outline" 
+              onClick={handleEmailSupport}
+              className="gap-2"
+            >
+              <Mail className="w-4 h-4" />
+              Having Trouble?
+            </Button>
+          </div>
+        </Card>
       </div>
     </div>
   );
