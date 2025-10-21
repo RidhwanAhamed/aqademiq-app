@@ -9,17 +9,21 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Settings as SettingsIcon, User, Bell, Palette, Shield, Moon, Sun, Monitor } from "lucide-react";
+import { Settings as SettingsIcon, User, Bell, Palette, Shield, Moon, Sun, Monitor, Download, Smartphone, CheckCircle2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useTheme } from "next-themes";
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { usePWAInstall } from "@/hooks/usePWAInstall";
 
 export default function Settings() {
   const { user, signOut } = useAuth();
   const { theme, setTheme } = useTheme();
   const { toast } = useToast();
+  const navigate = useNavigate();
+  const { isInstalled, platform } = usePWAInstall();
   const [profile, setProfile] = useState({
     full_name: "",
     email: "",
@@ -173,6 +177,51 @@ export default function Settings() {
 
         <TabsContent value="general" className="space-y-6">
           <GoogleCalendarSettings />
+
+          {/* Install App Section */}
+          <Card className="bg-gradient-card">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Download className="w-5 h-5" />
+                Install App
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {isInstalled ? (
+                <div className="flex items-center gap-3 p-4 bg-green-500/10 rounded-lg border border-green-500/20">
+                  <CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0" />
+                  <div>
+                    <p className="font-medium text-green-600 dark:text-green-400">App Installed</p>
+                    <p className="text-sm text-muted-foreground">Aqademiq is installed on your device</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex items-start gap-3">
+                    {platform === 'desktop' ? (
+                      <Monitor className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+                    ) : (
+                      <Smartphone className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+                    )}
+                    <div className="flex-1">
+                      <p className="font-medium mb-1">Get the native app experience</p>
+                      <p className="text-sm text-muted-foreground">
+                        Install Aqademiq for faster access, offline support, and a seamless experience.
+                      </p>
+                    </div>
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    className="w-full" 
+                    onClick={() => navigate('/install')}
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    View Install Instructions
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
           
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Profile Settings */}

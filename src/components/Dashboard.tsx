@@ -14,6 +14,7 @@ import { useExams } from "@/hooks/useExams";
 import { useUserStats } from "@/hooks/useUserStats";
 import { RevisionTasksPanel } from "./RevisionTasksPanel";
 import { MarketplaceTeaserCard } from "./MarketplaceTeaserCard";
+import { InstallBanner } from "./InstallBanner";
 import { format, isAfter, isBefore, addDays } from "date-fns";
 import { AIInsightModal } from "./analytics/AIInsightModal";
 import { supabase } from "@/integrations/supabase/client";
@@ -93,6 +94,9 @@ export function Dashboard() {
           Quick Add
         </Button>
       </div>
+
+      {/* Install Banner */}
+      <InstallBanner />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         {/* Main Content */}
