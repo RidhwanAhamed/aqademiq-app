@@ -57,7 +57,7 @@ const bottomItems = [
 ];
 
 export function AppSidebar() {
-  const { state, open, setOpen } = useSidebar();
+  const { state } = useSidebar();
   const { signOut } = useAuth();
   const collapsed = state === "collapsed";
   const location = useLocation();
@@ -75,19 +75,10 @@ export function AppSidebar() {
       : "hover:bg-muted/50 text-muted-foreground hover:text-foreground";
 
   return (
-    <>
-      {/* Mobile Overlay Backdrop */}
-      {open && (
-        <div 
-          className="fixed inset-0 bg-background/80 backdrop-blur-sm z-40 md:hidden"
-          onClick={() => setOpen(false)}
-        />
-      )}
-      
-      <Sidebar
-        className={`transition-all duration-300 ${collapsed ? "w-16" : "w-64"} border-r bg-card md:relative fixed z-50 h-full`}
-        collapsible="icon"
-      >
+    <Sidebar
+      className={`transition-all duration-300 ${collapsed ? "w-16" : "w-64"} border-r bg-card`}
+      collapsible="icon"
+    >
       {/* Header */}
       <div className="p-4 border-b">
         <div className="flex items-center justify-between">
@@ -101,7 +92,7 @@ export function AppSidebar() {
               </span>
             </div>
           )}
-          <SidebarTrigger className="min-h-[44px] min-w-[44px]" />
+          <SidebarTrigger className="h-8 w-8" />
         </div>
       </div>
 
@@ -132,7 +123,6 @@ export function AppSidebar() {
                        to={item.url} 
                        end={item.url === "/"}
                        className={getNavClass(isActive(item.url))}
-                       onClick={() => setOpen(false)}
                      >
                        <item.icon className="w-5 h-5" />
                        {!collapsed && (
@@ -159,11 +149,10 @@ export function AppSidebar() {
             <SidebarMenu>
               {bottomItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                   <SidebarMenuButton asChild>
+                  <SidebarMenuButton asChild>
                     <NavLink 
                       to={item.url}
                       className={getNavClass(isActive(item.url))}
-                      onClick={() => setOpen(false)}
                     >
                       <item.icon className="w-5 h-5" />
                       {!collapsed && <span className="ml-3">{item.title}</span>}
@@ -194,6 +183,5 @@ export function AppSidebar() {
         onOpenChange={setShowAddCourse} 
       />
     </Sidebar>
-    </>
   );
 }
