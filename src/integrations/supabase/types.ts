@@ -1201,7 +1201,7 @@ export type Database = {
           created_at: string | null
           details: Json | null
           id: string
-          ip_address: unknown | null
+          ip_address: unknown
           resource_id: string | null
           resource_type: string
           user_agent: string | null
@@ -1212,7 +1212,7 @@ export type Database = {
           created_at?: string | null
           details?: Json | null
           id?: string
-          ip_address?: unknown | null
+          ip_address?: unknown
           resource_id?: string | null
           resource_type: string
           user_agent?: string | null
@@ -1223,7 +1223,7 @@ export type Database = {
           created_at?: string | null
           details?: Json | null
           id?: string
-          ip_address?: unknown | null
+          ip_address?: unknown
           resource_id?: string | null
           resource_type?: string
           user_agent?: string | null
@@ -1773,10 +1773,7 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: undefined
       }
-      calculate_user_gpa: {
-        Args: { p_user_id: string }
-        Returns: number
-      }
+      calculate_user_gpa: { Args: { p_user_id: string }; Returns: number }
       check_operation_rate_limit: {
         Args: {
           p_max_operations?: number
@@ -1786,10 +1783,7 @@ export type Database = {
         }
         Returns: boolean
       }
-      decrypt_token: {
-        Args: { p_encrypted_token: string }
-        Returns: string
-      }
+      decrypt_token: { Args: { p_encrypted_token: string }; Returns: string }
       delete_user_google_tokens: {
         Args: { p_user_id: string }
         Returns: boolean
@@ -1819,14 +1813,8 @@ export type Database = {
           conflict_type: string
         }[]
       }
-      email_exists: {
-        Args: { p_email: string }
-        Returns: boolean
-      }
-      encrypt_token: {
-        Args: { p_token: string }
-        Returns: string
-      }
+      email_exists: { Args: { p_email: string }; Returns: boolean }
+      encrypt_token: { Args: { p_token: string }; Returns: string }
       forecast_grade_trend: {
         Args: { p_course_id?: string; p_user_id: string }
         Returns: {
@@ -1839,10 +1827,7 @@ export type Database = {
           trend_direction: string
         }[]
       }
-      generate_recurring_assignments: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
+      generate_recurring_assignments: { Args: never; Returns: undefined }
       generate_revision_tasks_for_exam: {
         Args: { p_exam_id: string; p_user_id: string }
         Returns: undefined
@@ -1851,10 +1836,7 @@ export type Database = {
         Args: { entity_data: Json; entity_type: string }
         Returns: string
       }
-      get_marketplace_early_access_count: {
-        Args: Record<PropertyKey, never>
-        Returns: number
-      }
+      get_marketplace_early_access_count: { Args: never; Returns: number }
       get_public_profile: {
         Args: { p_user_id: string }
         Returns: {
@@ -1889,10 +1871,7 @@ export type Database = {
           scope: string
         }[]
       }
-      has_google_tokens: {
-        Args: { p_user_id?: string }
-        Returns: boolean
-      }
+      has_google_tokens: { Args: { p_user_id?: string }; Returns: boolean }
       insert_user_google_tokens: {
         Args: {
           p_access_token: string
@@ -1918,10 +1897,7 @@ export type Database = {
         }
         Returns: undefined
       }
-      mask_sensitive_data: {
-        Args: { input_text: string }
-        Returns: string
-      }
+      mask_sensitive_data: { Args: { input_text: string }; Returns: string }
       monitor_suspicious_activity: {
         Args: { p_user_id?: string }
         Returns: {
@@ -1932,10 +1908,7 @@ export type Database = {
           risk_score: number
         }[]
       }
-      revoke_google_tokens: {
-        Args: { p_user_id?: string }
-        Returns: boolean
-      }
+      revoke_google_tokens: { Args: { p_user_id?: string }; Returns: boolean }
       should_class_occur_on_date: {
         Args: { p_schedule_id: string; p_target_date: string }
         Returns: boolean
