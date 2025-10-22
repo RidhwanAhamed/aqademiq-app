@@ -1139,7 +1139,14 @@ function getGoogleColorId(courseColor?: string): string {
 
 async function generateSyncHash(entityType: string, data: any): Promise<string> {
   const hashData = `${entityType}-${JSON.stringify(data)}-${Date.now()}`;
-  return btoa(hashData).slice(0, 32); // Simple hash for demo
+  const encoder = new TextEncoder();
+  const dataBytes = encoder.encode(hashData);
+  
+  // Use crypto.subtle for proper hashing that supports Unicode
+  const hashBuffer = await crypto.subtle.digest('SHA-256', dataBytes);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  return hashHex.slice(0, 32);
 }
 
 // Additional helper functions for conflict resolution
