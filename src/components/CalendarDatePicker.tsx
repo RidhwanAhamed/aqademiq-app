@@ -39,10 +39,15 @@ export function CalendarDatePicker({
         }}
         open={isOpen}
         onClickOutside={() => setIsOpen(false)}
+        withPortal
+        portalId="calendar-datepicker-portal"
         customInput={
           <button
             type="button"
-            onClick={() => setIsOpen(!isOpen)}
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsOpen(!isOpen);
+            }}
             className={cn(
               "w-full flex items-center justify-between gap-2 px-4 py-2.5 rounded-lg",
               "bg-background border border-input",
@@ -233,7 +238,11 @@ export function CalendarDatePicker({
         }
 
         .react-datepicker-popper {
-          z-index: 50;
+          z-index: 9999 !important;
+        }
+
+        .react-datepicker__portal {
+          z-index: 9999 !important;
         }
       `}</style>
     </div>
