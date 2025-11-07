@@ -2,19 +2,45 @@ import { useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, CheckCircle, XCircle } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 export default function AuthCallback() {
   const location = useLocation();
   const navigate = useNavigate();
 
   useEffect(() => {
-    const handleCallback = () => {
+    const handleCallback = async () => {
       const params = new URLSearchParams(location.search);
+      const hash = location.hash;
       const code = params.get('code');
       const error = params.get('error');
       const state = params.get('state');
 
-      // Check if this is a Google OAuth callback
+      // Check if this is a Supabase auth callback (Google Sign-In)
+      if (hash.includes('access_token') || hash.includes('type=')) {
+        // This is a Supabase OAuth callback - let Supabase handle it
+        try {
+          const { data, error: authError } = await supabase.auth.getSession();
+          
+          if (authError) {
+            console.error('Supabase auth error:', authError);
+            navigate('/auth?error=' + encodeURIComponent(authError.message));
+            return;
+          }
+          
+          if (data.session) {
+            // Successfully authenticated with Google, redirect to dashboard
+            navigate('/');
+            return;
+          }
+        } catch (err) {
+          console.error('Auth callback error:', err);
+          navigate('/auth?error=authentication_failed');
+          return;
+        }
+      }
+
+      // Check if this is a Google Calendar OAuth callback (Settings)
       if (code || error) {
         // If opened in popup, send message to parent
         if (window.opener) {
@@ -44,8 +70,8 @@ export default function AuthCallback() {
           navigate('/settings?auth_success=true');
         }
       } else {
-        // No OAuth params, redirect to settings
-        navigate('/settings');
+        // No OAuth params, redirect to auth page
+        navigate('/auth');
       }
     };
 
