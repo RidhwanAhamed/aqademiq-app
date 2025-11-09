@@ -88,6 +88,12 @@ serve(async (req) => {
 
         console.log('Sign-in OAuth authorization requested for:', redirectUri);
         
+        // Generate cryptographically secure state parameter with signin prefix
+        const state = 'signin_' + Array.from(
+          crypto.getRandomValues(new Uint8Array(32)), 
+          b => b.toString(16).padStart(2, '0')
+        ).join('');
+        
         const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
         authUrl.searchParams.set('client_id', googleClientId);
         authUrl.searchParams.set('redirect_uri', redirectUri);
@@ -95,9 +101,11 @@ serve(async (req) => {
         authUrl.searchParams.set('scope', 'openid email profile');
         authUrl.searchParams.set('access_type', 'offline');
         authUrl.searchParams.set('prompt', 'consent');
+        authUrl.searchParams.set('state', state);
 
         return new Response(JSON.stringify({ 
-          url: authUrl.toString()
+          url: authUrl.toString(),
+          state
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });

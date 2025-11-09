@@ -16,7 +16,7 @@ export const useGoogleSignIn = () => {
         {
           body: { 
             action: 'signin-authorize',
-            redirectUri: `${window.location.origin}/auth-callback?auth_type=signin`
+            redirectUri: `${window.location.origin}/auth-callback`
           },
         }
       );

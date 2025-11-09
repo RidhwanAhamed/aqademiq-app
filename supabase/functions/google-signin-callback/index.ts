@@ -24,6 +24,9 @@ serve(async (req) => {
       );
     }
 
+    // Use provided redirect_uri or construct default
+    const finalRedirectUri = redirect_uri || `${Deno.env.get('APP_URL') || 'http://localhost:5173'}/auth-callback`;
+
     const clientId = Deno.env.get("GOOGLE_CLIENT_ID");
     const clientSecret = Deno.env.get("GOOGLE_CLIENT_SECRET");
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
@@ -47,7 +50,7 @@ serve(async (req) => {
         code,
         client_id: clientId,
         client_secret: clientSecret,
-        redirect_uri: redirect_uri,
+        redirect_uri: finalRedirectUri,
         grant_type: "authorization_code",
       }),
     });
