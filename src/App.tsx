@@ -48,7 +48,7 @@ const App = () => (
             <Route path="/welcome" element={<Welcome />} />
             <Route path="/onboarding" element={<Onboarding />} />
             <Route path="/auth" element={<Auth />} />
-            <Route path="/auth/callback" element={<AuthCallback />} />
+            <Route path="/auth-callback" element={<AuthCallback />} />
             <Route path="/auth/verify" element={<EmailVerification />} />
             <Route path="/auth/reset-password" element={<PasswordResetConfirm />} />
             <Route path="/install" element={<Install />} />
