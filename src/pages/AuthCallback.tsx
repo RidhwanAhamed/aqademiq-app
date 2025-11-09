@@ -15,7 +15,6 @@ export default function AuthCallback() {
       const code = params.get('code');
       const error = params.get('error');
       const state = params.get('state');
-      const authType = params.get('auth_type'); // To differentiate between sign-in and calendar
 
       // Check if this is a Supabase auth callback (Google Sign-In)
       if (hash.includes('access_token') || hash.includes('type=')) {
@@ -41,8 +40,8 @@ export default function AuthCallback() {
         }
       }
 
-      // Check if this is a custom Google Sign-In callback
-      if (code && authType === 'signin') {
+      // Check if this is a custom Google Sign-In callback (state starts with 'signin_')
+      if (code && state?.startsWith('signin_')) {
         try {
           console.log('Processing custom Google Sign-In callback...');
           
@@ -52,7 +51,7 @@ export default function AuthCallback() {
             {
               body: { 
                 code,
-                redirect_uri: `${window.location.origin}/auth-callback?auth_type=signin`
+                redirect_uri: `${window.location.origin}/auth-callback`
               },
             }
           );
