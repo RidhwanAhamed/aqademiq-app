@@ -78,6 +78,31 @@ serve(async (req) => {
     }
 
     switch (action || 'authorize') {
+      case 'signin-authorize': {
+        // OAuth Authorization for Sign-In (openid, email, profile only)
+        const redirectUri = requestBody?.redirectUri;
+        
+        if (!redirectUri) {
+          throw new Error('Missing redirectUri');
+        }
+
+        console.log('Sign-in OAuth authorization requested for:', redirectUri);
+        
+        const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+        authUrl.searchParams.set('client_id', googleClientId);
+        authUrl.searchParams.set('redirect_uri', redirectUri);
+        authUrl.searchParams.set('response_type', 'code');
+        authUrl.searchParams.set('scope', 'openid email profile');
+        authUrl.searchParams.set('access_type', 'offline');
+        authUrl.searchParams.set('prompt', 'consent');
+
+        return new Response(JSON.stringify({ 
+          url: authUrl.toString()
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
       case 'authorize': {
         // Enhanced OAuth Authorization with Security Validations
         const redirectUri = requestBody?.redirectUri;

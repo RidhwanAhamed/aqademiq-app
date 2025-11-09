@@ -15,6 +15,7 @@ export default function AuthCallback() {
       const code = params.get('code');
       const error = params.get('error');
       const state = params.get('state');
+      const authType = params.get('auth_type'); // To differentiate between sign-in and calendar
 
       // Check if this is a Supabase auth callback (Google Sign-In)
       if (hash.includes('access_token') || hash.includes('type=')) {
@@ -35,6 +36,44 @@ export default function AuthCallback() {
           }
         } catch (err) {
           console.error('Auth callback error:', err);
+          navigate('/auth?error=authentication_failed');
+          return;
+        }
+      }
+
+      // Check if this is a custom Google Sign-In callback
+      if (code && authType === 'signin') {
+        try {
+          console.log('Processing custom Google Sign-In callback...');
+          
+          // Call edge function to exchange code for session
+          const { data, error: callbackError } = await supabase.functions.invoke(
+            'google-signin-callback',
+            {
+              body: { 
+                code,
+                redirect_uri: `${window.location.origin}/auth-callback?auth_type=signin`
+              },
+            }
+          );
+
+          if (callbackError || !data?.session) {
+            console.error('Sign-in callback error:', callbackError);
+            navigate('/auth?error=' + encodeURIComponent(callbackError?.message || 'authentication_failed'));
+            return;
+          }
+
+          // Set the session in Supabase client
+          await supabase.auth.setSession({
+            access_token: data.session.access_token,
+            refresh_token: data.session.refresh_token
+          });
+
+          console.log('Successfully authenticated with custom Google Sign-In');
+          navigate('/');
+          return;
+        } catch (err) {
+          console.error('Custom sign-in error:', err);
           navigate('/auth?error=authentication_failed');
           return;
         }
