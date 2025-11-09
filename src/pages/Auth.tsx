@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { useGoogleSignIn } from '@/hooks/useGoogleSignIn';
 import { Eye, EyeOff, Mail, Lock, Loader2, CheckCircle, RefreshCw, AlertTriangle } from 'lucide-react';
 import { supabase } from "@/integrations/supabase/client";
 import { NetworkStatusIndicator } from '@/components/NetworkStatusIndicator';
@@ -52,9 +53,9 @@ export default function Auth() {
   const [isRetrying, setIsRetrying] = useState(false);
   const [resetEmailSent, setResetEmailSent] = useState(false);
   const [resetEmailTimestamp, setResetEmailTimestamp] = useState<Date | null>(null);
-  const [googleLoading, setGoogleLoading] = useState(false);
   
-  const { signIn, signUp, signInWithGoogle, user } = useAuth();
+  const { signIn, signUp, user } = useAuth();
+  const { handleGoogleSignIn: initiateGoogleSignIn, isLoading: googleLoading, error: googleError } = useGoogleSignIn();
   const { toast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
@@ -381,22 +382,21 @@ export default function Auth() {
   };
 
   const handleGoogleSignIn = async () => {
-    setGoogleLoading(true);
     setAuthError(null);
     setNetworkError(null);
     
-    const { error } = await signInWithGoogle();
-    
-    if (error) {
-      handleError(error);
+    try {
+      await initiateGoogleSignIn();
+      // The hook will redirect to Google OAuth, so no need for further handling here
+    } catch (error) {
+      const err = error as Error;
+      handleError(err);
       toast({
         title: "Google sign in failed",
-        description: error.message || "Failed to sign in with Google. Please try again.",
+        description: err.message || "Failed to sign in with Google. Please try again.",
         variant: "destructive",
       });
     }
-    
-    setGoogleLoading(false);
   };
 
   const handleRetry = () => {
