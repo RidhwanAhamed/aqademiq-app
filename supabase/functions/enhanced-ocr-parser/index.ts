@@ -118,13 +118,13 @@ serve(async (req) => {
     }
 
     // Post-process extracted text
-    const processedText = await postProcessText(ocrResult.text, file_type);
+    const processedText = await postProcessText(ocrResult.text, fileType);
     
     // Document type classification
     const documentType = await classifyDocument(processedText);
     
     // Extract metadata based on document type
-    const metadata = await extractMetadata(processedText, documentType, file_type);
+    const metadata = await extractMetadata(processedText, documentType, fileType);
 
     // Update file record with enhanced results
     if (file_id) {
