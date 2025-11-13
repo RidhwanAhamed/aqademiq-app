@@ -15,6 +15,7 @@ import { queryClient } from "@/config/queryClient";
 // Lazy load heavy components for better performance
 const Calendar = lazy(() => import("./pages/Calendar"));
 const Ada = lazy(() => import("./pages/Ada"));
+const AboutAdaAI = lazy(() => import("./pages/AboutAdaAI"));
 const Analytics = lazy(() => import("./pages/AdvancedAnalytics"));
 const Marketplace = lazy(() => import("./pages/Marketplace"));
 
@@ -62,6 +63,11 @@ const App = () => (
               <Route path="ada" element={
                 <Suspense fallback={<div>Loading Ada...</div>}>
                   <Ada />
+                </Suspense>
+              } />
+              <Route path="about-ada-ai" element={
+                <Suspense fallback={<div>Loading About Ada AI...</div>}>
+                  <AboutAdaAI />
                 </Suspense>
               } />
               <Route path="marketplace" element={
