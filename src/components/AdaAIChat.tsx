@@ -92,9 +92,16 @@ interface AccessibilitySettings {
 interface AdaAIChatProps {
   isFullScreen?: boolean;
   onFullScreenToggle?: () => void;
+  selectedConversationId?: string | null;
+  onConversationChange?: (id: string) => void;
 }
 
-export function AdaAIChat({ isFullScreen = false, onFullScreenToggle }: AdaAIChatProps = {}) {
+export function AdaAIChat({ 
+  isFullScreen = false, 
+  onFullScreenToggle,
+  selectedConversationId,
+  onConversationChange 
+}: AdaAIChatProps = {}) {
   const { user } = useAuth();
   const { toast } = useToast();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -107,6 +114,7 @@ export function AdaAIChat({ isFullScreen = false, onFullScreenToggle }: AdaAICha
   const [showAccessibility, setShowAccessibility] = useState(false);
   const [welcomeMessageShown, setWelcomeMessageShown] = useState(false);
   const [showEnhancedUpload, setShowEnhancedUpload] = useState(false);
+  const [conversationId, setConversationId] = useState<string | null>(null);
   
   // Enhanced conflict detection
   const { 
@@ -130,25 +138,81 @@ export function AdaAIChat({ isFullScreen = false, onFullScreenToggle }: AdaAICha
   const MESSAGE_LIMIT = 10;
 
   useEffect(() => {
-    // Clear everything when component is refreshed/reset and show welcome message
-    setMessages([]);
-    setConflicts([]);
-    setMessageCount(0);
-    setInputMessage('');
-    
-    // Show Ada's welcome message
-    if (!welcomeMessageShown && user) {
-      const welcomeMessage: ChatMessage = {
-        id: `welcome-${Date.now()}`,
-        message: `👋 Hi there! I'm Ada AI, your personal study strategist and productivity engine.\n\nI'm here to help you:\n• **Plan & organize** your academic schedule\n• **Break down** large assignments into manageable tasks\n• **Detect conflicts** and suggest solutions\n• **Parse syllabi & timetables** from files you upload\n• **Optimize** your study sessions for maximum effectiveness\n\nJust ask me things like:\n- "Help me plan for my exam next Friday"\n- "Optimize my schedule this week"\n- "I missed yesterday's study session, what now?"\n\nOr simply **upload your syllabus** and I'll structure it into your calendar automatically! 📚✨`,
-        is_user: false,
-        created_at: new Date().toISOString(),
-        metadata: { welcome: true }
-      };
-      setMessages([welcomeMessage]);
-      setWelcomeMessageShown(true);
-    }
-  }, [user, welcomeMessageShown]);
+    const loadConversationHistory = async () => {
+      if (!user) return;
+      
+      try {
+        // If a specific conversation is selected, load it
+        if (selectedConversationId) {
+          const { data: historyMessages, error } = await supabase
+            .from('chat_messages')
+            .select('*')
+            .eq('user_id', user.id)
+            .eq('conversation_id', selectedConversationId)
+            .order('created_at', { ascending: true })
+            .limit(50);
+
+          if (error) {
+            console.error('Error loading selected conversation:', error);
+            return;
+          }
+
+          setConversationId(selectedConversationId);
+          setMessages(historyMessages || []);
+          setMessageCount(historyMessages?.filter(m => m.is_user).length || 0);
+          return;
+        }
+
+        // Otherwise fetch last 50 messages for this user
+        const { data: historyMessages, error } = await supabase
+          .from('chat_messages')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: true })
+          .limit(50);
+
+        if (error) {
+          console.error('Error loading conversation history:', error);
+          return;
+        }
+
+        if (historyMessages && historyMessages.length > 0) {
+          // Use existing conversation_id or create new one
+          const existingConvId = historyMessages[0].conversation_id;
+          const convId = existingConvId || crypto.randomUUID();
+          setConversationId(convId);
+          setMessages(historyMessages);
+          setMessageCount(historyMessages.filter(m => m.is_user).length);
+          
+          // Notify parent of current conversation
+          if (onConversationChange && convId) {
+            onConversationChange(convId);
+          }
+        } else {
+          // New user - create new conversation and show welcome
+          const newConvId = crypto.randomUUID();
+          setConversationId(newConvId);
+          
+          const welcomeMessage: ChatMessage = {
+            id: `welcome-${Date.now()}`,
+            message: `👋 Hi there! I'm Ada AI, your personal study strategist and productivity engine.\n\nI'm here to help you:\n• **Plan & organize** your academic schedule\n• **Break down** large assignments into manageable tasks\n• **Detect conflicts** and suggest solutions\n• **Parse syllabi & timetables** from files you upload\n• **Optimize** your study sessions for maximum effectiveness\n\nJust ask me things like:\n- "Help me plan for my exam next Friday"\n- "Optimize my schedule this week"\n- "I missed yesterday's study session, what now?"\n\nOr simply **upload your syllabus** and I'll structure it into your calendar automatically! 📚✨`,
+            is_user: false,
+            created_at: new Date().toISOString(),
+            metadata: { welcome: true }
+          };
+          setMessages([welcomeMessage]);
+          
+          if (onConversationChange) {
+            onConversationChange(newConvId);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load conversation:', error);
+      }
+    };
+
+    loadConversationHistory();
+  }, [user, selectedConversationId]);
 
   useEffect(() => {
     scrollToBottom();
@@ -466,10 +530,17 @@ export function AdaAIChat({ isFullScreen = false, onFullScreenToggle }: AdaAICha
   const saveChatMessage = async (message: string, isUser: boolean, fileUploadId?: string, metadata?: any) => {
     if (!user) return null;
 
+    // Ensure we have a conversation_id
+    const convId = conversationId || crypto.randomUUID();
+    if (!conversationId) {
+      setConversationId(convId);
+    }
+
     const { data, error } = await supabase
       .from('chat_messages')
       .insert([{
         user_id: user.id,
+        conversation_id: convId,
         message,
         is_user: isUser,
         file_upload_id: fileUploadId,
@@ -507,9 +578,12 @@ export function AdaAIChat({ isFullScreen = false, onFullScreenToggle }: AdaAICha
         setMessageCount(prev => prev + 1);
       }
 
-      // Get AI response
+      // Get AI response with conversation context
       const { data: aiResponse, error } = await supabase.functions.invoke('ai-chat', {
-        body: { message: userMessage }
+        body: { 
+          message: userMessage,
+          conversation_id: conversationId
+        }
       });
 
       if (error) throw error;

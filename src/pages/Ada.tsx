@@ -1,4 +1,6 @@
 import { AdaAIChat } from "@/components/AdaAIChat";
+import { ConversationSidebar } from "@/components/ConversationSidebar";
+import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -7,15 +9,28 @@ import { Bot, Upload, MessageSquare, Calendar, Zap, Sparkles, FileText, Users, L
 import { useState } from "react";
 
 const Ada = () => {
+  const { user } = useAuth();
   const [capabilitiesOpen, setCapabilitiesOpen] = useState(true);
   const [tipsOpen, setTipsOpen] = useState(false);
   const [formatsOpen, setFormatsOpen] = useState(false);
   const [accessibilityOpen, setAccessibilityOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [isFullScreen, setIsFullScreen] = useState(false);
+  const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
 
   const handleRefreshChat = () => {
-    // Clear all chat messages and reset
+    // Start new conversation
+    setCurrentConversationId(null);
+    setRefreshKey(prev => prev + 1);
+  };
+
+  const handleNewConversation = () => {
+    setCurrentConversationId(null);
+    setRefreshKey(prev => prev + 1);
+  };
+
+  const handleSelectConversation = (conversationId: string) => {
+    setCurrentConversationId(conversationId);
     setRefreshKey(prev => prev + 1);
   };
 
@@ -173,8 +188,22 @@ const Ada = () => {
             </div>
 
             <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 sm:gap-6 lg:gap-8">
+              {/* Conversation Sidebar */}
+              {!isFullScreen && (
+                <div className="hidden lg:block xl:col-span-3">
+                  <Card className="h-[700px] bg-gradient-to-br from-card to-card/80 border-2 shadow-2xl">
+                    <ConversationSidebar
+                      user={user}
+                      currentConversationId={currentConversationId}
+                      onSelectConversation={handleSelectConversation}
+                      onNewConversation={handleNewConversation}
+                    />
+                  </Card>
+                </div>
+              )}
+
               {/* Enhanced Main Chat Interface */}
-              <div className="xl:col-span-8">
+              <div className={isFullScreen ? "col-span-12" : "xl:col-span-6"}>
                 <Card className="h-[500px] sm:h-[600px] lg:h-[700px] flex flex-col bg-gradient-to-br from-card to-card/80 border-2 shadow-2xl overflow-hidden">
                   <CardHeader className="pb-3 border-b bg-gradient-to-r from-primary/5 to-secondary/5">
                     <div className="flex items-center justify-between">
@@ -192,7 +221,7 @@ const Ada = () => {
                           size="sm"
                           onClick={handleRefreshChat}
                           className="h-8 w-8 p-0"
-                          aria-label="Refresh chat"
+                          aria-label="New conversation"
                         >
                           <RefreshCw className="w-4 h-4" />
                         </Button>
@@ -204,13 +233,15 @@ const Ada = () => {
                       key={refreshKey} 
                       isFullScreen={isFullScreen}
                       onFullScreenToggle={handleFullScreenToggle}
+                      selectedConversationId={currentConversationId}
+                      onConversationChange={setCurrentConversationId}
                     />
                   </div>
                 </Card>
               </div>
 
               {/* Enhanced Sidebar with New Sections */}
-              <div className="xl:col-span-4 space-y-4 sm:space-y-6">
+              <div className={isFullScreen ? "hidden" : "xl:col-span-3 space-y-4 sm:space-y-6"}>
                 {/* Enhanced Features Overview */}
                 <Card className="bg-gradient-to-br from-card to-card/80 border-0 shadow-lg">
                   <Collapsible open={capabilitiesOpen} onOpenChange={setCapabilitiesOpen}>

@@ -312,6 +312,7 @@ export type Database = {
       }
       chat_messages: {
         Row: {
+          conversation_id: string | null
           created_at: string
           file_upload_id: string | null
           id: string
@@ -321,6 +322,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          conversation_id?: string | null
           created_at?: string
           file_upload_id?: string | null
           id?: string
@@ -330,6 +332,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          conversation_id?: string | null
           created_at?: string
           file_upload_id?: string | null
           id?: string
