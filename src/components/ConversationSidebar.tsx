@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
@@ -28,6 +28,7 @@ export function ConversationSidebar({
 }: ConversationSidebarProps) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -76,11 +77,19 @@ export function ConversationSidebar({
     loadConversations();
   }, [user]);
 
+  // Auto-scroll to newest conversation when list updates
+  useEffect(() => {
+    if (scrollRef.current && conversations.length > 0) {
+      scrollRef.current.scrollTop = 0;
+    }
+  }, [conversations]);
+
   if (!user) return null;
 
   return (
-    <div className="w-64 border-r bg-background flex flex-col">
-      <div className="p-4 border-b">
+    <div className="w-64 border-r bg-background flex flex-col h-screen">
+      {/* Fixed Header */}
+      <div className="p-4 border-b bg-background sticky top-0 z-10">
         <Button 
           onClick={onNewConversation}
           className="w-full"
@@ -91,7 +100,11 @@ export function ConversationSidebar({
         </Button>
       </div>
 
-      <ScrollArea className="flex-1 p-3">
+      {/* Scrollable Conversation List */}
+      <div 
+        ref={scrollRef}
+        className="flex-1 overflow-y-auto p-3 scrollbar-thin"
+      >
         <div className="space-y-2">
           {loading ? (
             <div className="text-sm text-muted-foreground text-center py-4">
@@ -134,7 +147,7 @@ export function ConversationSidebar({
             ))
           )}
         </div>
-      </ScrollArea>
+      </div>
     </div>
   );
 }
