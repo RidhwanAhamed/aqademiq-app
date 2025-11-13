@@ -142,6 +142,27 @@ export function AdaAIChat({
       if (!user) return;
       
       try {
+        // If explicitly creating a new conversation (null), start fresh
+        if (selectedConversationId === null) {
+          const newConvId = crypto.randomUUID();
+          setConversationId(newConvId);
+          
+          const welcomeMessage: ChatMessage = {
+            id: `welcome-${Date.now()}`,
+            message: `👋 Hi there! I'm Ada AI, your personal study strategist and productivity engine.\n\nI'm here to help you:\n• **Plan & organize** your academic schedule\n• **Break down** large assignments into manageable tasks\n• **Detect conflicts** and suggest solutions\n• **Parse syllabi & timetables** from files you upload\n• **Optimize** your study sessions for maximum effectiveness\n\nJust ask me things like:\n- "Help me plan for my exam next Friday"\n- "Optimize my schedule this week"\n- "I missed yesterday's study session, what now?"\n\nOr simply **upload your syllabus** and I'll structure it into your calendar automatically! 📚✨`,
+            is_user: false,
+            created_at: new Date().toISOString(),
+            metadata: { welcome: true }
+          };
+          setMessages([welcomeMessage]);
+          setMessageCount(0);
+          
+          if (onConversationChange) {
+            onConversationChange(newConvId);
+          }
+          return;
+        }
+
         // If a specific conversation is selected, load it
         if (selectedConversationId) {
           const { data: historyMessages, error } = await supabase
@@ -163,7 +184,7 @@ export function AdaAIChat({
           return;
         }
 
-        // Otherwise fetch last 50 messages for this user
+        // Initial load - fetch last 50 messages for this user
         const { data: historyMessages, error } = await supabase
           .from('chat_messages')
           .select('*')
@@ -177,14 +198,12 @@ export function AdaAIChat({
         }
 
         if (historyMessages && historyMessages.length > 0) {
-          // Use existing conversation_id or create new one
           const existingConvId = historyMessages[0].conversation_id;
           const convId = existingConvId || crypto.randomUUID();
           setConversationId(convId);
           setMessages(historyMessages);
           setMessageCount(historyMessages.filter(m => m.is_user).length);
           
-          // Notify parent of current conversation
           if (onConversationChange && convId) {
             onConversationChange(convId);
           }
