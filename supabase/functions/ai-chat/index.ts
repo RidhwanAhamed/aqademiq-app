@@ -83,7 +83,7 @@ serve(async (req) => {
       });
     }
 
-    const { message } = await req.json();
+    const { message, conversation_id } = await req.json();
 
     if (!message) {
       return new Response(
@@ -93,8 +93,35 @@ serve(async (req) => {
     }
 
     console.log('Processing chat message:', message);
+    console.log('Conversation ID:', conversation_id || 'none');
 
     // Use resolved userId (may be null for anonymous)
+
+    // Fetch conversation history if conversation_id provided
+    let conversationHistory: Array<{ role: string; content: string }> = [];
+    if (conversation_id && userId) {
+      try {
+        const { data: historyRows, error: historyError } = await supabase
+          .from('chat_messages')
+          .select('message, is_user, created_at')
+          .eq('conversation_id', conversation_id)
+          .eq('user_id', userId)
+          .order('created_at', { ascending: true })
+          .limit(20);
+
+        if (historyError) {
+          console.error('Error fetching conversation history:', historyError);
+        } else if (historyRows && historyRows.length > 0) {
+          conversationHistory = historyRows.map(row => ({
+            role: row.is_user ? 'user' : 'assistant',
+            content: row.message
+          }));
+          console.log(`Loaded ${conversationHistory.length} previous messages from conversation`);
+        }
+      } catch (error) {
+        console.error('Failed to load conversation history:', error);
+      }
+    }
 
     // Build context about user's current schedule if available
     let userContext = '';
@@ -190,6 +217,7 @@ ${exams.length > 0 ? exams.map(e => `- ${e.title}: ${e.exam_date} (${e.duration_
       model: 'gpt-4o-mini',
       messages: [
         { role: 'system', content: sysPrompt },
+        ...conversationHistory,
         { role: 'user', content: message }
       ],
       temperature: 0.7,
