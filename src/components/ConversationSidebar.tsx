@@ -75,7 +75,7 @@ export function ConversationSidebar({
     };
 
     loadConversations();
-  }, [user]);
+  }, [user, currentConversationId]);
 
   // Auto-scroll to newest conversation when list updates
   useEffect(() => {
