@@ -42,7 +42,7 @@ export function ArkDatePicker({
     <DatePicker.Root
       value={formattedValue ? [formattedValue] as any : undefined}
       onValueChange={(details: any) => {
-        const dateStr = details.valueAsString?.[0];
+        const dateStr = details.value?.[0];
         onValueChange?.(parseArkDate(dateStr));
       }}
       disabled={disabled}
