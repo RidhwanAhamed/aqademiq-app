@@ -19,17 +19,31 @@ export function ArkDatePicker({
   disabled = false,
   className 
 }: ArkDatePickerProps) {
-  const formatDate = (date: Date | undefined) => {
-    if (!date) return undefined;
-    return date.toISOString().split('T')[0];
+  // Convert Date to YYYY-MM-DD format for Ark UI
+  const formatToArkDate = (date: Date | undefined): string | undefined => {
+    if (!date || !(date instanceof Date) || isNaN(date.getTime())) return undefined;
+    
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   };
+
+  // Convert YYYY-MM-DD string back to Date
+  const parseArkDate = (dateStr: string | undefined): Date | undefined => {
+    if (!dateStr) return undefined;
+    const date = new Date(dateStr + 'T00:00:00');
+    return isNaN(date.getTime()) ? undefined : date;
+  };
+
+  const formattedValue = formatToArkDate(value);
 
   return (
     <DatePicker.Root
-      value={value ? [formatDate(value)!] as any : undefined}
+      value={formattedValue ? [formattedValue] as any : undefined}
       onValueChange={(details: any) => {
         const dateStr = details.valueAsString?.[0];
-        onValueChange?.(dateStr ? new Date(dateStr) : undefined);
+        onValueChange?.(parseArkDate(dateStr));
       }}
       disabled={disabled}
     >
@@ -43,8 +57,8 @@ export function ArkDatePicker({
       </DatePicker.Control>
 
       <Portal>
-        <DatePicker.Positioner>
-          <DatePicker.Content className="z-50 mt-2 w-auto max-w-sm rounded-2xl border border-border bg-card shadow-xl p-3">
+        <DatePicker.Positioner className="z-[9999]">
+          <DatePicker.Content className="mt-2 w-auto max-w-sm rounded-2xl border border-border bg-card shadow-xl p-3">
             <div className="flex gap-2 mb-3">
               <DatePicker.YearSelect className="flex-1 rounded-md border border-border bg-background px-2 py-1 text-sm" />
               <DatePicker.MonthSelect className="flex-1 rounded-md border border-border bg-background px-2 py-1 text-sm" />
