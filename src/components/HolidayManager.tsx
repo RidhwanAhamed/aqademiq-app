@@ -3,8 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ArkDatePicker } from "@/components/ui/date-picker";
 import { CalendarIcon, Plus, Trash2 } from "lucide-react";
 import { format, parseISO, isWithinInterval } from "date-fns";
 import { cn } from "@/lib/utils";
