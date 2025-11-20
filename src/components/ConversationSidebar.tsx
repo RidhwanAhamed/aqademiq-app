@@ -1,10 +1,12 @@
+// Purpose: Displays Ada AI chat history and triggers new conversations. TODO: API -> /api/chat/conversations & /api/chat/messages.
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
-import { MessageCircle, Plus } from 'lucide-react';
+import { MessageCircle, Plus, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import ReactMarkdown, { type Components as MarkdownComponents } from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface Conversation {
   conversation_id: string;
@@ -13,18 +15,47 @@ interface Conversation {
   message_count: number;
 }
 
+const chatHistoryTitle = '## Chat History';
+
+const markdownComponents: MarkdownComponents = {
+  h2: ({ node, ...props }) => (
+    <h2
+      {...props}
+      className="text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+    />
+  )
+};
+
+const previewMarkdownComponents: MarkdownComponents = {
+  p: ({ node, ...props }) => (
+    <p
+      {...props}
+      className="text-sm font-medium text-left text-foreground line-clamp-2"
+    />
+  ),
+  strong: ({ node, ...props }) => (
+    <strong {...props} className="font-semibold text-foreground" />
+  )
+};
+
 interface ConversationSidebarProps {
   user: any;
   currentConversationId: string | null;
   onSelectConversation: (id: string) => void;
   onNewConversation: () => void;
+  className?: string;
+  showMobileClose?: boolean;
+  onClose?: () => void;
 }
 
 export function ConversationSidebar({ 
   user, 
   currentConversationId, 
   onSelectConversation,
-  onNewConversation 
+  onNewConversation,
+  className,
+  showMobileClose = false,
+  onClose
 }: ConversationSidebarProps) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -87,9 +118,16 @@ export function ConversationSidebar({
   if (!user) return null;
 
   return (
-    <div className="w-64 border-r bg-background flex flex-col h-screen">
+    <div 
+      className={cn(
+        "w-64 border-r bg-background flex flex-col h-screen",
+        className
+      )}
+      role="complementary"
+      aria-label="Ada AI chat history"
+    >
       {/* Fixed Header */}
-      <div className="p-4 border-b bg-background sticky top-0 z-10">
+      <div className="p-4 border-b bg-background sticky top-0 z-10 flex items-center gap-2">
         <Button 
           onClick={onNewConversation}
           className="w-full"
@@ -98,6 +136,23 @@ export function ConversationSidebar({
           <Plus className="h-4 w-4 mr-2" />
           New Chat
         </Button>
+        {showMobileClose && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label="Close chat history panel"
+            onClick={onClose}
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        )}
+      </div>
+
+      <div className="px-4 py-2 border-b bg-background/90">
+        <ReactMarkdown components={markdownComponents}>
+          {chatHistoryTitle}
+        </ReactMarkdown>
       </div>
 
       {/* Scrollable Conversation List */}
@@ -130,9 +185,14 @@ export function ConversationSidebar({
                 <div className="flex items-start gap-2">
                   <MessageCircle className="h-4 w-4 mt-1 flex-shrink-0 text-muted-foreground" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">
-                      {conv.message_preview}
-                    </p>
+                    <div className="text-sm font-medium text-foreground">
+                      <ReactMarkdown
+                        components={previewMarkdownComponents}
+                        remarkPlugins={[remarkGfm]}
+                      >
+                        {conv.message_preview}
+                      </ReactMarkdown>
+                    </div>
                     <div className="flex items-center gap-2 mt-1">
                       <span className="text-xs text-muted-foreground">
                         {format(new Date(conv.created_at), 'MMM d, h:mm a')}
