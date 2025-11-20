@@ -18,9 +18,9 @@ export default {
 			}
 		},
 		extend: {
-			fontFamily: {
-				sans: ['Helvetica Neue', 'Helvetica', 'Arial', 'sans-serif'],
-			},
+		fontFamily: {
+			sans: ['Century Gothic', 'CenturyGothic', 'AppleGothic', 'Futura', 'Arial', 'sans-serif'],
+		},
 			colors: {
 				border: 'hsl(var(--border))',
 				input: 'hsl(var(--input))',
