@@ -13,8 +13,7 @@ import {
   LogOut,
   TrendingUp,
   Sparkles,
-  Store,
-  MessageSquare
+  Store
 } from "lucide-react";
 import { useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
@@ -163,21 +162,8 @@ export function AppSidebar() {
               ))}
             </SidebarMenu>
             
-            {/* Give Feedback Button */}
-            <div className="mt-4 p-2">
-              <Button
-                onClick={() => window.open('https://docs.google.com/forms/d/e/1FAIpQLSfdFekCco-gJkDuXZh5VaOa_FI9sJIo7vgrCoXnJAKZklGv6A/viewform?usp=dialog', '_blank', 'noopener,noreferrer')}
-                variant="outline"
-                size={collapsed ? "icon" : "default"}
-                className="w-full text-primary hover:text-primary hover:bg-primary/10 border-primary/20"
-              >
-                <MessageSquare className="w-4 h-4" />
-                {!collapsed && <span className="ml-2">Give Feedback</span>}
-              </Button>
-            </div>
-
             {/* Sign Out Button */}
-            <div className="mt-2 p-2">
+            <div className="mt-4 p-2">
               <Button
                 onClick={() => signOut()}
                 variant="outline"

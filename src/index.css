@@ -2,17 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Font Loading Strategy: Century Gothic (local) → Montserrat (web fallback) */
-@font-face {
-  font-family: 'Primary Font';
-  src: local('Century Gothic'), 
-       local('CenturyGothic'),
-       local('Century-Gothic');
-  font-weight: 100 900;
-  font-style: normal;
-  font-display: swap;
-}
-
 /* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
 All colors MUST be HSL.
 */
