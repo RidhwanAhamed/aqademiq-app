@@ -123,6 +123,10 @@ const nodeTypes = {
   dayHeader: DayHeaderNode,
 };
 
+const DAY_START_HOUR = 0;
+const DAY_END_HOUR = 24;
+const HOURS_PER_DAY = DAY_END_HOUR - DAY_START_HOUR;
+
 interface ReactFlowCalendarProps {
   selectedDate: Date;
   onDateChange: (date: Date) => void;
@@ -166,9 +170,9 @@ export function ReactFlowCalendar({ selectedDate, onDateChange }: ReactFlowCalen
     return Array.from({ length: 7 }, (_, i) => addDays(currentWeek, i));
   }, [currentWeek]);
 
-  // Generate time slots (6 AM to 11 PM)
+  // Generate time slots (24h coverage)
   const timeSlots = useMemo(() => {
-    return Array.from({ length: 17 }, (_, i) => i + 6);
+    return Array.from({ length: HOURS_PER_DAY }, (_, i) => i + DAY_START_HOUR);
   }, []);
 
   // Stable callback for event updates
@@ -309,7 +313,7 @@ export function ReactFlowCalendar({ selectedDate, onDateChange }: ReactFlowCalen
         const endHour = event.end.getHours();
         const endMinute = event.end.getMinutes();
 
-        const startSlot = startHour - 6 + (startMinute / 60);
+        const startSlot = startHour - DAY_START_HOUR + (startMinute / 60);
         const duration = (endHour - startHour) + ((endMinute - startMinute) / 60);
 
         const x = TIME_COLUMN_WIDTH + (eventDay * SLOT_WIDTH) + 2;
@@ -365,10 +369,10 @@ export function ReactFlowCalendar({ selectedDate, onDateChange }: ReactFlowCalen
 
     const dayIndex = Math.floor((node.position.x - TIME_COLUMN_WIDTH) / SLOT_WIDTH);
     const hourSlot = (node.position.y - HEADER_HEIGHT) / SLOT_HEIGHT;
-    const hour = Math.floor(hourSlot) + 6;
+    const hour = Math.floor(hourSlot) + DAY_START_HOUR;
     const minute = Math.round((hourSlot % 1) * 60);
 
-    if (dayIndex >= 0 && dayIndex < 7 && hour >= 6 && hour <= 22) {
+    if (dayIndex >= 0 && dayIndex < 7 && hour >= DAY_START_HOUR && hour < DAY_END_HOUR) {
       const newDate = addDays(currentWeek, dayIndex);
       const newStart = new Date(newDate);
       newStart.setHours(hour, minute, 0, 0);

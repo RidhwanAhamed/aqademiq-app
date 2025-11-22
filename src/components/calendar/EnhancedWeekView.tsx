@@ -7,6 +7,10 @@ import { cn } from '@/lib/utils';
 import { ChevronLeft, ChevronRight, Clock, MapPin, Plus } from 'lucide-react';
 import { AddClassDialog } from './AddClassDialog';
 
+const DAY_START_HOUR = 0;
+const DAY_END_HOUR = 24;
+const HOURS_PER_DAY = DAY_END_HOUR - DAY_START_HOUR;
+
 interface EnhancedWeekViewProps {
   selectedDate: Date;
   onDateChange: (date: Date) => void;
@@ -41,7 +45,7 @@ export function EnhancedWeekView({
   );
 
   const timeSlots = useMemo(() => 
-    Array.from({ length: 16 }, (_, i) => i + 6), // 6 AM to 9 PM
+    Array.from({ length: HOURS_PER_DAY }, (_, i) => i + DAY_START_HOUR), 
     []
   );
 
@@ -135,7 +139,7 @@ export function EnhancedWeekView({
     const endHour = event.end.getHours();
     const endMinute = event.end.getMinutes();
 
-    const startSlot = startHour - 6 + (startMinute / 60);
+    const startSlot = startHour - DAY_START_HOUR + (startMinute / 60);
     const duration = (endHour - startHour) + ((endMinute - startMinute) / 60);
     
     const HOUR_HEIGHT = 64; // Height of each hour slot
@@ -233,7 +237,7 @@ export function EnhancedWeekView({
                     {slotEvents.map(event => {
                       const { top, height } = calculateEventPosition(event, dayIndex);
                       return renderEventCard(event, { 
-                        top: top - (hour - 6) * 64, 
+                        top: top - (hour - DAY_START_HOUR) * 64, 
                         height: Math.min(height, 60) 
                       });
                     })}
