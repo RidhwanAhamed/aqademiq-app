@@ -105,6 +105,7 @@ export function AddHolidayDialog({ open, onOpenChange }: AddHolidayDialogProps) 
                     selected={startDate}
                     onSelect={setStartDate}
                     initialFocus
+                    className="pointer-events-auto"
                   />
                 </PopoverContent>
               </Popover>
@@ -132,6 +133,7 @@ export function AddHolidayDialog({ open, onOpenChange }: AddHolidayDialogProps) 
                     onSelect={setEndDate}
                     disabled={(date) => startDate ? date < startDate : false}
                     initialFocus
+                    className="pointer-events-auto"
                   />
                 </PopoverContent>
               </Popover>
