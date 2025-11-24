@@ -3,17 +3,19 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Play, Pause, RotateCcw, Clock, Coffee, Target, Plus, Maximize2, Minimize2 } from "lucide-react";
+import { Play, Pause, RotateCcw, Clock, Coffee, Target, Plus, Maximize2, Minimize2, Settings, Volume2, VolumeX } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { AddStudySessionDialog } from "@/components/AddStudySessionDialog";
 import { useBackgroundTimer, type TimerMode } from "@/hooks/useBackgroundTimer";
+import { TimerSettingsDialog } from "@/components/TimerSettingsDialog";
 
 export default function Timer() {
   const [showStudySessionDialog, setShowStudySessionDialog] = useState(false);
   const [currentSessionStart, setCurrentSessionStart] = useState<Date | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const timerContainerRef = useRef<HTMLDivElement>(null);
   
   const { 
@@ -22,10 +24,13 @@ export default function Timer() {
     isRunning, 
     sessionsCompleted, 
     totalFocusTime,
+    soundSettings,
     startTimer: startBackgroundTimer,
     pauseTimer,
     resetTimer: resetBackgroundTimer,
     setMode,
+    updateSoundSettings,
+    testSound,
     presets
   } = useBackgroundTimer();
   
@@ -153,6 +158,13 @@ export default function Timer() {
         </div>
         <div className="flex gap-2">
           <Button 
+            onClick={() => setSettingsOpen(true)}
+            variant="outline"
+            aria-label="Timer settings"
+          >
+            <Settings className="w-4 h-4" />
+          </Button>
+          <Button 
             onClick={handleToggleFullscreen}
             variant="outline"
             aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
@@ -203,8 +215,15 @@ export default function Timer() {
                 </SelectContent>
               </Select>
               
-              <div className={`${isFullscreen ? 'text-9xl' : 'text-6xl'} font-mono font-bold text-primary transition-all`}>
-                {formatTime(timeLeft)}
+              <div className="flex items-center justify-center gap-3">
+                <div className={`${isFullscreen ? 'text-9xl' : 'text-6xl'} font-mono font-bold text-primary transition-all`}>
+                  {formatTime(timeLeft)}
+                </div>
+                {soundSettings.enabled ? (
+                  <Volume2 className="w-6 h-6 text-muted-foreground" />
+                ) : (
+                  <VolumeX className="w-6 h-6 text-muted-foreground" />
+                )}
               </div>
               
               <div className="text-lg text-muted-foreground flex items-center justify-center gap-2">
@@ -290,6 +309,14 @@ export default function Timer() {
       <AddStudySessionDialog
         open={showStudySessionDialog}
         onOpenChange={setShowStudySessionDialog}
+      />
+      
+      <TimerSettingsDialog
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+        soundSettings={soundSettings}
+        onSoundSettingsChange={updateSoundSettings}
+        onTestSound={testSound}
       />
     </div>
   );
