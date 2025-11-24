@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Play, Pause, RotateCcw, Clock, Coffee, Target, Plus } from "lucide-react";
+import { Play, Pause, RotateCcw, Clock, Coffee, Target, Plus, Maximize2, Minimize2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -13,6 +13,8 @@ import { useBackgroundTimer, type TimerMode } from "@/hooks/useBackgroundTimer";
 export default function Timer() {
   const [showStudySessionDialog, setShowStudySessionDialog] = useState(false);
   const [currentSessionStart, setCurrentSessionStart] = useState<Date | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const timerContainerRef = useRef<HTMLDivElement>(null);
   
   const { 
     mode, 
@@ -36,6 +38,16 @@ export default function Timer() {
       handleTimerComplete();
     }
   }, [timeLeft, isRunning, sessionsCompleted]);
+
+  // Handle fullscreen changes
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
 
   const handleTimerComplete = async () => {
     if (mode === 'focus' && currentSessionStart) {
@@ -98,6 +110,15 @@ export default function Timer() {
     setCurrentSessionStart(null);
   };
 
+  const handleToggleFullscreen = () => {
+    const elem = timerContainerRef.current;
+    if (!document.fullscreenElement) {
+      elem?.requestFullscreen?.();
+    } else {
+      document.exitFullscreen();
+    }
+  };
+
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -123,23 +144,36 @@ export default function Timer() {
   const progress = ((presets[mode] - timeLeft) / presets[mode]) * 100;
 
   return (
-    <div className="p-6 space-y-6">
+    <div ref={timerContainerRef} className="p-6 space-y-6 min-h-screen bg-background">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Study Timer</h1>
           <p className="text-muted-foreground">Focus with Pomodoro technique</p>
         </div>
-        <Button 
-          onClick={() => setShowStudySessionDialog(true)}
-          variant="outline"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Log Manual Session
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            onClick={handleToggleFullscreen}
+            variant="outline"
+            aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+          >
+            {isFullscreen ? (
+              <Minimize2 className="w-4 h-4" />
+            ) : (
+              <Maximize2 className="w-4 h-4" />
+            )}
+          </Button>
+          <Button 
+            onClick={() => setShowStudySessionDialog(true)}
+            variant="outline"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Log Manual Session
+          </Button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className={`grid ${isFullscreen ? 'grid-cols-1 max-w-4xl mx-auto' : 'grid-cols-1 lg:grid-cols-2'} gap-6`}>
         {/* Timer */}
         <Card className="bg-gradient-card">
           <CardHeader>
@@ -169,7 +203,7 @@ export default function Timer() {
                 </SelectContent>
               </Select>
               
-              <div className="text-6xl font-mono font-bold text-primary">
+              <div className={`${isFullscreen ? 'text-9xl' : 'text-6xl'} font-mono font-bold text-primary transition-all`}>
                 {formatTime(timeLeft)}
               </div>
               
@@ -224,32 +258,34 @@ export default function Timer() {
         </Card>
       </div>
 
-      {/* Recent Sessions */}
-      <Card className="bg-gradient-card">
-        <CardHeader>
-          <CardTitle>Session History</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {sessionsCompleted > 0 ? (
-            <div className="space-y-2">
-              {Array.from({ length: Math.min(sessionsCompleted, 5) }, (_, i) => (
-                <div key={i} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <Target className="w-4 h-4 text-success" />
-                    <span>Focus Session {sessionsCompleted - i}</span>
+      {/* Recent Sessions - Hidden in fullscreen */}
+      {!isFullscreen && (
+        <Card className="bg-gradient-card">
+          <CardHeader>
+            <CardTitle>Session History</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {sessionsCompleted > 0 ? (
+              <div className="space-y-2">
+                {Array.from({ length: Math.min(sessionsCompleted, 5) }, (_, i) => (
+                  <div key={i} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <Target className="w-4 h-4 text-success" />
+                      <span>Focus Session {sessionsCompleted - i}</span>
+                    </div>
+                    <span className="text-sm text-muted-foreground">25 min</span>
                   </div>
-                  <span className="text-sm text-muted-foreground">25 min</span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-12 text-muted-foreground">
-              <Clock className="w-12 h-12 mx-auto mb-4 opacity-50" />
-              <p>Start your first Pomodoro session!</p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12 text-muted-foreground">
+                <Clock className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                <p>Start your first Pomodoro session!</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
       
       <AddStudySessionDialog
         open={showStudySessionDialog}
