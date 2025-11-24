@@ -5,8 +5,7 @@ import { Button } from '@/components/ui/button';
 import { MessageCircle, Plus, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
-import ReactMarkdown, { type Components as MarkdownComponents } from 'react-markdown';
-import remarkGfm from 'remark-gfm';
+import { stripMarkdown } from '@/utils/markdown';
 
 interface Conversation {
   conversation_id: string;
@@ -15,28 +14,7 @@ interface Conversation {
   message_count: number;
 }
 
-const chatHistoryTitle = '## Chat History';
-
-const markdownComponents: MarkdownComponents = {
-  h2: ({ node, ...props }) => (
-    <h2
-      {...props}
-      className="text-xs font-semibold uppercase tracking-wide text-muted-foreground"
-    />
-  )
-};
-
-const previewMarkdownComponents: MarkdownComponents = {
-  p: ({ node, ...props }) => (
-    <p
-      {...props}
-      className="text-sm font-medium text-left text-foreground line-clamp-2"
-    />
-  ),
-  strong: ({ node, ...props }) => (
-    <strong {...props} className="font-semibold text-foreground" />
-  )
-};
+const chatHistoryTitle = 'Chat History';
 
 interface ConversationSidebarProps {
   user: any;
@@ -84,10 +62,11 @@ export function ConversationSidebar({
             if (!msg.conversation_id) return;
             
             if (!convMap.has(msg.conversation_id)) {
+              const cleanPreview = stripMarkdown(msg.message);
               convMap.set(msg.conversation_id, {
                 conversation_id: msg.conversation_id,
                 created_at: msg.created_at,
-                message_preview: msg.message.slice(0, 60),
+                message_preview: cleanPreview,
                 message_count: 1
               });
             } else {
@@ -150,9 +129,9 @@ export function ConversationSidebar({
       </div>
 
       <div className="px-4 py-2 border-b bg-background/90">
-        <ReactMarkdown components={markdownComponents}>
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           {chatHistoryTitle}
-        </ReactMarkdown>
+        </h2>
       </div>
 
       {/* Scrollable Conversation List */}
@@ -185,13 +164,8 @@ export function ConversationSidebar({
                 <div className="flex items-start gap-2">
                   <MessageCircle className="h-4 w-4 mt-1 flex-shrink-0 text-muted-foreground" />
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium text-foreground">
-                      <ReactMarkdown
-                        components={previewMarkdownComponents}
-                        remarkPlugins={[remarkGfm]}
-                      >
-                        {conv.message_preview}
-                      </ReactMarkdown>
+                    <div className="text-sm font-medium text-left text-foreground line-clamp-2">
+                      {conv.message_preview}
                     </div>
                     <div className="flex items-center gap-2 mt-1">
                       <span className="text-xs text-muted-foreground">

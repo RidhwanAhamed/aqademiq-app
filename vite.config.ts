@@ -4,16 +4,74 @@ import path from "path";
 import { componentTagger } from "lovable-tagger";
 import { VitePWA } from 'vite-plugin-pwa';
 
-// https://vitejs.dev/config/
-export default defineConfig(({ mode }) => ({
-  server: {
-    host: "::",
-    port: 8080,
-  },
-  plugins: [
-    react(),
-    mode === 'development' && componentTagger(),
-    VitePWA({
+// VirtuLearn build config: keep frontend PWA-ready while awaiting Node/Express APIs.
+export default defineConfig(({ command, mode }) => {
+  const isDevMode = mode === 'development';
+  const enableDevPWA = process.env.VITE_ENABLE_PWA_DEV === 'true';
+  const workboxConfig = {
+    globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
+    runtimeCaching: [
+      {
+        urlPattern: /^https:\/\/thmyddcvpopzjbvmhbur\.supabase\.co\/.*$/,
+        handler: 'NetworkFirst',
+        options: {
+          cacheName: 'supabase-api-cache',
+          networkTimeoutSeconds: 10,
+          expiration: {
+            maxEntries: 50,
+            maxAgeSeconds: 5 * 60,
+          },
+          cacheableResponse: {
+            statuses: [0, 200]
+          }
+        }
+      },
+      {
+        urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com\/.*$/,
+        handler: 'CacheFirst',
+        options: {
+          cacheName: 'google-fonts-cache',
+          expiration: {
+            maxEntries: 20,
+            maxAgeSeconds: 60 * 60 * 24 * 365,
+          },
+          cacheableResponse: {
+            statuses: [0, 200]
+          }
+        }
+      },
+      {
+        urlPattern: /\.(?:png|jpg|jpeg|svg|gif|webp)$/,
+        handler: 'CacheFirst',
+        options: {
+          cacheName: 'images-cache',
+          expiration: {
+            maxEntries: 60,
+            maxAgeSeconds: 30 * 24 * 60 * 60,
+          }
+        }
+      }
+    ],
+    navigateFallback: '/index.html',
+    navigateFallbackDenylist: [/^\/api/, /^\/auth/]
+  };
+
+  if (enableDevPWA) {
+    // During dev there are no compiled assets in dev-dist, so use /public to silence Workbox warnings.
+    workboxConfig.globDirectory = 'public';
+    workboxConfig.globPatterns = ['**/*.{html,ico,png,svg}'];
+  }
+
+  return {
+    server: {
+      host: "::",
+      port: 8080,
+    },
+    plugins: [
+      react(),
+      isDevMode && componentTagger(),
+      VitePWA({
+        disable: command === 'serve' && !enableDevPWA,
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'assets/*.png', 'lovable-uploads/*.png'],
       manifest: {
@@ -72,62 +130,17 @@ export default defineConfig(({ mode }) => ({
           }
         ]
       },
-      workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/thmyddcvpopzjbvmhbur\.supabase\.co\/.*$/,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'supabase-api-cache',
-              networkTimeoutSeconds: 10,
-              expiration: {
-                maxEntries: 50,
-                maxAgeSeconds: 5 * 60,
-              },
-              cacheableResponse: {
-                statuses: [0, 200]
-              }
-            }
-          },
-          {
-            urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com\/.*$/,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'google-fonts-cache',
-              expiration: {
-                maxEntries: 20,
-                maxAgeSeconds: 60 * 60 * 24 * 365,
-              },
-              cacheableResponse: {
-                statuses: [0, 200]
-              }
-            }
-          },
-          {
-            urlPattern: /\.(?:png|jpg|jpeg|svg|gif|webp)$/,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'images-cache',
-              expiration: {
-                maxEntries: 60,
-                maxAgeSeconds: 30 * 24 * 60 * 60,
-              }
-            }
-          }
-        ],
-        navigateFallback: '/index.html',
-        navigateFallbackDenylist: [/^\/api/, /^\/auth/]
-      },
+      workbox: workboxConfig,
       devOptions: {
-        enabled: true,
+        enabled: enableDevPWA,
         type: 'module'
       }
-    })
-  ].filter(Boolean),
-  resolve: {
-    alias: {
-      "@": path.resolve(__dirname, "./src"),
+      })
+    ].filter(Boolean),
+    resolve: {
+      alias: {
+        "@": path.resolve(__dirname, "./src"),
+      },
     },
-  },
-}));
+  };
+});
