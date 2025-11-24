@@ -2,6 +2,13 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 
 export type TimerMode = 'focus' | 'short-break' | 'long-break';
 
+interface SoundSettings {
+  enabled: boolean;
+  focusCompleteSound: string;
+  breakCompleteSound: string;
+  volume: number; // 0-100
+}
+
 interface TimerState {
   mode: TimerMode;
   isRunning: boolean;
@@ -10,6 +17,7 @@ interface TimerState {
   timeLeft: number;
   sessionsCompleted: number;
   totalFocusTime: number;
+  soundSettings: SoundSettings;
 }
 
 const TIMER_PRESETS = {
@@ -18,7 +26,15 @@ const TIMER_PRESETS = {
   'long-break': 15 * 60, // 15 minutes in seconds
 };
 
+const DEFAULT_SOUND_SETTINGS: SoundSettings = {
+  enabled: true,
+  focusCompleteSound: 'bell.mp3',
+  breakCompleteSound: 'chime.mp3',
+  volume: 70,
+};
+
 const STORAGE_KEY = 'pomodoro-timer-state';
+const SOUND_SETTINGS_KEY = 'pomodoro-sound-settings';
 
 export const useBackgroundTimer = () => {
   const [state, setState] = useState<TimerState>({
@@ -29,6 +45,7 @@ export const useBackgroundTimer = () => {
     timeLeft: TIMER_PRESETS.focus,
     sessionsCompleted: 0,
     totalFocusTime: 0,
+    soundSettings: DEFAULT_SOUND_SETTINGS,
   });
 
   const animationFrameRef = useRef<number>();
@@ -40,6 +57,19 @@ export const useBackgroundTimer = () => {
       Notification.requestPermission().then((permission) => {
         notificationPermissionRef.current = permission;
       });
+    }
+  }, []);
+
+  // Load sound settings from localStorage
+  useEffect(() => {
+    const savedSoundSettings = localStorage.getItem(SOUND_SETTINGS_KEY);
+    if (savedSoundSettings) {
+      try {
+        const parsed = JSON.parse(savedSoundSettings);
+        setState(prev => ({ ...prev, soundSettings: parsed }));
+      } catch (error) {
+        console.error('Failed to restore sound settings:', error);
+      }
     }
   }, []);
 
@@ -82,6 +112,11 @@ export const useBackgroundTimer = () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }, [state]);
 
+  // Save sound settings separately
+  useEffect(() => {
+    localStorage.setItem(SOUND_SETTINGS_KEY, JSON.stringify(state.soundSettings));
+  }, [state.soundSettings]);
+
   // Update tab title with timer information
   useEffect(() => {
     if (state.isRunning && state.timeLeft > 0) {
@@ -99,6 +134,19 @@ export const useBackgroundTimer = () => {
       document.title = 'Aqademiq';
     };
   }, [state.isRunning, state.timeLeft, state.mode]);
+
+  // Play sound notification
+  const playSound = useCallback((soundFile: string, volume: number) => {
+    if (!state.soundSettings.enabled) return;
+    
+    try {
+      const audio = new Audio(`/sounds/timer/${soundFile}`);
+      audio.volume = volume / 100;
+      audio.play().catch(err => console.error('Failed to play sound:', err));
+    } catch (error) {
+      console.error('Audio playback error:', error);
+    }
+  }, [state.soundSettings.enabled]);
 
   // Show notification when timer completes
   const showNotification = useCallback((title: string, body: string) => {
@@ -142,10 +190,12 @@ export const useBackgroundTimer = () => {
             prev.totalFocusTime,
         }));
 
-        // Show notification
+        // Show notification and play sound
         if (state.mode === 'focus') {
+          playSound(state.soundSettings.focusCompleteSound, state.soundSettings.volume);
           showNotification('Focus Session Complete! 🍅', 'Time for a well-deserved break.');
         } else {
+          playSound(state.soundSettings.breakCompleteSound, state.soundSettings.volume);
           showNotification('Break Complete! ☕', 'Ready for another focus session?');
         }
 
@@ -250,6 +300,23 @@ export const useBackgroundTimer = () => {
     localStorage.removeItem(STORAGE_KEY);
   }, []);
 
+  const updateSoundSettings = useCallback((settings: Partial<SoundSettings>) => {
+    setState(prev => ({
+      ...prev,
+      soundSettings: { ...prev.soundSettings, ...settings },
+    }));
+  }, []);
+
+  const testSound = useCallback((soundFile: string, volume: number) => {
+    try {
+      const audio = new Audio(`/sounds/timer/${soundFile}`);
+      audio.volume = volume / 100;
+      audio.play().catch(err => console.error('Failed to play test sound:', err));
+    } catch (error) {
+      console.error('Audio test playback error:', error);
+    }
+  }, []);
+
   return {
     ...state,
     startTimer,
@@ -257,6 +324,8 @@ export const useBackgroundTimer = () => {
     resetTimer,
     setMode,
     clearSavedState,
+    updateSoundSettings,
+    testSound,
     presets: TIMER_PRESETS,
   };
 };
