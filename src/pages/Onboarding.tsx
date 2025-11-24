@@ -475,6 +475,7 @@ export default function Onboarding() {
                         }
                       }}
                       initialFocus
+                      className="pointer-events-auto"
                     />
                   </PopoverContent>
                 </Popover>
@@ -510,6 +511,7 @@ export default function Onboarding() {
                         }
                       }}
                       initialFocus
+                      className="pointer-events-auto"
                     />
                   </PopoverContent>
                 </Popover>
