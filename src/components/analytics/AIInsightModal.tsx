@@ -62,6 +62,9 @@ export function AIInsightModal({
       case 'goal_detailed_strategy': return 'Detailed Goal Strategy';
       case 'detailed_risk_plan': return 'Comprehensive Recovery Plan';
       case 'performance_risk': return 'Performance Risk Analysis';
+      case 'course_improvement': return 'Course Improvement Strategy';
+      case 'course_overview': return 'Course Performance Overview';
+      case 'dashboard_overview': return 'Academic Dashboard Analysis';
       default: return 'AI Academic Insights';
     }
   };
@@ -75,6 +78,9 @@ export function AIInsightModal({
       case 'goal_strategy': return 'Develop strategies to achieve your academic goals';
       case 'grade_trends': return 'Understand your grade patterns and future projections';
       case 'risk_mitigation': return 'Prevent performance decline with proactive measures';
+      case 'course_improvement': return 'Get targeted strategies to improve this specific course';
+      case 'course_overview': return 'Analyze your overall course portfolio and balance workload';
+      case 'dashboard_overview': return 'Comprehensive insights based on your complete academic picture';
       default: return 'Get AI-powered insights tailored to your academic situation';
     }
   };
@@ -127,6 +133,9 @@ export function AIInsightModal({
                 {context === 'risk_mitigation' && `${contextData?.length || 0} risk factors identified`}
                 {context === 'declining_course' && `Course: ${contextData?.course_name || 'Unknown'}`}
                 {context === 'performance_risk' && `Risk: ${contextData?.risk_type || 'Unknown'}`}
+                {context === 'course_improvement' && `Course: ${contextData?.course?.name || 'Unknown'} - ${contextData?.course?.progress_percentage || 0}% progress`}
+                {context === 'course_overview' && `${contextData?.totalCourses || 0} total courses, ${contextData?.coursesNeedingHelp || 0} need attention`}
+                {context === 'dashboard_overview' && `${contextData?.courses?.length || 0} courses, ${contextData?.upcoming?.length || 0} upcoming deadlines`}
               </div>
             </CardContent>
           </Card>

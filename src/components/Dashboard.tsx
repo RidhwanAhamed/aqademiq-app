@@ -39,13 +39,11 @@ export function Dashboard() {
 
   const generateAIInsights = async (context: string, data: any, customQuery?: string) => {
     try {
-      const { data: result, error } = await supabase.functions.invoke('ai-insights', {
+      const { data: result, error } = await supabase.functions.invoke('contextual-ai-insights', {
         body: {
-          task_type: context,
-          title: `AI Insights for ${context}`,
-          description: customQuery || `Generate insights for ${context}`,
-          context_data: data,
-          course_info: courses.map(c => ({ id: c.id, name: c.name }))
+          context,
+          data,
+          customQuery
         }
       });
 
