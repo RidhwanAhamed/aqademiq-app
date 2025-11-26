@@ -32,9 +32,10 @@ Provide 3-4 specific, actionable recommendations focusing on:
 
 Keep advice practical and encouraging. Format as a JSON object with:
 {
-  "mainInsight": "brief summary",
-  "recommendations": ["action1", "action2", "action3"],
-  "quickWins": ["immediate action1", "immediate action2"]
+  "suggestedSessions": ["session1", "session2", "session3"],
+  "productivityTips": ["tip1", "tip2", "tip3"],
+  "planningRecommendations": ["rec1", "rec2"],
+  "generatedText": "brief summary paragraph"
 }`,
 
       critical_alerts: `You are an academic intervention specialist. The student has ${data.alertsCount || 0} critical alerts requiring immediate attention.
@@ -47,9 +48,10 @@ Analyze their situation and provide:
 
 Be direct but supportive. Format as JSON:
 {
-  "urgentActions": ["priority1", "priority2"],
-  "recoveryPlan": "step by step approach",
-  "timeframe": "realistic timeline"
+  "suggestedSessions": ["urgent session1", "urgent session2"],
+  "productivityTips": ["priority tip1", "priority tip2"],
+  "planningRecommendations": ["recovery step1", "recovery step2"],
+  "generatedText": "step by step recovery approach"
 }`,
 
       declining_course: `You are a course recovery specialist. Student is struggling with: ${data.course_name || 'a course'}.
@@ -63,9 +65,10 @@ Provide targeted help:
 
 Format as JSON:
 {
-  "emergencyActions": ["action1", "action2"],
-  "studyAdjustments": ["method1", "method2"],
-  "resources": ["resource1", "resource2"]
+  "suggestedSessions": ["emergency session1", "emergency session2"],
+  "productivityTips": ["study adjustment1", "study adjustment2"],
+  "planningRecommendations": ["resource1", "resource2"],
+  "generatedText": "detailed recovery plan"
 }`,
 
       study_consistency: `You are a habit-building coach. Student's current streak: ${data.currentStreak || 0} days.
@@ -78,9 +81,62 @@ Help them build sustainable study habits:
 
 Be practical and psychology-informed. Format as JSON:
 {
-  "habitStrategy": "core approach",
-  "dailyActions": ["habit1", "habit2"],
-  "streakTips": ["tip1", "tip2"]
+  "suggestedSessions": ["habit-building session1", "habit-building session2"],
+  "productivityTips": ["daily action1", "daily action2"],
+  "planningRecommendations": ["streak tip1", "streak tip2"],
+  "generatedText": "core habit-building approach"
+}`,
+
+      course_improvement: `You are an academic advisor specializing in course recovery. The student needs help with a specific course.
+Course performance: ${data.course?.progress_percentage || 0}% progress, Current GPA: ${data.course?.current_gpa || 'N/A'}
+
+Analyze and provide:
+1. Specific study sessions to schedule this week
+2. Productivity strategies for this course
+3. Planning recommendations to get back on track
+4. Detailed action plan
+
+Format as JSON:
+{
+  "suggestedSessions": ["targeted session1", "targeted session2", "targeted session3"],
+  "productivityTips": ["course-specific tip1", "course-specific tip2", "course-specific tip3"],
+  "planningRecommendations": ["planning step1", "planning step2"],
+  "generatedText": "comprehensive improvement strategy for this course"
+}`,
+
+      course_overview: `You are an academic strategy consultant. Reviewing overall course portfolio.
+Total courses: ${data.totalCourses || 0}, Courses needing attention: ${data.coursesNeedingHelp || 0}
+
+Provide strategic overview:
+1. Recommended study sessions across courses
+2. Time management and prioritization tips
+3. Strategic planning for balancing multiple courses
+4. Overall strategy summary
+
+Format as JSON:
+{
+  "suggestedSessions": ["cross-course session1", "cross-course session2", "cross-course session3"],
+  "productivityTips": ["balance tip1", "balance tip2", "balance tip3"],
+  "planningRecommendations": ["strategy1", "strategy2"],
+  "generatedText": "holistic academic strategy across all courses"
+}`,
+
+      dashboard_overview: `You are a personal academic coach reviewing the student's complete academic dashboard.
+Courses: ${data.courses?.length || 0}, Assignments: ${data.assignments?.length || 0}, Upcoming deadlines: ${data.upcoming?.length || 0}
+Current streak: ${data.stats?.current_streak || 0} days
+
+Provide comprehensive dashboard insights:
+1. Priority study sessions for today/this week
+2. Productivity and time management recommendations
+3. Strategic planning based on upcoming deadlines
+4. Motivational summary and action plan
+
+Format as JSON:
+{
+  "suggestedSessions": ["priority session1", "priority session2", "priority session3"],
+  "productivityTips": ["dashboard tip1", "dashboard tip2", "dashboard tip3"],
+  "planningRecommendations": ["strategic plan1", "strategic plan2"],
+  "generatedText": "personalized academic action plan based on complete dashboard analysis"
 }`
     };
 
@@ -112,26 +168,31 @@ Be practical and psychology-informed. Format as JSON:
     const aiResponse = await response.json();
     let generatedText = aiResponse.choices[0].message.content;
 
-    // Try to parse as JSON, fallback to plain text
+    // Try to parse as JSON, fallback to structured format
     let structuredInsight;
     try {
       structuredInsight = JSON.parse(generatedText);
     } catch (e) {
+      // If parsing fails, create structured format from text
       structuredInsight = {
-        mainInsight: generatedText,
-        recommendations: [],
-        quickWins: []
+        suggestedSessions: [],
+        productivityTips: [],
+        planningRecommendations: [],
+        generatedText: generatedText
       };
     }
 
-    console.log('Generated AI insight:', { context, structuredInsight });
+    // Ensure all required fields exist
+    const result = {
+      suggestedSessions: structuredInsight.suggestedSessions || [],
+      productivityTips: structuredInsight.productivityTips || [],
+      planningRecommendations: structuredInsight.planningRecommendations || [],
+      generatedText: structuredInsight.generatedText || generatedText
+    };
 
-    return new Response(JSON.stringify({
-      success: true,
-      context,
-      insight: structuredInsight,
-      rawText: generatedText
-    }), {
+    console.log('Generated AI insight:', { context, result });
+
+    return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
