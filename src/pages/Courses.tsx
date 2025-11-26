@@ -4,13 +4,15 @@ import { Button } from "@/components/ui/button";
 import { BookOpen, Plus, GraduationCap, Award, Calendar } from "lucide-react";
 import { CourseCard } from "@/components/CourseCard";
 import { AddCourseDialog } from "@/components/AddCourseDialog";
+import { EditCourseDialog } from "@/components/EditCourseDialog";
 import { AddSemesterDialog } from "@/components/AddSemesterDialog";
-import { useCourses, useSemesters } from "@/hooks/useCourses";
+import { useCourses, useSemesters, Course } from "@/hooks/useCourses";
 import { toast } from "@/hooks/use-toast";
 
 export default function Courses() {
   const [showAddCourse, setShowAddCourse] = useState(false);
   const [showAddSemester, setShowAddSemester] = useState(false);
+  const [editingCourse, setEditingCourse] = useState<Course | null>(null);
   const { courses, loading, deleteCourse } = useCourses();
   const { semesters } = useSemesters();
 
@@ -22,6 +24,10 @@ export default function Courses() {
         description: "The course has been removed from your list.",
       });
     }
+  };
+
+  const handleEditCourse = (course: Course) => {
+    setEditingCourse(course);
   };
 
   // Calculate stats
@@ -162,6 +168,7 @@ export default function Courses() {
                   <CourseCard 
                     key={course.id} 
                     course={course}
+                    onEdit={handleEditCourse}
                     onDelete={handleDeleteCourse}
                   />
                 ))}
@@ -175,6 +182,11 @@ export default function Courses() {
       <AddCourseDialog 
         open={showAddCourse} 
         onOpenChange={setShowAddCourse} 
+      />
+      <EditCourseDialog
+        open={!!editingCourse}
+        onOpenChange={(open) => !open && setEditingCourse(null)}
+        course={editingCourse}
       />
       <AddSemesterDialog 
         open={showAddSemester} 
