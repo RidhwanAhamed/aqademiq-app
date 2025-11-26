@@ -8,12 +8,18 @@ import { VitePWA } from 'vite-plugin-pwa';
 export default defineConfig(({ command, mode }) => {
   const isDevMode = mode === 'development';
   const enableDevPWA = process.env.VITE_ENABLE_PWA_DEV === 'true';
-  const workboxConfig = {
+  const workboxConfig: {
+    globDirectory?: string;
+    globPatterns: string[];
+    runtimeCaching: any[];
+    navigateFallback: string;
+    navigateFallbackDenylist: RegExp[];
+  } = {
     globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
     runtimeCaching: [
       {
         urlPattern: /^https:\/\/thmyddcvpopzjbvmhbur\.supabase\.co\/.*$/,
-        handler: 'NetworkFirst',
+        handler: 'NetworkFirst' as const,
         options: {
           cacheName: 'supabase-api-cache',
           networkTimeoutSeconds: 10,
@@ -28,7 +34,7 @@ export default defineConfig(({ command, mode }) => {
       },
       {
         urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com\/.*$/,
-        handler: 'CacheFirst',
+        handler: 'CacheFirst' as const,
         options: {
           cacheName: 'google-fonts-cache',
           expiration: {
@@ -42,7 +48,7 @@ export default defineConfig(({ command, mode }) => {
       },
       {
         urlPattern: /\.(?:png|jpg|jpeg|svg|gif|webp)$/,
-        handler: 'CacheFirst',
+        handler: 'CacheFirst' as const,
         options: {
           cacheName: 'images-cache',
           expiration: {
