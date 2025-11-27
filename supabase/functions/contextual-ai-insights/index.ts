@@ -204,8 +204,6 @@ IMPORTANT: Return ONLY valid JSON without markdown code blocks:
         generatedText: generatedText
       };
     }
-      };
-    }
 
     // Ensure all required fields exist
     const result = {
