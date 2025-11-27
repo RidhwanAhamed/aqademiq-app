@@ -157,7 +157,7 @@ IMPORTANT: Return ONLY valid JSON without markdown code blocks:
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userMessage }
         ],
-        max_tokens: 500,
+        max_tokens: 1500,
       }),
     });
 
@@ -196,12 +196,36 @@ IMPORTANT: Return ONLY valid JSON without markdown code blocks:
       structuredInsight = JSON.parse(cleanedText);
     } catch (e) {
       console.error('JSON parsing failed, attempting to extract structured data:', e);
-      // If parsing fails, create structured format from text
+      
+      // Try to extract useful content from the raw text
+      let cleanedText = generatedText;
+      
+      // Remove any markdown code blocks
+      cleanedText = cleanedText.replace(/```json\s*/g, '').replace(/```\s*/g, '');
+      
+      // Try to extract the generatedText field if it exists partially
+      const generatedTextMatch = cleanedText.match(/"generatedText"\s*:\s*"([^"]+)/);
+      
+      // Try to extract array items
+      const sessionsMatch = cleanedText.match(/"suggestedSessions"\s*:\s*\[([\s\S]*?)\]/);
+      const tipsMatch = cleanedText.match(/"productivityTips"\s*:\s*\[([\s\S]*?)\]/);
+      const recsMatch = cleanedText.match(/"planningRecommendations"\s*:\s*\[([\s\S]*?)\]/);
+      
+      // Parse array strings into arrays
+      const parseArrayContent = (match: string | null) => {
+        if (!match) return [];
+        try {
+          const arrayContent = match.match(/"([^"]+)"/g);
+          return arrayContent ? arrayContent.map((s: string) => s.replace(/"/g, '')) : [];
+        } catch { return []; }
+      };
+      
       structuredInsight = {
-        suggestedSessions: [],
-        productivityTips: [],
-        planningRecommendations: [],
-        generatedText: generatedText
+        suggestedSessions: parseArrayContent(sessionsMatch?.[1] || null),
+        productivityTips: parseArrayContent(tipsMatch?.[1] || null),
+        planningRecommendations: parseArrayContent(recsMatch?.[1] || null),
+        generatedText: generatedTextMatch?.[1] || 
+          "Here are some insights based on your academic data. Please review the suggestions above for actionable recommendations."
       };
     }
 
@@ -212,6 +236,13 @@ IMPORTANT: Return ONLY valid JSON without markdown code blocks:
       planningRecommendations: structuredInsight.planningRecommendations || [],
       generatedText: structuredInsight.generatedText || generatedText
     };
+
+    // Clean up generatedText if it still contains JSON-like content
+    if (result.generatedText.includes('"suggestedSessions"') || 
+        result.generatedText.includes('```json') ||
+        result.generatedText.startsWith('{')) {
+      result.generatedText = "Here are AI-powered recommendations tailored to your academic situation. Review the study sessions, productivity tips, and planning recommendations above.";
+    }
 
     console.log('Generated AI insight:', { context, result });
 
