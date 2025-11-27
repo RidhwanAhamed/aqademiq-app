@@ -7,7 +7,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Target, Plus, Trophy, Clock, AlertTriangle } from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Target, Plus, Trophy, Clock, AlertTriangle, CalendarIcon } from "lucide-react";
+import { format, parse } from "date-fns";
 import { useState } from "react";
 
 interface AcademicGoal {
@@ -177,12 +180,23 @@ export function AcademicGoalsPanel({ goals, courses, onCreateGoal, onUpdateGoal 
 
                 <div className="space-y-2">
                   <Label htmlFor="target_date">Target Date</Label>
-                  <Input
-                    id="target_date"
-                    type="date"
-                    value={newGoal.target_date}
-                    onChange={(e) => setNewGoal(prev => ({ ...prev, target_date: e.target.value }))}
-                  />
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className="w-full justify-start text-left font-normal">
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {newGoal.target_date ? format(parse(newGoal.target_date, 'yyyy-MM-dd', new Date()), 'PPP') : "Pick a date"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0 bg-background border shadow-lg z-50" align="start" sideOffset={5}>
+                      <Calendar
+                        mode="single"
+                        selected={newGoal.target_date ? parse(newGoal.target_date, 'yyyy-MM-dd', new Date()) : undefined}
+                        onSelect={(date) => setNewGoal(prev => ({ ...prev, target_date: date ? format(date, 'yyyy-MM-dd') : '' }))}
+                        initialFocus
+                        className="pointer-events-auto rounded-md border-0"
+                      />
+                    </PopoverContent>
+                  </Popover>
                 </div>
               </div>
 
