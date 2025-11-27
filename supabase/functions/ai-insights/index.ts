@@ -36,12 +36,12 @@ serve(async (req) => {
   }
 
   try {
-    const openRouterApiKey = Deno.env.get('OPENROUTER_API_KEY');
+    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-    if (!openRouterApiKey) {
-      throw new Error('OPENROUTER_API_KEY not configured');
+    if (!lovableApiKey) {
+      throw new Error('LOVABLE_API_KEY not configured');
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -121,17 +121,17 @@ serve(async (req) => {
         `Keep all advice specific to this task and situation.`;
     };
 
-    // Call OpenRouter API
+    // Call Lovable AI Gateway
     const prompt = constructPrompt(requestData);
     
-    const aiResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${openRouterApiKey}`,
+        'Authorization': `Bearer ${lovableApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: "google/gemma-2-9b-it:free",
+        model: 'google/gemini-2.5-flash',
         messages: [
           {
             role: "system",
@@ -142,13 +142,14 @@ serve(async (req) => {
             content: prompt
           }
         ],
-        temperature: 0.7,
-        max_tokens: 1000
+        max_tokens: 1500
       }),
     });
 
     if (!aiResponse.ok) {
-      throw new Error(`OpenRouter API error: ${aiResponse.status}`);
+      const errorText = await aiResponse.text();
+      console.error('Lovable AI Gateway error:', aiResponse.status, errorText);
+      throw new Error(`Lovable AI Gateway error: ${aiResponse.status}`);
     }
 
     const aiData = await aiResponse.json();
