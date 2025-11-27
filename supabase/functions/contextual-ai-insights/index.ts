@@ -30,7 +30,7 @@ Provide 3-4 specific, actionable recommendations focusing on:
 3. Course-specific tactics
 4. Quick wins they can implement this week
 
-Keep advice practical and encouraging. Format as a JSON object with:
+Keep advice practical and encouraging. IMPORTANT: Return ONLY valid JSON without markdown code blocks, following this exact structure:
 {
   "suggestedSessions": ["session1", "session2", "session3"],
   "productivityTips": ["tip1", "tip2", "tip3"],
@@ -46,7 +46,7 @@ Analyze their situation and provide:
 3. Recovery strategies
 4. When to seek additional help
 
-Be direct but supportive. Format as JSON:
+Be direct but supportive. IMPORTANT: Return ONLY valid JSON without markdown code blocks:
 {
   "suggestedSessions": ["urgent session1", "urgent session2"],
   "productivityTips": ["priority tip1", "priority tip2"],
@@ -63,7 +63,7 @@ Provide targeted help:
 3. Resource recommendations
 4. Progress tracking methods
 
-Format as JSON:
+IMPORTANT: Return ONLY valid JSON without markdown code blocks:
 {
   "suggestedSessions": ["emergency session1", "emergency session2"],
   "productivityTips": ["study adjustment1", "study adjustment2"],
@@ -79,7 +79,7 @@ Help them build sustainable study habits:
 3. Motivation maintenance
 4. Environment optimization
 
-Be practical and psychology-informed. Format as JSON:
+Be practical and psychology-informed. IMPORTANT: Return ONLY valid JSON without markdown code blocks:
 {
   "suggestedSessions": ["habit-building session1", "habit-building session2"],
   "productivityTips": ["daily action1", "daily action2"],
@@ -96,7 +96,7 @@ Analyze and provide:
 3. Planning recommendations to get back on track
 4. Detailed action plan
 
-Format as JSON:
+IMPORTANT: Return ONLY valid JSON without markdown code blocks:
 {
   "suggestedSessions": ["targeted session1", "targeted session2", "targeted session3"],
   "productivityTips": ["course-specific tip1", "course-specific tip2", "course-specific tip3"],
@@ -113,7 +113,7 @@ Provide strategic overview:
 3. Strategic planning for balancing multiple courses
 4. Overall strategy summary
 
-Format as JSON:
+IMPORTANT: Return ONLY valid JSON without markdown code blocks:
 {
   "suggestedSessions": ["cross-course session1", "cross-course session2", "cross-course session3"],
   "productivityTips": ["balance tip1", "balance tip2", "balance tip3"],
@@ -131,7 +131,7 @@ Provide comprehensive dashboard insights:
 3. Strategic planning based on upcoming deadlines
 4. Motivational summary and action plan
 
-Format as JSON:
+IMPORTANT: Return ONLY valid JSON without markdown code blocks:
 {
   "suggestedSessions": ["priority session1", "priority session2", "priority session3"],
   "productivityTips": ["dashboard tip1", "dashboard tip2", "dashboard tip3"],
@@ -182,17 +182,28 @@ Format as JSON:
     const aiResponse = await response.json();
     let generatedText = aiResponse.choices[0].message.content;
 
-    // Try to parse as JSON, fallback to structured format
+    // Try to parse as JSON, handling markdown code blocks
     let structuredInsight;
     try {
-      structuredInsight = JSON.parse(generatedText);
+      // Remove markdown code blocks if present
+      let cleanedText = generatedText.trim();
+      if (cleanedText.startsWith('```json')) {
+        cleanedText = cleanedText.replace(/^```json\s*/,'').replace(/\s*```$/,'');
+      } else if (cleanedText.startsWith('```')) {
+        cleanedText = cleanedText.replace(/^```\s*/,'').replace(/\s*```$/,'');
+      }
+      
+      structuredInsight = JSON.parse(cleanedText);
     } catch (e) {
+      console.error('JSON parsing failed, attempting to extract structured data:', e);
       // If parsing fails, create structured format from text
       structuredInsight = {
         suggestedSessions: [],
         productivityTips: [],
         planningRecommendations: [],
         generatedText: generatedText
+      };
+    }
       };
     }
 
