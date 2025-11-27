@@ -99,13 +99,17 @@ export function AddHolidayDialog({ open, onOpenChange }: AddHolidayDialogProps) 
                     {startDate ? format(startDate, "PPP") : "Start date"}
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
+                <PopoverContent 
+                  className="w-auto p-0 bg-background border shadow-lg z-50" 
+                  align="start"
+                  sideOffset={5}
+                >
                   <Calendar
                     mode="single"
                     selected={startDate}
                     onSelect={setStartDate}
                     initialFocus
-                    className="pointer-events-auto"
+                    className="pointer-events-auto rounded-md border-0"
                   />
                 </PopoverContent>
               </Popover>
@@ -126,14 +130,18 @@ export function AddHolidayDialog({ open, onOpenChange }: AddHolidayDialogProps) 
                     {endDate ? format(endDate, "PPP") : "End date"}
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
+                <PopoverContent 
+                  className="w-auto p-0 bg-background border shadow-lg z-50" 
+                  align="start"
+                  sideOffset={5}
+                >
                   <Calendar
                     mode="single"
                     selected={endDate}
                     onSelect={setEndDate}
                     disabled={(date) => startDate ? date < startDate : false}
                     initialFocus
-                    className="pointer-events-auto"
+                    className="pointer-events-auto rounded-md border-0"
                   />
                 </PopoverContent>
               </Popover>
