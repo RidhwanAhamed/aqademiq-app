@@ -5,6 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useAuth } from "@/hooks/useAuth";
 import { useCourses } from "@/hooks/useCourses";
 import { useAssignments } from "@/hooks/useAssignments";
@@ -12,8 +14,8 @@ import { useExams } from "@/hooks/useExams";
 import { useUserStats } from "@/hooks/useUserStats";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Clock, BookOpen, Target, Calendar } from "lucide-react";
-import { format } from "date-fns";
+import { Clock, BookOpen, Target, Calendar, CalendarIcon } from "lucide-react";
+import { format, parse } from "date-fns";
 
 interface AddStudySessionDialogProps {
   open: boolean;
@@ -216,14 +218,24 @@ export function AddStudySessionDialog({ open, onOpenChange }: AddStudySessionDia
 
             <div className="space-y-2">
               <Label htmlFor="date">Date</Label>
-              <Input
-                id="date"
-                type="date"
-                value={formData.startDate}
-                max={format(new Date(), "yyyy-MM-dd")}
-                onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                required
-              />
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-full justify-start text-left font-normal">
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {formData.startDate ? format(parse(formData.startDate, 'yyyy-MM-dd', new Date()), 'PPP') : "Pick a date"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0 bg-background border shadow-lg z-50" align="start" sideOffset={5}>
+                  <CalendarComponent
+                    mode="single"
+                    selected={parse(formData.startDate, 'yyyy-MM-dd', new Date())}
+                    onSelect={(date) => setFormData({ ...formData, startDate: date ? format(date, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd') })}
+                    disabled={(date) => date > new Date()}
+                    initialFocus
+                    className="pointer-events-auto rounded-md border-0"
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
 
             <div className="space-y-2">
