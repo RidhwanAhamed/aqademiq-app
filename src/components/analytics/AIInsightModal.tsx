@@ -242,7 +242,7 @@ export function AIInsightModal({
                   </Card>
                 )}
 
-                {insights.generatedText && (
+                {insights.generatedText && !insights.generatedText.includes('```') && !insights.generatedText.startsWith('{') && (
                   <Card className="bg-gradient-card">
                     <CardContent className="p-4">
                       <div className="flex items-center gap-2 mb-3">
