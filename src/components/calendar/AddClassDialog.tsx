@@ -8,7 +8,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Plus, Clock, MapPin, Repeat, RotateCcw, Info } from 'lucide-react';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Plus, Clock, MapPin, Repeat, RotateCcw, Info, CalendarIcon } from 'lucide-react';
+import { format, parse } from 'date-fns';
 import { useRotationTemplates } from '@/hooks/useRotationTemplates';
 import { useCourses } from '@/hooks/useCourses';
 import { useSchedule } from '@/hooks/useSchedule';
@@ -273,13 +276,23 @@ export function AddClassDialog({ children }: AddClassDialogProps) {
           ) : (
             <div>
               <Label htmlFor="specific_date">Date *</Label>
-              <Input
-                id="specific_date"
-                type="date"
-                value={formData.specific_date}
-                onChange={(e) => setFormData({ ...formData, specific_date: e.target.value })}
-                required
-              />
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-full justify-start text-left font-normal">
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {formData.specific_date ? format(parse(formData.specific_date, 'yyyy-MM-dd', new Date()), 'PPP') : "Pick a date"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0 bg-background border shadow-lg z-50" align="start" sideOffset={5}>
+                  <Calendar
+                    mode="single"
+                    selected={formData.specific_date ? parse(formData.specific_date, 'yyyy-MM-dd', new Date()) : undefined}
+                    onSelect={(date) => setFormData({ ...formData, specific_date: date ? format(date, 'yyyy-MM-dd') : '' })}
+                    initialFocus
+                    className="pointer-events-auto rounded-md border-0"
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
           )}
 
