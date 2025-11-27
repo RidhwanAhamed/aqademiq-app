@@ -158,6 +158,8 @@ IMPORTANT: Return ONLY valid JSON without markdown code blocks:
           { role: 'user', content: userMessage }
         ],
         max_tokens: 500,
+        temperature: 0.7,
+        response_format: { type: "json_object" }
       }),
     });
 
@@ -182,20 +184,30 @@ IMPORTANT: Return ONLY valid JSON without markdown code blocks:
     const aiResponse = await response.json();
     let generatedText = aiResponse.choices[0].message.content;
 
-    // Try to parse as JSON, handling markdown code blocks
+    // Try to parse as JSON, handling markdown code blocks and various formats
     let structuredInsight;
     try {
       // Remove markdown code blocks if present
       let cleanedText = generatedText.trim();
-      if (cleanedText.startsWith('```json')) {
-        cleanedText = cleanedText.replace(/^```json\s*/,'').replace(/\s*```$/,'');
-      } else if (cleanedText.startsWith('```')) {
-        cleanedText = cleanedText.replace(/^```\s*/,'').replace(/\s*```$/,'');
+      
+      // Handle various markdown formats
+      cleanedText = cleanedText.replace(/^```json\s*/,'').replace(/\s*```$/,'');
+      cleanedText = cleanedText.replace(/^```\s*/,'').replace(/\s*```$/,'');
+      cleanedText = cleanedText.replace(/^`+/,'').replace(/`+$/,'');
+      
+      // Try to parse the cleaned text
+      structuredInsight = JSON.parse(cleanedText);
+      
+      // Validate the structure - if generatedText looks like JSON, it's invalid
+      if (structuredInsight.generatedText && structuredInsight.generatedText.trim().startsWith('{')) {
+        console.warn('generatedText contains JSON, reformatting...');
+        structuredInsight.generatedText = "AI insights have been organized into the sections above.";
       }
       
-      structuredInsight = JSON.parse(cleanedText);
     } catch (e) {
-      console.error('JSON parsing failed, attempting to extract structured data:', e);
+      console.error('JSON parsing failed:', e);
+      console.error('Raw response:', generatedText);
+      
       // If parsing fails, create structured format from text
       structuredInsight = {
         suggestedSessions: [],
