@@ -164,12 +164,12 @@ export function NativeCalendarView({ selectedDate, onDateChange }: NativeCalenda
 
 
   const handleTimeSlotClick = useCallback((date: Date, hour: number) => {
-    // This could open a quick event creation dialog
+    // Time slot clicks are now handled by EnhancedWeekView's AddCalendarEventDialog
     console.log('Time slot clicked:', date, hour);
   }, []);
 
   const handleDayClick = useCallback((date: Date) => {
-    // This could open a day agenda or quick event creation
+    // Day clicks are now handled by EnhancedMonthView's AddCalendarEventDialog
     console.log('Day clicked:', date);
   }, []);
 
