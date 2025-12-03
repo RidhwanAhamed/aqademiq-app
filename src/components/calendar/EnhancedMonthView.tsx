@@ -7,7 +7,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { CalendarEvent } from '@/hooks/useRealtimeCalendar';
 import { cn } from '@/lib/utils';
 import { ChevronLeft, ChevronRight, Plus, Calendar, Clock, MapPin } from 'lucide-react';
-import { AddClassDialog } from './AddClassDialog';
+import { AddCalendarEventDialog } from './AddCalendarEventDialog';
 
 interface EnhancedMonthViewProps {
   selectedDate: Date;
@@ -57,11 +57,19 @@ export function EnhancedMonthView({
     return events.filter(event => isSameDay(event.start, day));
   }, [events]);
 
-  const handleDayClick = useCallback((day: Date) => {
+  const handleDayClick = useCallback((day: Date, hasEvents: boolean = false) => {
     onDayClick(day);
+    // Only open dialog if day has no events (otherwise popover will show)
+    if (!hasEvents) {
+      setSelectedDayForEvent(day);
+      setShowAddDialog(true);
+    }
+  }, [onDayClick]);
+
+  const handleAddEventFromPopover = useCallback((day: Date) => {
     setSelectedDayForEvent(day);
     setShowAddDialog(true);
-  }, [onDayClick]);
+  }, []);
 
   const renderEventIndicator = (event: CalendarEvent) => {
     const hasConflict = conflicts.includes(event.id);
@@ -156,7 +164,7 @@ export function EnhancedMonthView({
           variant="outline"
           size="sm"
           className="w-full"
-          onClick={() => handleDayClick(day)}
+          onClick={() => handleAddEventFromPopover(day)}
         >
           <Plus className="w-4 h-4 mr-2" />
           Add Event
@@ -220,7 +228,7 @@ export function EnhancedMonthView({
                         isToday_ && "bg-primary/5 ring-1 ring-primary/20",
                         hasEvents && "bg-gradient-to-br from-white to-muted/20 dark:from-card dark:to-muted/10"
                       )}
-                      onClick={() => handleDayClick(day)}
+                      onClick={() => handleDayClick(day, hasEvents)}
                     >
                       <div className="flex items-center justify-between mb-2">
                         <span className={cn(
@@ -257,12 +265,13 @@ export function EnhancedMonthView({
         </div>
       </Card>
 
-      {/* Add Class Dialog */}
-      {showAddDialog && (
-        <AddClassDialog>
-          <div />
-        </AddClassDialog>
-      )}
+      {/* Add Calendar Event Dialog */}
+      <AddCalendarEventDialog
+        open={showAddDialog}
+        onOpenChange={setShowAddDialog}
+        initialDate={selectedDayForEvent || undefined}
+        onEventCreated={() => setSelectedDayForEvent(null)}
+      />
     </div>
   );
 }

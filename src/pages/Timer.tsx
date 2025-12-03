@@ -1,15 +1,15 @@
-import { useState, useEffect, useRef } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { AddStudySessionDialog } from "@/components/AddStudySessionDialog";
+import { TimerSettingsDialog } from "@/components/TimerSettingsDialog";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Play, Pause, RotateCcw, Clock, Coffee, Target, Plus, Maximize2, Minimize2, Settings, Volume2, VolumeX } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { AddStudySessionDialog } from "@/components/AddStudySessionDialog";
 import { useBackgroundTimer, type TimerMode } from "@/hooks/useBackgroundTimer";
-import { TimerSettingsDialog } from "@/components/TimerSettingsDialog";
+import { supabase } from "@/integrations/supabase/client";
+import { Clock, Coffee, Maximize2, Minimize2, Pause, Play, Plus, RotateCcw, Settings, Target, Volume2, VolumeX } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 
 export default function Timer() {
   const [showStudySessionDialog, setShowStudySessionDialog] = useState(false);

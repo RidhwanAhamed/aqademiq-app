@@ -1,23 +1,22 @@
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
-import { Plus, Calendar, Target, Zap, Clock, Brain } from "lucide-react";
-import { CourseCard } from "./CourseCard";
-import { TodayTimeline } from "./TodayTimeline";
-import { QuickStats } from "./QuickStats";
-import { AddAssignmentDialog } from "./AddAssignmentDialog";
-import { AddStudySessionDialog } from "./AddStudySessionDialog";
-import { useCourses } from "@/hooks/useCourses";
 import { useAssignments } from "@/hooks/useAssignments";
+import { useCourses } from "@/hooks/useCourses";
 import { useExams } from "@/hooks/useExams";
 import { useUserStats } from "@/hooks/useUserStats";
-import { RevisionTasksPanel } from "./RevisionTasksPanel";
-import { MarketplaceTeaserCard } from "./MarketplaceTeaserCard";
-import { InstallBanner } from "./InstallBanner";
-import { format, isAfter, isBefore, addDays } from "date-fns";
-import { AIInsightModal } from "./analytics/AIInsightModal";
 import { supabase } from "@/integrations/supabase/client";
+import { addDays, format, isAfter, isBefore } from "date-fns";
+import { Brain, Calendar, Clock, Plus, Target, Zap } from "lucide-react";
+import { useState } from "react";
+import { AddAssignmentDialog } from "./AddAssignmentDialog";
+import { AddStudySessionDialog } from "./AddStudySessionDialog";
+import { AIInsightModal } from "./analytics/AIInsightModal";
+import { CourseCard } from "./CourseCard";
+import { InstallBanner } from "./InstallBanner";
+import { MarketplaceTeaserCard } from "./MarketplaceTeaserCard";
+import { QuickStats } from "./QuickStats";
+import { RevisionTasksPanel } from "./RevisionTasksPanel";
+import { TodayTimeline } from "./TodayTimeline";
 
 export function Dashboard() {
   const [showAddDialog, setShowAddDialog] = useState(false);

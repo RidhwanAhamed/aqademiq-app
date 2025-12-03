@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { CalendarEvent } from '@/hooks/useRealtimeCalendar';
 import { cn } from '@/lib/utils';
 import { ChevronLeft, ChevronRight, Clock, MapPin, Plus } from 'lucide-react';
-import { AddClassDialog } from './AddClassDialog';
+import { AddCalendarEventDialog } from './AddCalendarEventDialog';
 
 const DAY_START_HOUR = 0;
 const DAY_END_HOUR = 24;
@@ -249,12 +249,14 @@ export function EnhancedWeekView({
         </div>
       </Card>
 
-      {/* Add Class Dialog */}
-      {showAddDialog && (
-        <AddClassDialog>
-          <div />
-        </AddClassDialog>
-      )}
+      {/* Add Calendar Event Dialog */}
+      <AddCalendarEventDialog
+        open={showAddDialog}
+        onOpenChange={setShowAddDialog}
+        initialDate={selectedTimeSlot?.date}
+        initialHour={selectedTimeSlot?.hour}
+        onEventCreated={() => setSelectedTimeSlot(null)}
+      />
     </div>
   );
 }
