@@ -284,3 +284,7 @@ const AboutAdaAI = () => {
 };
 
 export default AboutAdaAI;
+
+
+
+// this is just to make the latest commit work in vercel coz some how putting in private repo means only the owner's changes are deployed to the vercel
