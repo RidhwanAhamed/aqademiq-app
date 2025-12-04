@@ -1,8 +1,88 @@
-# Welcome to your Lovable project
+# Aqademiq - Academic Planning Platform
 
 ## Project info
 
 **URL**: https://lovable.dev/projects/48f8950b-43ad-4931-ad31-927b47b786b3
+
+## How to replace mock data with real API
+
+The calendar and scheduling features use an API abstraction layer in `src/services/api.ts`. 
+
+### Current Implementation (Supabase)
+The API helpers currently use Supabase directly:
+
+```typescript
+import { createScheduleBlock, detectScheduleConflicts, deleteScheduleBlock } from '@/services/api';
+
+// Create a calendar event
+const result = await createScheduleBlock({
+  title: 'Study Session',
+  specific_date: '2025-12-04',
+  start_time: '19:00',
+  end_time: '20:30',
+  source: 'ada-ai',
+  user_id: 'user-uuid'
+});
+
+// Check for conflicts
+const { conflicts } = await detectScheduleConflicts({
+  start_time: '19:00',
+  end_time: '20:30',
+  specific_date: '2025-12-04',
+  user_id: 'user-uuid'
+});
+
+// Undo/delete event
+await deleteScheduleBlock('block-id', 'user-uuid');
+```
+
+### Switching to Custom Backend API
+
+To replace Supabase with your own backend API, update `src/services/api.ts`:
+
+```typescript
+// Replace Supabase calls with axios/fetch:
+export const createScheduleBlock = async (payload) => {
+  const response = await axios.post('/api/calendar/events', payload);
+  return response.data;
+};
+
+export const detectScheduleConflicts = async (payload) => {
+  const response = await axios.post('/api/calendar/conflicts', payload);
+  return response.data;
+};
+
+export const deleteScheduleBlock = async (blockId, userId) => {
+  const response = await axios.delete(`/api/calendar/events/${blockId}`);
+  return response.data.success;
+};
+```
+
+### Ada AI Agentic Actions
+
+The Ada AI assistant (`supabase/functions/ai-chat/index.ts`) returns structured actions:
+
+```json
+{
+  "response": "I'll schedule that for you!",
+  "metadata": {
+    "actions": [
+      {
+        "type": "CREATE_EVENT",
+        "title": "DLCV Study Session",
+        "start_iso": "2025-12-04T19:00:00Z",
+        "end_iso": "2025-12-04T20:30:00Z"
+      }
+    ],
+    "has_actions": true
+  }
+}
+```
+
+The frontend (`src/components/AdaAIChat.tsx`) handles these actions with:
+1. Inline confirmation prompts
+2. Conflict detection before insert
+3. Undo functionality via toast action
 
 ## How can I edit this code?
 
