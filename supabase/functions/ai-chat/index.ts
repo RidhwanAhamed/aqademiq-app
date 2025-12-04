@@ -34,6 +34,7 @@ function checkRateLimit(identifier: string, maxRequests = 10, windowMs = 60000):
 }
 
 // Action schema specification for agentic responses
+// IMPORTANT: The AI must use LOCAL time without "Z" suffix so frontend treats times correctly
 const ACTION_SPEC = `
 ## AGENTIC RESPONSE FORMAT
 When the user asks to schedule, create, or add something to their calendar, respond with structured JSON:
@@ -44,19 +45,25 @@ When the user asks to schedule, create, or add something to their calendar, resp
     {
       "type": "CREATE_EVENT",
       "title": "Event title",
-      "start_iso": "2025-12-01T19:00:00Z",
-      "end_iso": "2025-12-01T20:30:00Z",
+      "start_iso": "2025-12-01T19:00:00",
+      "end_iso": "2025-12-01T20:30:00",
       "location": "optional location",
       "notes": "optional notes"
     }
   ]
 }
 
+## CRITICAL TIME FORMAT RULES:
+- **DO NOT** use "Z" suffix or timezone offsets in start_iso/end_iso
+- Times should be in LOCAL format: "YYYY-MM-DDTHH:MM:SS" (no Z at the end!)
+- When user says "10 AM", use "T10:00:00" NOT "T10:00:00Z"
+- Example: "tomorrow at 2pm" → "2025-12-05T14:00:00" (assuming tomorrow is Dec 5)
+
 ## ACTION TYPES:
 - CREATE_EVENT: Schedule a new calendar event
   - title (required): Clear, descriptive event name
-  - start_iso (required): ISO 8601 datetime for start
-  - end_iso (required): ISO 8601 datetime for end
+  - start_iso (required): ISO 8601 datetime in LOCAL time (no Z suffix!)
+  - end_iso (required): ISO 8601 datetime in LOCAL time (no Z suffix!)
   - location (optional): Where the event takes place
   - notes (optional): Additional details
 
