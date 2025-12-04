@@ -1,10 +1,10 @@
-import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useEffect, useState } from "react";
 
 interface GradeDialogProps {
   open: boolean;
@@ -15,29 +15,67 @@ interface GradeDialogProps {
 }
 
 export function GradeDialog({ open, onOpenChange, item, type, onGradeUpdated }: GradeDialogProps) {
-  const [gradePoints, setGradePoints] = useState(item?.grade_points?.toString() || '');
-  const [gradeTotal, setGradeTotal] = useState(item?.grade_total?.toString() || '100');
-  const [gradeReceived, setGradeReceived] = useState(item?.grade_received || '');
+  const [gradePoints, setGradePoints] = useState('');
+  const [gradeTotal, setGradeTotal] = useState('100');
+  const [gradeReceived, setGradeReceived] = useState('');
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
+  // Reset state when item changes or dialog opens
+  useEffect(() => {
+    if (open && item) {
+      setGradePoints(item.grade_points?.toString() || '');
+      setGradeTotal(item.grade_total?.toString() || '100');
+      setGradeReceived(item.grade_received || '');
+    }
+  }, [open, item]);
+
   const handleSave = async () => {
-    if (!item) return;
+    if (!item) {
+      console.error('No item provided to GradeDialog');
+      return;
+    }
 
     setLoading(true);
     try {
+      // Check if user is authenticated
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('You must be logged in to update grades');
+      }
+
       const table = type === 'assignment' ? 'assignments' : 'exams';
-      const { error } = await supabase
+      
+      console.log('Updating grade for:', { 
+        table, 
+        itemId: item.id, 
+        userId: user.id,
+        gradePoints, 
+        gradeTotal, 
+        gradeReceived 
+      });
+
+      const { data, error } = await supabase
         .from(table)
         .update({
           grade_points: gradePoints ? parseFloat(gradePoints) : null,
           grade_total: gradeTotal ? parseFloat(gradeTotal) : null,
           grade_received: gradeReceived || null,
-          updated_at: new Date().toISOString()
         })
-        .eq('id', item.id);
+        .eq('id', item.id)
+        .select();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error:', error);
+        throw error;
+      }
+
+      if (!data || data.length === 0) {
+        console.error('No rows updated - possible RLS policy issue or item not found');
+        throw new Error('Could not update grade. You may not have permission to edit this item.');
+      }
+
+      console.log('Grade updated successfully:', data);
 
       toast({
         title: "Grade Updated",
@@ -46,11 +84,11 @@ export function GradeDialog({ open, onOpenChange, item, type, onGradeUpdated }: 
 
       onGradeUpdated();
       onOpenChange(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating grade:', error);
       toast({
         title: "Error",
-        description: "Failed to update grade. Please try again.",
+        description: error?.message || "Failed to update grade. Please try again.",
         variant: "destructive",
       });
     } finally {

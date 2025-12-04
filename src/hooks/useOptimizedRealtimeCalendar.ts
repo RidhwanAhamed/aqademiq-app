@@ -49,10 +49,22 @@ export function useOptimizedRealtimeCalendar() {
     scheduleBlocks.forEach(block => {
       if (!block.is_active) return;
       
-      // Calculate next occurrence for recurring events
-      const today = new Date();
-      const startDate = new Date(today);
-      startDate.setDate(today.getDate() + (block.day_of_week! - today.getDay() + 7) % 7);
+      let startDate: Date;
+      
+      // Check if this is a non-recurring event with a specific date
+      if (block.specific_date && !block.is_recurring) {
+        // Use the specific date directly for non-recurring events
+        startDate = new Date(block.specific_date + 'T00:00:00');
+      } else if (block.day_of_week !== undefined && block.day_of_week !== null) {
+        // Calculate next occurrence for recurring events based on day_of_week
+        const today = new Date();
+        startDate = new Date(today);
+        startDate.setDate(today.getDate() + (block.day_of_week - today.getDay() + 7) % 7);
+      } else {
+        // Fallback: skip blocks with no valid date info
+        console.warn('Schedule block has no valid date information:', block.id);
+        return;
+      }
       
       const start = new Date(startDate);
       const [startHour, startMinute] = block.start_time.split(':').map(Number);
