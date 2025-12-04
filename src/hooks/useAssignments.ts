@@ -17,6 +17,7 @@ export interface Assignment {
   priority?: number | null;
   ai_generated_tasks?: any | null;
   grade_points?: number | null;
+  grade_total?: number | null;
   grade_received?: string | null;
   is_recurring?: boolean | null;
   recurrence_pattern?: string | null;
