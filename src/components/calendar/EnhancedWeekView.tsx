@@ -1,3 +1,6 @@
+// Week view grid responsible for rendering realtime events; replace mock
+// useRealtimeCalendar data via services/api -> /api/calendar/events in backend.
+// TODO: API -> /api/calendar/events
 import React, { useState, useCallback, useMemo } from 'react';
 import { format, startOfWeek, addDays, isSameDay, addWeeks, subWeeks, isToday } from 'date-fns';
 import { Card } from '@/components/ui/card';
@@ -72,9 +75,8 @@ export function EnhancedWeekView({
   const getEventsForSlot = useCallback((day: Date, hour: number) => {
     return events.filter(event => {
       if (!isSameDay(event.start, day)) return false;
-      const eventStartHour = event.start.getHours();
-      const eventEndHour = event.end.getHours();
-      return hour >= eventStartHour && hour < eventEndHour;
+      const startHourPosition = event.start.getHours() + event.start.getMinutes() / 60;
+      return startHourPosition >= hour && startHourPosition < hour + 1;
     });
   }, [events]);
 
@@ -236,9 +238,9 @@ export function EnhancedWeekView({
                     {/* Events */}
                     {slotEvents.map(event => {
                       const { top, height } = calculateEventPosition(event, dayIndex);
-                      return renderEventCard(event, { 
-                        top: top - (hour - DAY_START_HOUR) * 64, 
-                        height: Math.min(height, 60) 
+                      return renderEventCard(event, {
+                        top: top - (hour - DAY_START_HOUR) * 64,
+                        height
                       });
                     })}
                   </div>
