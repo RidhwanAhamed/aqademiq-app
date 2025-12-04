@@ -1,3 +1,8 @@
+/**
+ * AI Chat Edge Function with Agentic Capabilities
+ * Purpose: Process user messages and return structured actions for calendar/scheduling
+ * Backend integration: Lovable AI Gateway (google/gemini-2.5-flash)
+ */
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -28,6 +33,48 @@ function checkRateLimit(identifier: string, maxRequests = 10, windowMs = 60000):
   return true;
 }
 
+// Action schema specification for agentic responses
+const ACTION_SPEC = `
+## AGENTIC RESPONSE FORMAT
+When the user asks to schedule, create, or add something to their calendar, respond with structured JSON:
+
+{
+  "reply_markdown": "Your conversational response in markdown",
+  "actions": [
+    {
+      "type": "CREATE_EVENT",
+      "title": "Event title",
+      "start_iso": "2025-12-01T19:00:00Z",
+      "end_iso": "2025-12-01T20:30:00Z",
+      "location": "optional location",
+      "notes": "optional notes"
+    }
+  ]
+}
+
+## ACTION TYPES:
+- CREATE_EVENT: Schedule a new calendar event
+  - title (required): Clear, descriptive event name
+  - start_iso (required): ISO 8601 datetime for start
+  - end_iso (required): ISO 8601 datetime for end
+  - location (optional): Where the event takes place
+  - notes (optional): Additional details
+
+## WHEN TO USE ACTIONS:
+- User says "schedule X at Y time"
+- User says "add X to my calendar"
+- User says "create a study session for X"
+- User says "book time for X"
+- User says "remind me to X at Y"
+
+## WHEN NOT TO USE ACTIONS:
+- User is asking questions
+- User wants information or advice
+- User is chatting casually
+
+Always include reply_markdown even when returning actions. If no actions are needed, omit the actions array entirely and just respond normally.
+`;
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -36,21 +83,27 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
     const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
     
-    if (!openaiApiKey) {
-      throw new Error('OpenAI API key not configured');
+    // Try Lovable AI first, fallback to OpenAI
+    const apiKey = lovableApiKey || openaiApiKey;
+    const useGemini = !!lovableApiKey;
+    
+    if (!apiKey) {
+      throw new Error('No AI API key configured (LOVABLE_API_KEY or OPENAI_API_KEY)');
     }
 
-    console.log('Starting AI chat function with OpenAI API');
+    console.log(`Starting AI chat with ${useGemini ? 'Lovable AI (Gemini)' : 'OpenAI'}`);
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     
-    // Get user from auth header for rate limiting and security (optional)
+    // Get user from auth header
     const authHeader = req.headers.get('Authorization');
     const ip = req.headers.get('x-forwarded-for') || req.headers.get('cf-connecting-ip') || 'unknown';
     let user: any = null;
     let userId: string | null = null;
+    
     if (authHeader) {
       try {
         const token = authHeader.replace('Bearer ', '');
@@ -60,26 +113,17 @@ serve(async (req) => {
           userId = data.user.id;
         }
       } catch (e) {
-        console.log('Auth header present but user could not be resolved. Proceeding anonymous.');
+        console.log('Auth header present but user could not be resolved.');
       }
     }
 
-    // Rate limiting check
+    // Rate limiting
     const rlKey = userId ? `user:${userId}` : `ip:${ip}`;
-    if (!checkRateLimit(rlKey, 20, 60000)) { // 20 requests per minute
+    if (!checkRateLimit(rlKey, 20, 60000)) {
       console.log(`Rate limit exceeded for ${rlKey}`);
       return new Response(JSON.stringify({ error: 'Rate limit exceeded' }), {
         status: 429,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    // Log security event for authenticated users only
-    if (userId) {
-      await supabase.rpc('log_security_event', {
-        p_action: 'ai_chat_request',
-        p_resource_type: 'ai_chat',
-        p_details: { user_id: userId, timestamp: new Date().toISOString() }
       });
     }
 
@@ -92,16 +136,13 @@ serve(async (req) => {
       );
     }
 
-    console.log('Processing chat message:', message);
-    console.log('Conversation ID:', conversation_id || 'none');
+    console.log('Processing message:', message.substring(0, 100));
 
-    // Use resolved userId (may be null for anonymous)
-
-    // Fetch conversation history if conversation_id provided
+    // Fetch conversation history
     let conversationHistory: Array<{ role: string; content: string }> = [];
     if (conversation_id && userId) {
       try {
-        const { data: historyRows, error: historyError } = await supabase
+        const { data: historyRows } = await supabase
           .from('chat_messages')
           .select('message, is_user, created_at')
           .eq('conversation_id', conversation_id)
@@ -109,201 +150,188 @@ serve(async (req) => {
           .order('created_at', { ascending: true })
           .limit(20);
 
-        if (historyError) {
-          console.error('Error fetching conversation history:', historyError);
-        } else if (historyRows && historyRows.length > 0) {
+        if (historyRows && historyRows.length > 0) {
           conversationHistory = historyRows.map(row => ({
             role: row.is_user ? 'user' : 'assistant',
             content: row.message
           }));
-          console.log(`Loaded ${conversationHistory.length} previous messages from conversation`);
+          console.log(`Loaded ${conversationHistory.length} previous messages`);
         }
       } catch (error) {
         console.error('Failed to load conversation history:', error);
       }
     }
 
-    // Build context about user's current schedule if available
+    // Build user context
     let userContext = '';
     if (userId) {
       try {
-        // Get comprehensive user context for Ada AI
-        const [coursesResult, assignmentsResult, examsResult, studySessionsResult, userStatsResult] = await Promise.all([
-          supabase.from('courses').select('id, name, code, credits, progress_percentage, current_gpa').eq('user_id', userId).eq('is_active', true).limit(15),
-          supabase.from('assignments').select('id, title, due_date, is_completed, is_recurring, priority, estimated_hours').eq('user_id', userId).order('due_date', { ascending: true }).limit(20),
-          supabase.from('exams').select('id, title, exam_date, duration_minutes, study_hours_planned').eq('user_id', userId).gte('exam_date', new Date().toISOString()).limit(10),
-          supabase.from('study_sessions').select('total_time_minutes, session_date').eq('user_id', userId).gte('session_date', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()).limit(20),
-          supabase.from('user_stats').select('current_streak, longest_streak, total_study_hours, last_study_date').eq('user_id', userId).single()
+        const [coursesResult, assignmentsResult, examsResult, userStatsResult] = await Promise.all([
+          supabase.from('courses').select('id, name, code, credits').eq('user_id', userId).eq('is_active', true).limit(10),
+          supabase.from('assignments').select('id, title, due_date, is_completed, priority').eq('user_id', userId).eq('is_completed', false).order('due_date', { ascending: true }).limit(10),
+          supabase.from('exams').select('id, title, exam_date').eq('user_id', userId).gte('exam_date', new Date().toISOString()).limit(5),
+          supabase.from('user_stats').select('current_streak, total_study_hours').eq('user_id', userId).single()
         ]);
 
         const courses = coursesResult.data || [];
         const assignments = assignmentsResult.data || [];
         const exams = examsResult.data || [];
-        const studySessions = studySessionsResult.data || [];
         const userStats = userStatsResult.data;
+        const currentDate = new Date().toISOString();
 
         if (courses.length > 0 || assignments.length > 0 || exams.length > 0) {
-          const overdueTasks = assignments.filter(a => !a.is_completed && new Date(a.due_date) < new Date());
-          const upcomingDeadlines = assignments.filter(a => !a.is_completed && new Date(a.due_date) <= new Date(Date.now() + 7 * 24 * 60 * 60 * 1000));
-          const totalWeeklyStudyHours = studySessions.reduce((sum, session) => sum + (session.total_time_minutes / 60), 0);
-          const currentDate = new Date().toISOString().split('T')[0];
-          
-          userContext = `\n\n## User's Current Academic Context:
-
-### Active Courses (${courses.length}):
-${courses.map(c => `- ${c.code}: ${c.name} (${c.credits} credits, ${c.progress_percentage || 0}% complete, GPA: ${c.current_gpa || 'N/A'})`).join('\n')}
-
-### Assignment Status:
-- Total Active: ${assignments.filter(a => !a.is_completed).length}
-- Overdue: ${overdueTasks.length} ${overdueTasks.length > 0 ? `(${overdueTasks.map(a => a.title).join(', ')})` : ''}
-- Due This Week: ${upcomingDeadlines.length} ${upcomingDeadlines.length > 0 ? `(${upcomingDeadlines.map(a => `${a.title} - ${a.due_date}`).join(', ')})` : ''}
-- High Priority: ${assignments.filter(a => !a.is_completed && a.priority === 1).length}
-
-### Upcoming Exams:
-${exams.length > 0 ? exams.map(e => `- ${e.title}: ${e.exam_date} (${e.duration_minutes}min, ${e.study_hours_planned || 'TBD'} study hours planned)`).join('\n') : '- No upcoming exams'}
-
-### Study Performance:
-- Current Streak: ${userStats?.current_streak || 0} days
-- Longest Streak: ${userStats?.longest_streak || 0} days
-- Total Study Hours: ${userStats?.total_study_hours || 0}
-- Last Study Date: ${userStats?.last_study_date || 'Never'}
-- This Week's Study Time: ${totalWeeklyStudyHours.toFixed(1)} hours
-
-### Context Notes:
-- Current Date: ${currentDate}
-- User has ${overdueTasks.length > 0 ? 'OVERDUE TASKS that need immediate attention' : 'no overdue tasks'}
-- Study momentum: ${userStats?.current_streak > 3 ? 'Strong' : userStats?.current_streak > 0 ? 'Building' : 'Needs restart'}`;
+          userContext = `
+## User Context (${currentDate.split('T')[0]}):
+- Courses: ${courses.map(c => c.name).join(', ') || 'None'}
+- Pending assignments: ${assignments.length} (${assignments.slice(0, 3).map(a => a.title).join(', ')})
+- Upcoming exams: ${exams.length} (${exams.slice(0, 2).map(e => `${e.title} on ${e.exam_date.split('T')[0]}`).join(', ')})
+- Study streak: ${userStats?.current_streak || 0} days
+`;
         }
       } catch (error) {
         console.log('Could not fetch user context:', error);
       }
     }
-    // Cap userContext length to avoid oversized prompts
-    if (userContext && userContext.length > 1800) {
-      userContext = userContext.slice(0, 1800) + '…';
-    }
 
-    // Prepare prompts
-    const systemPrompt = [
-      'You are Ada, the academic assistant for Aqademiq.',
-      '- Be warm, concise, and action-oriented.',
-      '- Tailor advice to the user\'s level and upcoming deadlines.',
-      '- Prefer Aqademiq features before external tools.',
-      '',
-      'FORMAT ALL RESPONSES USING MARKDOWN:',
-      '1. Begin with a **bolded summary sentence**.',
-      '2. Use headings (##) to break sections (e.g., "## Key Takeaways", "## Next Steps").',
-      '3. Use bullet lists for steps or tips.',
-      '4. Highlight key terms in **bold** and *italics* for emphasis.',
-      '5. Use numbered lists for sequences (e.g., study plans, workflows).',
-      '6. Wrap code or commands in triple backticks for code blocks.',
-      '7. Include emojis sparingly to draw attention (✔️ 📚 🕒).',
-      '8. Keep lines under 80 characters so UI wraps cleanly.',
-      '9. Conclude with a one-line encouragement in *italics*.'
-    ].join('\n');
-    const minimalSystemPrompt = 'You are Ada, a concise academic assistant. Provide clear, actionable guidance with bullet-point next steps.';
+    // System prompt with action spec
+    const systemPrompt = `You are Ada, the intelligent academic assistant for Aqademiq.
 
-    const systemWithContext = userContext
-      ? `${systemPrompt}\n\nUser context:\n${userContext}`
-      : systemPrompt;
+## Your Role:
+- Help students manage their academic schedules
+- Create calendar events when requested
+- Provide study tips and academic advice
+- Be warm, concise, and action-oriented
 
-    // Log sizes
-    console.log('Prompt sizes', {
-      systemPromptLength: systemWithContext.length,
-      userContextLength: userContext.length,
-    });
+${ACTION_SPEC}
 
-    const makeBody = (sysPrompt: string) => ({
-      model: 'gpt-4o-mini',
+${userContext ? userContext : ''}
+
+## Response Guidelines:
+1. Start with a **bolded summary** when helpful
+2. Use markdown formatting (headers, bullets, bold)
+3. For scheduling requests, ALWAYS return the JSON format with actions
+4. Include start_iso and end_iso in ISO 8601 format with timezone
+5. Be conversational but efficient
+6. Current datetime for reference: ${new Date().toISOString()}
+`;
+
+    // Prepare API request
+    const apiUrl = useGemini 
+      ? 'https://ai.gateway.lovable.dev/v1/chat/completions'
+      : 'https://api.openai.com/v1/chat/completions';
+    
+    const model = useGemini ? 'google/gemini-2.5-flash' : 'gpt-4o-mini';
+
+    const requestBody = {
+      model,
       messages: [
-        { role: 'system', content: sysPrompt },
+        { role: 'system', content: systemPrompt },
         ...conversationHistory,
         { role: 'user', content: message }
       ],
       temperature: 0.7,
-      max_tokens: 1500
-    });
+      max_tokens: 2000
+    };
+
+    console.log('Calling AI API:', apiUrl);
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 20000);
-    let retried = false;
-    let usedFallback = false;
+    const timeoutId = setTimeout(() => controller.abort(), 25000);
 
-    let aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+    const aiResponse = await fetch(apiUrl, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${openaiApiKey}`,
+        'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(makeBody(systemWithContext)),
+      body: JSON.stringify(requestBody),
       signal: controller.signal
-    }).catch((e) => {
-      console.error('AI fetch error (initial):', e);
-      return null as any;
     });
+
     clearTimeout(timeoutId);
 
-    if (!aiResponse || !aiResponse.ok) {
-      retried = true;
-      usedFallback = true;
-      const errorBody = aiResponse ? await aiResponse.text().catch(()=>'') : 'no response';
-      console.error('OpenAI API error (initial):', {
-        status: aiResponse?.status,
-        statusText: aiResponse?.statusText,
-        body: errorBody
-      });
-
-      // Retry with minimal prompt and no context
-      const controller2 = new AbortController();
-      const timeoutId2 = setTimeout(() => controller2.abort(), 20000);
-      aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${openaiApiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(makeBody(minimalSystemPrompt)),
-        signal: controller2.signal
-      }).catch((e)=> {
-        console.error('AI fetch error (retry):', e);
-        return null as any;
-      });
-      clearTimeout(timeoutId2);
-
-      if (!aiResponse || !aiResponse.ok) {
-        const retryBody = aiResponse ? await aiResponse.text().catch(()=> '') : 'no response';
-        console.error('OpenAI API error (retry):', {
-          status: aiResponse?.status,
-          statusText: aiResponse?.statusText,
-          body: retryBody
-        });
-
-        const status = aiResponse?.status || 500;
-        let friendly = 'AI service error. Please try again later.';
-        if (status === 429) friendly = 'Rate limit exceeded. Please try again shortly.';
-        if (status === 400) friendly = 'Invalid request to AI service. Try rephrasing your message.';
-        return new Response(JSON.stringify({ error: friendly, retried, used_fallback: usedFallback }), {
-          status,
+    if (!aiResponse.ok) {
+      const errorBody = await aiResponse.text();
+      console.error('AI API error:', aiResponse.status, errorBody);
+      
+      // Handle specific error codes
+      if (aiResponse.status === 429) {
+        return new Response(JSON.stringify({ error: 'Rate limit exceeded. Please try again shortly.' }), {
+          status: 429,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
+      if (aiResponse.status === 402) {
+        return new Response(JSON.stringify({ error: 'AI credits exhausted. Please add funds.' }), {
+          status: 402,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      
+      throw new Error(`AI API error: ${aiResponse.status}`);
     }
 
     const aiResult = await aiResponse.json();
-    const response = aiResult.choices?.[0]?.message?.content ?? 'Sorry, I could not generate a response.';
+    const rawContent = aiResult.choices?.[0]?.message?.content ?? '';
 
-    console.log('AI Response generated successfully', { retried, usedFallback });
+    console.log('Raw AI response length:', rawContent.length);
+
+    // Parse response for actions
+    let parsedResponse = {
+      reply_markdown: rawContent,
+      actions: [] as any[]
+    };
+
+    // Try to extract JSON from response
+    try {
+      // Look for JSON block in response
+      const jsonMatch = rawContent.match(/\{[\s\S]*"reply_markdown"[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        if (parsed.reply_markdown) {
+          parsedResponse = {
+            reply_markdown: parsed.reply_markdown,
+            actions: parsed.actions || []
+          };
+          console.log('Extracted structured response with', parsedResponse.actions.length, 'actions');
+        }
+      } else {
+        // Check if entire response is JSON
+        if (rawContent.trim().startsWith('{')) {
+          const parsed = JSON.parse(rawContent);
+          if (parsed.reply_markdown) {
+            parsedResponse = {
+              reply_markdown: parsed.reply_markdown,
+              actions: parsed.actions || []
+            };
+          }
+        }
+      }
+    } catch (parseError) {
+      // Not JSON, use raw content as markdown
+      console.log('Response is plain markdown (no actions)');
+    }
+
+    // Validate actions
+    const validatedActions = parsedResponse.actions.filter(action => {
+      if (action.type === 'CREATE_EVENT') {
+        return action.title && action.start_iso && action.end_iso;
+      }
+      return false;
+    });
+
+    console.log('Validated actions:', validatedActions.length);
 
     return new Response(
       JSON.stringify({ 
-        response,
+        response: parsedResponse.reply_markdown,
         metadata: {
-          model: 'gpt-4o-mini',
-          provider: 'openai',
+          model,
+          provider: useGemini ? 'lovable-ai' : 'openai',
           timestamp: new Date().toISOString(),
           user_context_included: !!userContext,
-          retried,
-          used_fallback: usedFallback
+          actions: validatedActions,
+          has_actions: validatedActions.length > 0
         }
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -313,8 +341,12 @@ ${exams.length > 0 ? exams.map(e => `- ${e.title}: ${e.exam_date} (${e.duration_
     console.error('Error in AI chat:', error);
     return new Response(
       JSON.stringify({ 
-        response: "I'm sorry, I encountered an error processing your message. Please try again or contact support if the issue persists.",
-        error: error.message 
+        response: "I'm sorry, I encountered an error. Please try again.",
+        error: error.message,
+        metadata: {
+          actions: [],
+          has_actions: false
+        }
       }),
       {
         status: 500,
