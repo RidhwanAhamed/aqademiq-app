@@ -99,6 +99,8 @@ export function EnhancedWeekView({
   const renderEventCard = (event: CalendarEvent, style?: React.CSSProperties) => {
     const hasConflict = conflicts.includes(event.id);
     const isAllDay = event.end.getTime() - event.start.getTime() >= 24 * 60 * 60 * 1000;
+    // Check if event was created by Ada AI (stored in rotation_group field)
+    const isAdaCreated = (event.data as any)?.rotation_group === 'ada-ai';
 
     return (
       <div
@@ -118,7 +120,14 @@ export function EnhancedWeekView({
         draggable
         title={`${event.title} - ${format(event.start, 'HH:mm')} to ${format(event.end, 'HH:mm')}`}
       >
-        <div className="font-medium text-foreground truncate">{event.title}</div>
+        <div className="flex items-center gap-1">
+          <span className="font-medium text-foreground truncate flex-1">{event.title}</span>
+          {isAdaCreated && (
+            <span className="flex-shrink-0 px-1 py-0.5 text-[8px] font-semibold bg-gradient-to-r from-primary/20 to-secondary/20 text-primary rounded">
+              Ada
+            </span>
+          )}
+        </div>
         <div className="flex items-center gap-1 text-muted-foreground">
           <Clock className="w-3 h-3" />
           <span className="text-[10px]">

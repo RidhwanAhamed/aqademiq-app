@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useAuth } from '@/hooks/useAuth';
@@ -19,6 +19,7 @@ import { Label } from '@/components/ui/label';
 import { EnhancedFileUpload } from '@/components/EnhancedFileUpload';
 import { ConflictResolutionPanel } from '@/components/ConflictResolutionPanel';
 import { useAdvancedConflictDetection } from '@/hooks/useAdvancedConflictDetection';
+import { createScheduleBlock, detectScheduleConflicts, deleteScheduleBlock } from '@/services/api';
 import {
   Upload,
   Send,
@@ -89,6 +90,23 @@ interface AccessibilitySettings {
   focusOutlines: boolean;
 }
 
+// Agentic action types from AI
+interface AdaAction {
+  type: 'CREATE_EVENT';
+  title: string;
+  start_iso: string;
+  end_iso: string;
+  location?: string;
+  notes?: string;
+}
+
+interface PendingAction {
+  action: AdaAction;
+  status: 'pending' | 'confirmed' | 'cancelled';
+  conflicts?: ScheduleConflict[];
+  createdBlockId?: string;
+}
+
 interface AdaAIChatProps {
   isFullScreen?: boolean;
   onFullScreenToggle?: () => void;
@@ -115,6 +133,8 @@ export function AdaAIChat({
   const [welcomeMessageShown, setWelcomeMessageShown] = useState(false);
   const [showEnhancedUpload, setShowEnhancedUpload] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
+  const [pendingActions, setPendingActions] = useState<PendingAction[]>([]);
+  const [lastCreatedBlockId, setLastCreatedBlockId] = useState<string | null>(null);
   
   // Enhanced conflict detection
   const { 
@@ -576,6 +596,131 @@ export function AdaAIChat({
     return data;
   };
 
+  // Handle action confirmation from AI
+  const handleConfirmAction = useCallback(async (actionIndex: number) => {
+    if (!user) return;
+    
+    const pending = pendingActions[actionIndex];
+    if (!pending || pending.status !== 'pending') return;
+
+    try {
+      const action = pending.action;
+      const startDate = new Date(action.start_iso);
+      const endDate = new Date(action.end_iso);
+      
+      // Format for schedule_blocks table
+      const specificDate = startDate.toISOString().split('T')[0];
+      const startTime = startDate.toTimeString().slice(0, 5);
+      const endTime = endDate.toTimeString().slice(0, 5);
+      
+      // Check for conflicts first
+      const { conflicts } = await detectScheduleConflicts({
+        start_time: startTime,
+        end_time: endTime,
+        specific_date: specificDate,
+        user_id: user.id
+      });
+
+      if (conflicts.length > 0) {
+        // Update pending action with conflicts
+        setPendingActions(prev => prev.map((p, i) => 
+          i === actionIndex ? { ...p, conflicts } : p
+        ));
+        
+        toast({
+          title: 'Schedule Conflict Detected',
+          description: `This overlaps with ${conflicts[0].conflict_title}. Resolve the conflict to continue.`,
+          variant: 'destructive'
+        });
+        return;
+      }
+
+      // Create the schedule block
+      const result = await createScheduleBlock({
+        title: action.title,
+        specific_date: specificDate,
+        start_time: startTime,
+        end_time: endTime,
+        location: action.location,
+        notes: action.notes,
+        is_recurring: false,
+        source: 'ada-ai',
+        user_id: user.id
+      });
+
+      // Update action status
+      setPendingActions(prev => prev.map((p, i) => 
+        i === actionIndex ? { ...p, status: 'confirmed', createdBlockId: result.id } : p
+      ));
+      
+      setLastCreatedBlockId(result.id);
+
+      toast({
+        title: '✅ Event Created',
+        description: `"${action.title}" added to your calendar`,
+        action: (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleUndoAction(result.id)}
+          >
+            Undo
+          </Button>
+        )
+      });
+
+      // Save confirmation to chat
+      await saveChatMessage(
+        `✅ Done! I've added **"${action.title}"** to your calendar on ${specificDate} from ${startTime} to ${endTime}.`,
+        false,
+        undefined,
+        { action_confirmed: true, block_id: result.id }
+      );
+      
+      setMessages(prev => [...prev, {
+        id: `confirm-${Date.now()}`,
+        message: `✅ Done! I've added **"${action.title}"** to your calendar on ${specificDate} from ${startTime} to ${endTime}.`,
+        is_user: false,
+        created_at: new Date().toISOString(),
+        metadata: { action_confirmed: true }
+      }]);
+
+    } catch (error) {
+      console.error('Error confirming action:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to create event. Please try again.',
+        variant: 'destructive'
+      });
+    }
+  }, [user, pendingActions, toast]);
+
+  // Handle action cancellation
+  const handleCancelAction = useCallback((actionIndex: number) => {
+    setPendingActions(prev => prev.map((p, i) => 
+      i === actionIndex ? { ...p, status: 'cancelled' } : p
+    ));
+    
+    toast({
+      title: 'Action Cancelled',
+      description: 'The event was not added to your calendar.'
+    });
+  }, [toast]);
+
+  // Handle undo for created events
+  const handleUndoAction = useCallback(async (blockId: string) => {
+    if (!user) return;
+    
+    const success = await deleteScheduleBlock(blockId, user.id);
+    if (success) {
+      toast({
+        title: 'Event Removed',
+        description: 'The event has been removed from your calendar.'
+      });
+      setLastCreatedBlockId(null);
+    }
+  }, [user, toast]);
+
   const handleSendMessage = async () => {
     if (!inputMessage.trim() || !user || isProcessing) return;
 
@@ -619,7 +764,17 @@ export function AdaAIChat({
         setMessages(prev => [...prev, aiMessage]);
         playNotificationSound();
         
-        // Check if the response contains schedule data that should be added to calendar
+        // Check for agentic actions in the response
+        if (aiResponse.metadata?.has_actions && aiResponse.metadata?.actions?.length > 0) {
+          const newPendingActions: PendingAction[] = aiResponse.metadata.actions.map((action: AdaAction) => ({
+            action,
+            status: 'pending' as const,
+            conflicts: []
+          }));
+          setPendingActions(prev => [...prev, ...newPendingActions]);
+        }
+        
+        // Legacy: Check if the response contains schedule data that should be added to calendar
         if (aiResponse.metadata?.schedule_data && userMessage.toLowerCase().includes('add to calendar')) {
           await addToCalendar(aiResponse.metadata.schedule_data);
         }
@@ -1185,6 +1340,85 @@ export function AdaAIChat({
                       isLast={index === messages.length - 1}
                     />
                   ))}
+                  
+                  {/* Pending Actions Confirmation UI */}
+                  {pendingActions.filter(p => p.status === 'pending').map((pending, index) => {
+                    const action = pending.action;
+                    const startDate = new Date(action.start_iso);
+                    const endDate = new Date(action.end_iso);
+                    const dateStr = startDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+                    const startTime = startDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+                    const endTime = endDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+                    
+                    return (
+                      <div 
+                        key={`action-${index}`}
+                        className="flex justify-start animate-in slide-in-from-bottom-2 duration-300"
+                      >
+                        <div className="flex items-start gap-3 max-w-[85%]">
+                          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center shadow-lg">
+                            <CalendarPlus className="w-4 h-4 text-white" />
+                          </div>
+                          <Card className="p-4 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30 border-amber-200 dark:border-amber-800">
+                            <div className="space-y-3">
+                              <div className="flex items-center gap-2">
+                                <Badge variant="outline" className="bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 border-amber-300">
+                                  Confirm Action
+                                </Badge>
+                              </div>
+                              <p className="text-sm font-medium text-foreground">
+                                Ada wants to create: <strong>{action.title}</strong>
+                              </p>
+                              <div className="text-xs text-muted-foreground space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <Calendar className="w-3 h-3" />
+                                  <span>{dateStr}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Clock className="w-3 h-3" />
+                                  <span>{startTime} - {endTime}</span>
+                                </div>
+                                {action.location && (
+                                  <div className="flex items-center gap-2">
+                                    <span>📍</span>
+                                    <span>{action.location}</span>
+                                  </div>
+                                )}
+                              </div>
+                              
+                              {pending.conflicts && pending.conflicts.length > 0 && (
+                                <div className="p-2 bg-destructive/10 rounded-md border border-destructive/20">
+                                  <div className="flex items-center gap-2 text-destructive text-xs font-medium">
+                                    <AlertTriangle className="w-3 h-3" />
+                                    Conflict: {pending.conflicts[0].conflict_title}
+                                  </div>
+                                </div>
+                              )}
+                              
+                              <div className="flex gap-2 pt-2">
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleConfirmAction(pendingActions.indexOf(pending))}
+                                  className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white"
+                                >
+                                  <CheckCircle className="w-3 h-3 mr-1" />
+                                  Confirm
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleCancelAction(pendingActions.indexOf(pending))}
+                                >
+                                  <X className="w-3 h-3 mr-1" />
+                                  Cancel
+                                </Button>
+                              </div>
+                            </div>
+                          </Card>
+                        </div>
+                      </div>
+                    );
+                  })}
                   
                   {isProcessing && (
                     <div className="flex justify-start">
