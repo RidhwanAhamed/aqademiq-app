@@ -17,9 +17,9 @@ import { useTheme } from 'next-themes';
 import { colorThemes as themeColors, fontSizes as themeFontSizes } from '@/hooks/useThemeInit';
 
 const colorThemes = [
-  { name: 'Default Blue', id: 'default' },
+  { name: 'Aqademiq Purple', id: 'default' },
   { name: 'Forest Green', id: 'forest' },
-  { name: 'Purple Dream', id: 'purple' },
+  { name: 'Classic Blue', id: 'blue' },
   { name: 'Sunset Orange', id: 'sunset' },
   { name: 'Ocean Teal', id: 'ocean' },
   { name: 'Rose Pink', id: 'rose' },
