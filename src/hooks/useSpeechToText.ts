@@ -2,7 +2,59 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { cleanTranscript } from '@/utils/voice-cleaner';
 
-type SpeechRecognitionConstructor = typeof window.SpeechRecognition | typeof window.webkitSpeechRecognition;
+// Web Speech API type declarations
+interface SpeechRecognitionEvent extends Event {
+  resultIndex: number;
+  results: SpeechRecognitionResultList;
+}
+
+interface SpeechRecognitionErrorEvent extends Event {
+  error: string;
+  message?: string;
+}
+
+interface SpeechRecognitionResultList {
+  length: number;
+  item(index: number): SpeechRecognitionResult;
+  [index: number]: SpeechRecognitionResult;
+}
+
+interface SpeechRecognitionResult {
+  isFinal: boolean;
+  length: number;
+  item(index: number): SpeechRecognitionAlternative;
+  [index: number]: SpeechRecognitionAlternative;
+}
+
+interface SpeechRecognitionAlternative {
+  transcript: string;
+  confidence: number;
+}
+
+interface SpeechRecognitionInstance extends EventTarget {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  maxAlternatives: number;
+  start(): void;
+  stop(): void;
+  abort(): void;
+  onstart: ((this: SpeechRecognitionInstance, ev: Event) => void) | null;
+  onresult: ((this: SpeechRecognitionInstance, ev: SpeechRecognitionEvent) => void) | null;
+  onerror: ((this: SpeechRecognitionInstance, ev: SpeechRecognitionErrorEvent) => void) | null;
+  onend: ((this: SpeechRecognitionInstance, ev: Event) => void) | null;
+}
+
+interface SpeechRecognitionConstructor {
+  new (): SpeechRecognitionInstance;
+}
+
+declare global {
+  interface Window {
+    SpeechRecognition?: SpeechRecognitionConstructor;
+    webkitSpeechRecognition?: SpeechRecognitionConstructor;
+  }
+}
 
 interface UseSpeechToTextOptions {
   language?: string;
@@ -26,12 +78,6 @@ interface UseSpeechToTextReturn {
   resetTranscript: () => void;
 }
 
-declare global {
-  interface Window {
-    webkitSpeechRecognition: typeof SpeechRecognition;
-  }
-}
-
 /**
  * Wraps the Web Speech API to stream transcripts into Ada AI chat.
  * Replace this hook with a backend STT service (Gemini/AWS) when available.
@@ -45,11 +91,11 @@ export const useSpeechToText = (
   const [interimTranscript, setInterimTranscript] = useState('');
   const [finalChunk, setFinalChunk] = useState<FinalChunk | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   const bufferTimeoutRef = useRef<number | null>(null);
   const shouldAutoRestartRef = useRef(false);
 
-  const speechConstructor = useMemo<SpeechRecognitionConstructor | null>(() => {
+  const speechConstructor = useMemo(() => {
     if (typeof window === 'undefined') return null;
     return window.SpeechRecognition || window.webkitSpeechRecognition || null;
   }, []);
@@ -94,7 +140,7 @@ export const useSpeechToText = (
       setIsListening(true);
     };
 
-    recognition.onresult = (event: SpeechRecognitionEvent) => {
+    recognition.onresult = (event) => {
       let interimBuffer = '';
 
       for (let i = event.resultIndex; i < event.results.length; i++) {
@@ -115,7 +161,7 @@ export const useSpeechToText = (
       setInterimTranscript(interimBuffer);
     };
 
-    recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+    recognition.onerror = (event) => {
       const failure =
         event.error === 'not-allowed'
           ? 'Microphone access was denied. Please enable it in your browser permissions.'
