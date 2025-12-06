@@ -11,8 +11,13 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { SecurityHeaders } from "@/components/SecurityHeaders";
 import { OptimizedSecurityMonitor } from "@/components/OptimizedSecurityMonitor";
 import { queryClient } from "@/config/queryClient";
+import { useThemeInit } from "@/hooks/useThemeInit";
 
-// Lazy load heavy components for better performance
+// Theme initialization component
+function ThemeInitializer({ children }: { children: React.ReactNode }) {
+  useThemeInit();
+  return <>{children}</>;
+}
 const Calendar = lazy(() => import("./pages/Calendar"));
 const Ada = lazy(() => import("./pages/Ada"));
 const AboutAdaAI = lazy(() => import("./pages/AboutAdaAI"));
@@ -39,7 +44,8 @@ const App = () => (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          <TooltipProvider>
+          <ThemeInitializer>
+            <TooltipProvider>
             <SecurityHeaders />
             <OptimizedSecurityMonitor />
             <Toaster />
@@ -90,6 +96,7 @@ const App = () => (
             </Routes>
           </BrowserRouter>
           </TooltipProvider>
+          </ThemeInitializer>
         </ThemeProvider>
       </AuthProvider>
     </QueryClientProvider>
