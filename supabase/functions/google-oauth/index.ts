@@ -229,7 +229,7 @@ serve(async (req) => {
         }
 
         // Use the provided redirect URI or fall back to a default
-        const finalRedirectUri = redirectUri || `${url.origin}/auth/callback`;
+        const finalRedirectUri = redirectUri || `${url.origin}/auth-callback`;
 
         // Exchange code for tokens
         const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
