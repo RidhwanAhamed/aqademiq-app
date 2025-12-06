@@ -131,6 +131,8 @@ export function AdaAIChat({
   const [inputMessage, setInputMessage] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [conflicts, setConflicts] = useState<ScheduleConflict[]>([]);
+  const [showConflictPanel, setShowConflictPanel] = useState(false);
+  const [conflictsDismissed, setConflictsDismissed] = useState(false);
   const [messageCount, setMessageCount] = useState(0);
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -1684,19 +1686,67 @@ export function AdaAIChat({
         </div>
       </div>
 
-      {/* Enhanced Conflicts Panel with Resolution */}
-      {conflicts.length > 0 && (
-        <div className="absolute bottom-0 left-0 right-0 bg-background border-t p-4 shadow-lg animate-in slide-in-from-bottom-2 max-h-[40vh] overflow-y-auto">
-          <ConflictResolutionPanel 
-            onConflictResolved={(conflictId) => {
-              setConflicts(prev => prev.filter(c => c.conflict_id !== conflictId));
-            }}
-            onRefreshNeeded={() => {
-              // Refresh conflict detection
-              window.location.reload();
-            }}
-            className="border-0 shadow-none"
-          />
+      {/* Conflict Indicator Button - appears in corner when conflicts exist */}
+      {conflicts.length > 0 && !conflictsDismissed && !showConflictPanel && (
+        <Button
+          onClick={() => setShowConflictPanel(true)}
+          className="fixed bottom-24 right-6 z-50 h-12 w-12 rounded-full shadow-lg bg-orange-500 hover:bg-orange-600 text-white animate-pulse"
+          size="icon"
+          title="Schedule conflicts detected"
+        >
+          <AlertTriangle className="w-5 h-5" />
+          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+            {conflicts.length}
+          </span>
+        </Button>
+      )}
+
+      {/* Enhanced Conflicts Panel with Resolution - now as modal overlay */}
+      {showConflictPanel && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+          <div className="bg-background rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden animate-in zoom-in-95">
+            <div className="flex items-center justify-between p-4 border-b">
+              <h3 className="font-semibold flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-orange-500" />
+                Conflict Resolution Center
+              </h3>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setShowConflictPanel(false);
+                    setConflictsDismissed(true);
+                  }}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  Dismiss
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setShowConflictPanel(false)}
+                  className="h-8 w-8"
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+            <div className="overflow-y-auto max-h-[calc(80vh-60px)] p-4">
+              <ConflictResolutionPanel 
+                onConflictResolved={(conflictId) => {
+                  setConflicts(prev => prev.filter(c => c.conflict_id !== conflictId));
+                  if (conflicts.length <= 1) {
+                    setShowConflictPanel(false);
+                  }
+                }}
+                onRefreshNeeded={() => {
+                  window.location.reload();
+                }}
+                className="border-0 shadow-none"
+              />
+            </div>
+          </div>
         </div>
       )}
 
