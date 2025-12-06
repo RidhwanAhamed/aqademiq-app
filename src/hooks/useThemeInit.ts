@@ -2,19 +2,19 @@ import { useEffect } from 'react';
 
 const colorThemes = {
   default: {
-    primary: '221 83% 53%',
-    secondary: '210 40% 95%',
-    accent: '221 83% 53%',
+    primary: '262 83% 58%',
+    secondary: '270 95% 75%',
+    accent: '262 83% 58%',
   },
   forest: {
     primary: '142 76% 36%',
     secondary: '138 62% 47%',
     accent: '142 76% 36%',
   },
-  purple: {
-    primary: '262 83% 58%',
-    secondary: '270 95% 75%',
-    accent: '262 83% 58%',
+  blue: {
+    primary: '221 83% 53%',
+    secondary: '210 40% 95%',
+    accent: '221 83% 53%',
   },
   sunset: {
     primary: '25 95% 53%',
