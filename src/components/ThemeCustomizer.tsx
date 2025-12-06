@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -14,62 +14,15 @@ import {
   Check
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
+import { colorThemes as themeColors, fontSizes as themeFontSizes } from '@/hooks/useThemeInit';
 
 const colorThemes = [
-  {
-    name: 'Default Blue',
-    id: 'default',
-    colors: {
-      primary: 'hsl(221, 83%, 53%)',
-      secondary: 'hsl(210, 40%, 95%)',
-      accent: 'hsl(221, 83%, 53%)'
-    }
-  },
-  {
-    name: 'Forest Green',
-    id: 'forest',
-    colors: {
-      primary: 'hsl(142, 76%, 36%)',
-      secondary: 'hsl(138, 62%, 47%)',
-      accent: 'hsl(142, 76%, 36%)'
-    }
-  },
-  {
-    name: 'Purple Dream',
-    id: 'purple',
-    colors: {
-      primary: 'hsl(262, 83%, 58%)',
-      secondary: 'hsl(270, 95%, 75%)',
-      accent: 'hsl(262, 83%, 58%)'
-    }
-  },
-  {
-    name: 'Sunset Orange',
-    id: 'sunset',
-    colors: {
-      primary: 'hsl(25, 95%, 53%)',
-      secondary: 'hsl(33, 100%, 96%)',
-      accent: 'hsl(25, 95%, 53%)'
-    }
-  },
-  {
-    name: 'Ocean Teal',
-    id: 'ocean',
-    colors: {
-      primary: 'hsl(173, 80%, 40%)',
-      secondary: 'hsl(180, 100%, 97%)',
-      accent: 'hsl(173, 80%, 40%)'
-    }
-  },
-  {
-    name: 'Rose Pink',
-    id: 'rose',
-    colors: {
-      primary: 'hsl(330, 81%, 60%)',
-      secondary: 'hsl(322, 100%, 98%)',
-      accent: 'hsl(330, 81%, 60%)'
-    }
-  }
+  { name: 'Default Blue', id: 'default' },
+  { name: 'Forest Green', id: 'forest' },
+  { name: 'Purple Dream', id: 'purple' },
+  { name: 'Sunset Orange', id: 'sunset' },
+  { name: 'Ocean Teal', id: 'ocean' },
+  { name: 'Rose Pink', id: 'rose' },
 ];
 
 const fontSizes = [
@@ -85,23 +38,45 @@ export function ThemeCustomizer() {
   const [selectedFontSize, setSelectedFontSize] = useState('default');
   const [previewMode, setPreviewMode] = useState(false);
 
-  const applyColorTheme = (themeData: typeof colorThemes[0]) => {
+  // Load saved preferences on mount
+  useEffect(() => {
+    const savedColorTheme = localStorage.getItem('aqademiq-color-theme');
+    const savedFontSize = localStorage.getItem('aqademiq-font-size');
+    
+    if (savedColorTheme) setSelectedColorTheme(savedColorTheme);
+    if (savedFontSize) setSelectedFontSize(savedFontSize);
+  }, []);
+
+  const applyColorTheme = (themeId: string) => {
+    const themeData = themeColors[themeId as keyof typeof themeColors];
+    if (!themeData) return;
+    
     const root = document.documentElement;
     
-    if (previewMode) {
-      // Temporary preview
-      root.style.setProperty('--primary', themeData.colors.primary.match(/hsl\(([^)]+)\)/)![1]);
-      root.style.setProperty('--secondary', themeData.colors.secondary.match(/hsl\(([^)]+)\)/)![1]);
-      root.style.setProperty('--accent', themeData.colors.accent.match(/hsl\(([^)]+)\)/)![1]);
-    } else {
-      // Permanent application - this would need localStorage integration
-      root.style.setProperty('--primary', themeData.colors.primary.match(/hsl\(([^)]+)\)/)![1]);
-      root.style.setProperty('--secondary', themeData.colors.secondary.match(/hsl\(([^)]+)\)/)![1]);
-      root.style.setProperty('--accent', themeData.colors.accent.match(/hsl\(([^)]+)\)/)![1]);
-      
-      setSelectedColorTheme(themeData.id);
-      localStorage.setItem('aqademiq-color-theme', themeData.id);
+    // Apply HSL values
+    root.style.setProperty('--primary', themeData.primary);
+    root.style.setProperty('--secondary', themeData.secondary);
+    root.style.setProperty('--accent', themeData.accent);
+    
+    // Update gradient variables
+    root.style.setProperty('--gradient-primary', `linear-gradient(135deg, hsl(${themeData.primary}), hsl(${themeData.accent}))`);
+    root.style.setProperty('--gradient-progress', `linear-gradient(90deg, hsl(${themeData.primary}), hsl(${themeData.accent}))`);
+    root.style.setProperty('--ring', themeData.primary);
+    
+    if (!previewMode) {
+      setSelectedColorTheme(themeId);
+      localStorage.setItem('aqademiq-color-theme', themeId);
     }
+  };
+
+  const getThemeDisplayColors = (themeId: string) => {
+    const themeData = themeColors[themeId as keyof typeof themeColors];
+    if (!themeData) return { primary: '', secondary: '', accent: '' };
+    return {
+      primary: `hsl(${themeData.primary})`,
+      secondary: `hsl(${themeData.secondary})`,
+      accent: `hsl(${themeData.accent})`,
+    };
   };
 
   const applyFontSize = (size: typeof fontSizes[0]) => {
@@ -113,12 +88,15 @@ export function ThemeCustomizer() {
 
   const resetToDefaults = () => {
     const root = document.documentElement;
-    const defaultTheme = colorThemes[0];
     
-    // Reset colors
-    root.style.setProperty('--primary', defaultTheme.colors.primary.match(/hsl\(([^)]+)\)/)![1]);
-    root.style.setProperty('--secondary', defaultTheme.colors.secondary.match(/hsl\(([^)]+)\)/)![1]);
-    root.style.setProperty('--accent', defaultTheme.colors.accent.match(/hsl\(([^)]+)\)/)![1]);
+    // Reset colors using the centralized theme data
+    const defaultTheme = themeColors['default'];
+    root.style.setProperty('--primary', defaultTheme.primary);
+    root.style.setProperty('--secondary', defaultTheme.secondary);
+    root.style.setProperty('--accent', defaultTheme.accent);
+    root.style.setProperty('--gradient-primary', `linear-gradient(135deg, hsl(${defaultTheme.primary}), hsl(${defaultTheme.accent}))`);
+    root.style.setProperty('--gradient-progress', `linear-gradient(90deg, hsl(${defaultTheme.primary}), hsl(${defaultTheme.accent}))`);
+    root.style.setProperty('--ring', defaultTheme.primary);
     
     // Reset font size
     root.style.removeProperty('font-size');
@@ -135,8 +113,7 @@ export function ThemeCustomizer() {
     setPreviewMode(!previewMode);
     if (previewMode) {
       // Exit preview mode - restore saved theme
-      const savedTheme = colorThemes.find(t => t.id === selectedColorTheme) || colorThemes[0];
-      applyColorTheme(savedTheme);
+      applyColorTheme(selectedColorTheme);
     }
   };
 
@@ -219,39 +196,42 @@ export function ThemeCustomizer() {
       <Card className="p-6">
         <h4 className="font-medium mb-4">Color Themes</h4>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {colorThemes.map((colorTheme) => (
-            <div
-              key={colorTheme.id}
-              className={`p-4 rounded-lg border cursor-pointer transition-all ${
-                selectedColorTheme === colorTheme.id
-                  ? 'border-primary bg-primary/5'
-                  : 'border-border hover:border-primary/50'
-              }`}
-              onMouseEnter={() => previewMode && applyColorTheme(colorTheme)}
-              onClick={() => !previewMode && applyColorTheme(colorTheme)}
-            >
-              <div className="flex items-center justify-between mb-3">
-                <span className="font-medium text-sm">{colorTheme.name}</span>
-                {selectedColorTheme === colorTheme.id && (
-                  <Check className="w-4 h-4 text-primary" />
-                )}
+          {colorThemes.map((colorTheme) => {
+            const colors = getThemeDisplayColors(colorTheme.id);
+            return (
+              <div
+                key={colorTheme.id}
+                className={`p-4 rounded-lg border cursor-pointer transition-all ${
+                  selectedColorTheme === colorTheme.id
+                    ? 'border-primary bg-primary/5'
+                    : 'border-border hover:border-primary/50'
+                }`}
+                onMouseEnter={() => previewMode && applyColorTheme(colorTheme.id)}
+                onClick={() => !previewMode && applyColorTheme(colorTheme.id)}
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <span className="font-medium text-sm">{colorTheme.name}</span>
+                  {selectedColorTheme === colorTheme.id && (
+                    <Check className="w-4 h-4 text-primary" />
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <div
+                    className="w-8 h-8 rounded-full border-2 border-white shadow-sm"
+                    style={{ backgroundColor: colors.primary }}
+                  />
+                  <div
+                    className="w-8 h-8 rounded-full border-2 border-white shadow-sm"
+                    style={{ backgroundColor: colors.secondary }}
+                  />
+                  <div
+                    className="w-8 h-8 rounded-full border-2 border-white shadow-sm"
+                    style={{ backgroundColor: colors.accent }}
+                  />
+                </div>
               </div>
-              <div className="flex gap-2">
-                <div
-                  className="w-8 h-8 rounded-full border-2 border-white shadow-sm"
-                  style={{ backgroundColor: colorTheme.colors.primary }}
-                />
-                <div
-                  className="w-8 h-8 rounded-full border-2 border-white shadow-sm"
-                  style={{ backgroundColor: colorTheme.colors.secondary }}
-                />
-                <div
-                  className="w-8 h-8 rounded-full border-2 border-white shadow-sm"
-                  style={{ backgroundColor: colorTheme.colors.accent }}
-                />
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </Card>
 
