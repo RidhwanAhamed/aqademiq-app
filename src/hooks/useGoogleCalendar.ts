@@ -131,7 +131,7 @@ export function useGoogleCalendar() {
 
     setLoading(true);
     try {
-      const redirectUri = `${window.location.origin}/auth/callback`;
+      const redirectUri = `${window.location.origin}/auth-callback`;
       
       // Security: Validate redirect URI
       const isValidUri = await validateRedirectUri(redirectUri);
@@ -283,7 +283,7 @@ export function useGoogleCalendar() {
           action: 'callback', 
           code, 
           userId: user.id,
-          redirectUri: `${window.location.origin}/auth/callback`,
+          redirectUri: `${window.location.origin}/auth-callback`,
           state // Include state for server-side validation
         }
       });
