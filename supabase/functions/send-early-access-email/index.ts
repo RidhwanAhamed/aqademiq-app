@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { Resend } from "npm:resend@2.0.0";
+import { EMAIL_CONFIG, generateEmailFooter, generateEmailHeader } from "../_shared/email-config.ts";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
@@ -25,16 +26,14 @@ const handler = async (req: Request): Promise<Response> => {
     console.log("Sending early access confirmation email to:", email);
 
     const emailResponse = await resend.emails.send({
-      from: "Aqademiq <onboarding@resend.dev>",
+      from: EMAIL_CONFIG.senders.noreply,
       to: [email],
-      subject: "Welcome to Aqademiq Early Access! 🎓",
+      subject: `Welcome to ${EMAIL_CONFIG.branding.appName} Early Access! ${EMAIL_CONFIG.branding.logoEmoji}`,
       html: `
         <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
-          <div style="text-align: center; margin-bottom: 40px;">
-            <h1 style="color: #1a1a1a; font-size: 32px; font-weight: bold; margin: 0;">🎓 Aqademiq</h1>
-          </div>
+          ${generateEmailHeader()}
           
-          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 16px; padding: 32px; text-align: center; margin-bottom: 32px;">
+          <div style="background: linear-gradient(135deg, ${EMAIL_CONFIG.branding.gradientStart} 0%, ${EMAIL_CONFIG.branding.gradientEnd} 100%); border-radius: 16px; padding: 32px; text-align: center; margin-bottom: 32px;">
             <h2 style="color: white; font-size: 24px; margin: 0 0 16px 0;">You're on the list! ✨</h2>
             <p style="color: rgba(255, 255, 255, 0.9); font-size: 16px; margin: 0;">Thank you for joining our early access program for the AI-powered academic marketplace.</p>
           </div>
@@ -53,11 +52,7 @@ const handler = async (req: Request): Promise<Response> => {
             <p style="color: #4a5568; font-size: 14px; margin: 0;">We'll notify you as soon as the marketplace is ready!</p>
           </div>
           
-          <div style="border-top: 1px solid #e2e8f0; padding-top: 24px; text-align: center;">
-            <p style="color: #9ca3af; font-size: 12px; margin: 0;">
-              This email was sent to ${email} because you signed up for early access to Aqademiq.
-            </p>
-          </div>
+          ${generateEmailFooter(email)}
         </div>
       `,
     });
