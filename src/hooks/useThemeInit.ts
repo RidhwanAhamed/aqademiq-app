@@ -1,10 +1,11 @@
 import { useEffect } from 'react';
 
+// Custom themes - 'default' matches the original index.css values (purple-to-blue gradient)
 const colorThemes = {
   default: {
-    primary: '262 83% 58%',
-    secondary: '270 95% 75%',
-    accent: '262 83% 58%',
+    primary: '262 52% 47%',      // Original purple from index.css
+    secondary: '215 16% 92%',    // Original secondary from index.css
+    accent: '216 88% 60%',       // Original BLUE accent from index.css (creates gradient!)
   },
   forest: {
     primary: '142 76% 36%',
@@ -44,9 +45,9 @@ export function useThemeInit() {
   useEffect(() => {
     const root = document.documentElement;
     
-    // Restore saved color theme
+    // Restore saved color theme - only apply if NOT default
     const savedColorTheme = localStorage.getItem('aqademiq-color-theme');
-    if (savedColorTheme && colorThemes[savedColorTheme as keyof typeof colorThemes]) {
+    if (savedColorTheme && savedColorTheme !== 'default' && colorThemes[savedColorTheme as keyof typeof colorThemes]) {
       const theme = colorThemes[savedColorTheme as keyof typeof colorThemes];
       root.style.setProperty('--primary', theme.primary);
       root.style.setProperty('--secondary', theme.secondary);
@@ -57,6 +58,7 @@ export function useThemeInit() {
       root.style.setProperty('--gradient-progress', `linear-gradient(90deg, hsl(${theme.primary}), hsl(${theme.accent}))`);
       root.style.setProperty('--ring', theme.primary);
     }
+    // If default or no saved theme, don't override - let index.css handle it
     
     // Restore saved font size
     const savedFontSize = localStorage.getItem('aqademiq-font-size');
