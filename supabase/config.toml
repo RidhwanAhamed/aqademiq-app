@@ -324,7 +324,63 @@ inspector_port = 8083
 # The Deno major version to use.
 deno_version = 2
 
-# [edge_runtime.secrets]
+# Edge function configurations
+[functions.ai-chat]
+verify_jwt = false
+
+[functions.generate-embeddings]
+verify_jwt = false
+
+[functions.search-documents]
+verify_jwt = false
+
+[functions.contextual-ai-insights]
+verify_jwt = false
+
+[functions.enhanced-ocr-parser]
+verify_jwt = false
+
+[functions.advanced-schedule-parser]
+verify_jwt = false
+
+[functions.ocr-parser]
+verify_jwt = false
+
+[functions.google-oauth]
+verify_jwt = false
+
+[functions.google-signin-callback]
+verify_jwt = false
+
+[functions.google-calendar-sync]
+verify_jwt = false
+
+[functions.enhanced-google-calendar-sync]
+verify_jwt = false
+
+[functions.send-early-access-email]
+verify_jwt = false
+
+[functions.send-notification-email]
+verify_jwt = false
+
+[functions.enhanced-reminders]
+verify_jwt = false
+
+[functions.enhanced-schedule-parser]
+verify_jwt = false
+
+[functions.ai-insights]
+verify_jwt = false
+
+[functions.ai-schedule-parser]
+verify_jwt = false
+
+[functions.generate-recurring-assignments]
+verify_jwt = false
+
+[functions.security-middleware]
+verify_jwt = false
 # secret_key = "env(SECRET_VALUE)"
 
 [analytics]

@@ -1,7 +1,8 @@
 /**
- * AI Chat Edge Function with Agentic Capabilities
- * Purpose: Process user messages and return structured actions for calendar/scheduling
+ * AI Chat Edge Function with Agentic Capabilities and RAG
+ * Purpose: Process user messages with document context and return structured actions
  * Backend integration: Lovable AI Gateway (google/gemini-2.5-flash)
+ * RAG: Uses pgvector for semantic document search
  */
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -11,6 +12,68 @@ const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+/**
+ * Generate embedding for RAG query
+ */
+async function generateQueryEmbedding(query: string, apiKey: string): Promise<number[] | null> {
+  try {
+    const response = await fetch('https://api.openai.com/v1/embeddings', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'text-embedding-3-small',
+        input: query.slice(0, 8000),
+      }),
+    });
+    
+    if (!response.ok) {
+      console.log('Embedding API not available, skipping RAG');
+      return null;
+    }
+    
+    const result = await response.json();
+    return result.data[0].embedding;
+  } catch (error) {
+    console.log('RAG embedding generation failed:', error);
+    return null;
+  }
+}
+
+/**
+ * Search for relevant documents using vector similarity
+ */
+async function searchDocuments(
+  supabase: any, 
+  userId: string, 
+  queryEmbedding: number[],
+  courseId?: string
+): Promise<Array<{ content: string; source_type: string; file_name?: string; similarity: number }>> {
+  try {
+    const embeddingString = `[${queryEmbedding.join(',')}]`;
+    
+    const { data, error } = await supabase.rpc('search_documents', {
+      p_user_id: userId,
+      p_query_embedding: embeddingString,
+      p_match_threshold: 0.65,
+      p_match_count: 3,
+      p_course_id: courseId || null,
+    });
+    
+    if (error) {
+      console.log('Document search failed:', error);
+      return [];
+    }
+    
+    return data || [];
+  } catch (error) {
+    console.log('RAG search failed:', error);
+    return [];
+  }
+}
 
 // Rate limiting store (in-memory, resets on function restart)
 const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
@@ -134,7 +197,7 @@ serve(async (req) => {
       });
     }
 
-    const { message, conversation_id } = await req.json();
+    const { message, conversation_id, course_id } = await req.json();
 
     if (!message) {
       return new Response(
@@ -144,6 +207,38 @@ serve(async (req) => {
     }
 
     console.log('Processing message:', message.substring(0, 100));
+
+    // RAG: Search for relevant documents
+    let documentContext = '';
+    const openaiApiKeyForRAG = Deno.env.get('OPENAI_API_KEY');
+    
+    if (userId && openaiApiKeyForRAG) {
+      try {
+        const queryEmbedding = await generateQueryEmbedding(message, openaiApiKeyForRAG);
+        
+        if (queryEmbedding) {
+          const relevantDocs = await searchDocuments(supabase, userId, queryEmbedding, course_id);
+          
+          if (relevantDocs.length > 0) {
+            console.log(`RAG: Found ${relevantDocs.length} relevant documents`);
+            
+            const docContextParts = relevantDocs.map((doc, i) => {
+              const source = doc.file_name || doc.source_type || 'Document';
+              return `[Source ${i + 1}: ${source} (similarity: ${(doc.similarity * 100).toFixed(0)}%)]\n${doc.content}`;
+            });
+            
+            documentContext = `
+## Relevant Documents from User's Knowledge Base:
+${docContextParts.join('\n\n')}
+
+Use this context to provide more informed and personalized responses. Reference specific information when relevant.
+`;
+          }
+        }
+      } catch (ragError) {
+        console.log('RAG retrieval failed, continuing without document context:', ragError);
+      }
+    }
 
     // Fetch conversation history
     let conversationHistory: Array<{ role: string; content: string }> = [];
@@ -200,18 +295,21 @@ serve(async (req) => {
       }
     }
 
-    // System prompt with action spec
+    // System prompt with action spec and RAG context
     const systemPrompt = `You are Ada, the intelligent academic assistant for Aqademiq.
 
 ## Your Role:
 - Help students manage their academic schedules
 - Create calendar events when requested
 - Provide study tips and academic advice
+- Answer questions using the user's uploaded documents and course materials
 - Be warm, concise, and action-oriented
 
 ${ACTION_SPEC}
 
 ${userContext ? userContext : ''}
+
+${documentContext ? documentContext : ''}
 
 ## Response Guidelines:
 1. Start with a **bolded summary** when helpful
@@ -219,7 +317,8 @@ ${userContext ? userContext : ''}
 3. For scheduling requests, ALWAYS return the JSON format with actions
 4. Include start_iso and end_iso in ISO 8601 format with timezone
 5. Be conversational but efficient
-6. Current datetime for reference: ${new Date().toISOString()}
+6. When using information from user documents, reference the source
+7. Current datetime for reference: ${new Date().toISOString()}
 `;
 
     // Prepare API request
