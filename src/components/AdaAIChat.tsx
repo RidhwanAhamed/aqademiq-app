@@ -477,7 +477,49 @@ export function AdaAIChat({
           ocrResult = enhancedOcrResult;
         }
 
-        console.log(`OCR completed: ${ocrResult.text?.length || 0} characters extracted`);
+        console.log(`OCR completed: ${ocrResult?.text?.length || 0} characters extracted`);
+      }
+
+      // Step 2: Index document for RAG (generate embeddings)
+      if (ocrResult?.text && ocrResult.text.length > 50) {
+        // Update progress message
+        if (progressMessage) {
+          await supabase
+            .from('chat_messages')
+            .update({
+              message: '⏳ Processing your file...\n\n📤 **Phase 1:** Uploading ✓\n🔍 **Phase 2:** Extracting text (OCR) ✓\n🧠 **Phase 2.5:** Indexing for AI search...',
+              metadata: { processing: true, phase: 'indexing' }
+            })
+            .eq('id', progressMessage.id);
+          
+          setMessages(prev => prev.map(m => 
+            m.id === progressMessage.id 
+              ? { ...m, message: '⏳ Processing your file...\n\n📤 **Phase 1:** Uploading ✓\n🔍 **Phase 2:** Extracting text (OCR) ✓\n🧠 **Phase 2.5:** Indexing for AI search...' }
+              : m
+          ));
+        }
+
+        try {
+          const { error: embeddingError } = await supabase.functions.invoke('generate-embeddings', {
+            body: { 
+              file_upload_id: fileId,
+              source_type: 'timetable',
+              metadata: { 
+                file_name: file.name,
+                file_type: file.type,
+                indexed_at: new Date().toISOString()
+              }
+            }
+          });
+          
+          if (embeddingError) {
+            console.log('Embedding generation failed (non-blocking):', embeddingError);
+          } else {
+            console.log('✅ Document indexed for RAG search');
+          }
+        } catch (embError) {
+          console.log('Embedding error (non-blocking):', embError);
+        }
       }
 
       // Update progress: OCR complete, now parsing
