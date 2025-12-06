@@ -3,34 +3,34 @@ import { useEffect } from 'react';
 // Custom themes - 'default' matches the original index.css values (purple-to-blue gradient)
 const colorThemes = {
   default: {
-    primary: '262 52% 47%',      // Original purple from index.css
-    secondary: '215 16% 92%',    // Original secondary from index.css
-    accent: '216 88% 60%',       // Original BLUE accent from index.css (creates gradient!)
+    primary: '262 52% 47%',      // Purple
+    secondary: '215 16% 92%',
+    accent: '216 88% 60%',       // Blue → Purple-Blue gradient
   },
   forest: {
-    primary: '142 76% 36%',
-    secondary: '138 62% 47%',
-    accent: '142 76% 36%',
+    primary: '142 76% 36%',      // Deep Green
+    secondary: '138 62% 90%',
+    accent: '160 84% 39%',       // Teal → Green-Teal gradient
   },
   blue: {
-    primary: '221 83% 53%',
+    primary: '221 83% 53%',      // Royal Blue
     secondary: '210 40% 95%',
-    accent: '221 83% 53%',
+    accent: '199 89% 48%',       // Cyan → Blue-Cyan gradient
   },
   sunset: {
-    primary: '25 95% 53%',
+    primary: '25 95% 53%',       // Orange
     secondary: '33 100% 96%',
-    accent: '25 95% 53%',
+    accent: '350 89% 60%',       // Rose → Orange-Rose gradient
   },
   ocean: {
-    primary: '173 80% 40%',
+    primary: '173 80% 40%',      // Teal
     secondary: '180 100% 97%',
-    accent: '173 80% 40%',
+    accent: '210 80% 55%',       // Blue → Teal-Blue gradient
   },
   rose: {
-    primary: '330 81% 60%',
+    primary: '330 81% 60%',      // Rose Pink
     secondary: '322 100% 98%',
-    accent: '330 81% 60%',
+    accent: '280 70% 60%',       // Violet → Rose-Violet gradient
   },
 };
 
