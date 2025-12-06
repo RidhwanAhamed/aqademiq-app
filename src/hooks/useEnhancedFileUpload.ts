@@ -6,7 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 export interface EnhancedFileUploadState {
   id: string;
   file: File;
-  status: 'uploading' | 'processing' | 'ocr_completed' | 'parsed' | 'error' | 'success';
+  status: 'uploading' | 'processing' | 'ocr_completed' | 'indexing' | 'parsed' | 'error' | 'success';
   progress: number;
   error?: string;
   ocrText?: string;
@@ -16,7 +16,11 @@ export interface EnhancedFileUploadState {
     ocrConfidence?: number;
     documentType?: string;
     processingTime?: number;
+    chunksIndexed?: number;
   };
+  // Future-proof: course association for per-course storage
+  courseId?: string;
+  sourceType?: 'upload' | 'syllabus' | 'notes' | 'lecture' | 'textbook';
 }
 
 export function useEnhancedFileUpload() {
@@ -25,7 +29,14 @@ export function useEnhancedFileUpload() {
   const [uploadStates, setUploadStates] = useState<EnhancedFileUploadState[]>([]);
   const [isUploading, setIsUploading] = useState(false);
 
-  const uploadFile = useCallback(async (file: File): Promise<string | null> => {
+  const uploadFile = useCallback(async (
+    file: File, 
+    options?: { 
+      courseId?: string; 
+      sourceType?: 'upload' | 'syllabus' | 'notes' | 'lecture' | 'textbook';
+      skipScheduleParsing?: boolean;
+    }
+  ): Promise<string | null> => {
     if (!user) {
       toast({
         title: 'Authentication Required',
@@ -41,7 +52,9 @@ export function useEnhancedFileUpload() {
       file,
       status: 'uploading',
       progress: 0,
-      retryCount: 0
+      retryCount: 0,
+      courseId: options?.courseId,
+      sourceType: options?.sourceType || 'upload',
     };
 
     setUploadStates(prev => [...prev, uploadState]);
@@ -90,8 +103,15 @@ export function useEnhancedFileUpload() {
           : state
       ));
 
-      // Process with enhanced AI
-      await processWithEnhancedAI(fileRecord.id, file, uploadId);
+      // Process with enhanced AI (OCR + RAG indexing + optional schedule parsing)
+      await processWithEnhancedAI(
+        fileRecord.id, 
+        file, 
+        uploadId, 
+        options?.courseId, 
+        options?.sourceType || 'upload',
+        options?.skipScheduleParsing
+      );
 
       return fileRecord.id;
 
@@ -121,8 +141,17 @@ export function useEnhancedFileUpload() {
     }
   }, [user, toast]);
 
-  const processWithEnhancedAI = async (fileId: string, file: File, uploadId: string) => {
+  const processWithEnhancedAI = async (
+    fileId: string, 
+    file: File, 
+    uploadId: string,
+    courseId?: string,
+    sourceType: string = 'upload',
+    skipScheduleParsing?: boolean
+  ) => {
     try {
+      let ocrText: string | undefined;
+
       // Step 1: Enhanced OCR
       if (file.type.startsWith('image/') || file.type === 'application/pdf') {
         const base64 = await fileToBase64(file);
@@ -136,6 +165,8 @@ export function useEnhancedFileUpload() {
         });
 
         if (ocrError) throw ocrError;
+
+        ocrText = ocrResult.text;
 
         setUploadStates(prev => prev.map(state => 
           state.id === uploadId 
@@ -151,34 +182,93 @@ export function useEnhancedFileUpload() {
         ));
       }
 
-      // Step 2: Advanced parsing
-      const { data: parseResult, error: parseError } = await supabase.functions.invoke('advanced-schedule-parser', {
-        body: { 
-          file_id: fileId,
-          user_id: user.id,
-          enable_conflict_detection: true
-        }
-      });
+      // Step 2: Generate embeddings for RAG (if OCR was successful)
+      if (ocrText && ocrText.trim().length > 50) {
+        setUploadStates(prev => prev.map(state => 
+          state.id === uploadId 
+            ? { ...state, status: 'indexing' }
+            : state
+        ));
 
-      if (parseError) throw parseError;
-
-      // Update final state
-      setUploadStates(prev => prev.map(state => 
-        state.id === uploadId 
-          ? { 
-              ...state, 
-              status: 'success', 
-              parsedData: parseResult.schedule_data,
-              processingStats: {
-                ...state.processingStats,
-                documentType: parseResult.document_type,
-                processingTime: parseResult.processing_time
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          
+          const { data: embeddingResult, error: embeddingError } = await supabase.functions.invoke('generate-embeddings', {
+            body: { 
+              file_upload_id: fileId,
+              course_id: courseId || null,
+              source_type: sourceType,
+              metadata: {
+                file_name: file.name,
+                file_type: file.type,
               }
-            }
-          : state
-      ));
+            },
+            headers: session?.access_token ? {
+              Authorization: `Bearer ${session.access_token}`
+            } : undefined
+          });
 
-    } catch (error) {
+          if (embeddingError) {
+            console.error('Embedding generation failed:', embeddingError);
+            // Don't throw - embeddings are optional, continue with parsing
+          } else {
+            console.log('Embeddings generated:', embeddingResult);
+            
+            setUploadStates(prev => prev.map(state => 
+              state.id === uploadId 
+                ? { 
+                    ...state, 
+                    processingStats: {
+                      ...state.processingStats,
+                      chunksIndexed: embeddingResult.chunks_processed
+                    }
+                  }
+                : state
+            ));
+          }
+        } catch (embeddingError) {
+          console.error('RAG indexing failed:', embeddingError);
+          // Continue without RAG - it's an enhancement, not a requirement
+        }
+      }
+
+      // Step 3: Advanced schedule parsing (optional)
+      if (!skipScheduleParsing) {
+        const { data: parseResult, error: parseError } = await supabase.functions.invoke('advanced-schedule-parser', {
+          body: { 
+            file_id: fileId,
+            user_id: user?.id,
+            enable_conflict_detection: true
+          }
+        });
+
+        if (parseError) throw parseError;
+
+        // Update final state
+        setUploadStates(prev => prev.map(state => 
+          state.id === uploadId 
+            ? { 
+                ...state, 
+                status: 'success', 
+                parsedData: parseResult.schedule_data,
+                processingStats: {
+                  ...state.processingStats,
+                  documentType: parseResult.document_type,
+                  processingTime: parseResult.processing_time
+                }
+              }
+            : state
+        ));
+      } else {
+        // Just mark as success without parsing
+        setUploadStates(prev => prev.map(state => 
+          state.id === uploadId 
+            ? { ...state, status: 'success' }
+            : state
+        ));
+      }
+
+    } catch (error: any) {
       throw new Error(`AI processing failed: ${error.message}`);
     }
   };
