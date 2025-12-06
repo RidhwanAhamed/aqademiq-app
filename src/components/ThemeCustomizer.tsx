@@ -135,13 +135,13 @@ export function ThemeCustomizer() {
             {previewMode ? 'Exit Preview' : 'Preview Mode'}
           </Button>
           <Button
-            variant="outline"
+            variant="secondary"
             size="sm"
             onClick={resetToDefaults}
             className="gap-2"
           >
             <RotateCcw className="w-4 h-4" />
-            Reset
+            Reset to Default
           </Button>
         </div>
       </div>
