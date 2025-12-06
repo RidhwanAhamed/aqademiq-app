@@ -785,10 +785,12 @@ async function updateLocalEventFromGoogle(mapping: any, googleEvent: any, supaba
         };
         
         if (googleEvent.start?.dateTime) {
-          const startDate = new Date(googleEvent.start.dateTime);
-          const endDate = new Date(googleEvent.end.dateTime);
-          updateData.start_time = startDate.toTimeString().slice(0, 8);
-          updateData.end_time = endDate.toTimeString().slice(0, 8);
+          // Extract local time directly from ISO string to preserve timezone
+          const startLocal = extractLocalTimeFromISO(googleEvent.start.dateTime);
+          const endLocal = extractLocalTimeFromISO(googleEvent.end.dateTime);
+          updateData.start_time = startLocal.time;
+          updateData.end_time = endLocal.time;
+          updateData.specific_date = startLocal.date;
         }
         break;
 
@@ -848,14 +850,46 @@ async function updateLocalEventFromGoogle(mapping: any, googleEvent: any, supaba
   }
 }
 
+// Helper to extract local time from ISO datetime string (preserves timezone)
+function extractLocalTimeFromISO(isoString: string): { time: string; date: string } {
+  // ISO format: "2025-12-14T06:00:00+04:00" or "2025-12-14T06:00:00Z"
+  // Extract the time portion directly without timezone conversion
+  const match = isoString.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}:\d{2})/);
+  if (match) {
+    return { date: match[1], time: match[2] };
+  }
+  // Fallback for date-only format "2025-12-14"
+  if (isoString.match(/^\d{4}-\d{2}-\d{2}$/)) {
+    return { date: isoString, time: '00:00:00' };
+  }
+  // Final fallback using Date object (may have timezone issues)
+  const d = new Date(isoString);
+  return {
+    date: d.toISOString().slice(0, 10),
+    time: d.toTimeString().slice(0, 8)
+  };
+}
+
+// Helper to extract timezone from ISO string
+function extractTimezoneFromISO(isoString: string): string | null {
+  // Match timezone offset like +04:00, -05:00, or Z
+  const match = isoString.match(/([+-]\d{2}:\d{2}|Z)$/);
+  return match ? match[1] : null;
+}
+
 async function createLocalEventFromGoogle(userId: string, googleEvent: any, supabase: any) {
   const startTime = googleEvent.start?.dateTime || googleEvent.start?.date;
   const endTime = googleEvent.end?.dateTime || googleEvent.end?.date;
   
   if (!startTime || !endTime) return;
 
-  const start = new Date(startTime);
-  const end = new Date(endTime);
+  // Extract local time directly from ISO string to preserve original timezone
+  const startLocal = extractLocalTimeFromISO(startTime);
+  const endLocal = extractLocalTimeFromISO(endTime);
+  
+  // For duration calculation, we still need Date objects
+  const startDate = new Date(startTime);
+  const endDate = new Date(endTime);
   
   // Determine event type based on title/description
   const title = googleEvent.summary || 'Imported Event';
@@ -865,15 +899,15 @@ async function createLocalEventFromGoogle(userId: string, googleEvent: any, supa
   let entityId: string;
 
   if (title.toLowerCase().includes('exam') || title.toLowerCase().includes('test')) {
-    // Create as exam
+    // Create as exam - store the original datetime with timezone preserved
     const { data: exam, error } = await supabase
       .from('exams')
       .insert({
         user_id: userId,
         course_id: null, // No course mapping for imported events
         title,
-        exam_date: start.toISOString(),
-        duration_minutes: Math.round((end.getTime() - start.getTime()) / 60000),
+        exam_date: startTime, // Keep original ISO string with timezone
+        duration_minutes: Math.round((endDate.getTime() - startDate.getTime()) / 60000),
         location: googleEvent.location,
         notes: `Imported from Google Calendar: ${description}`,
       })
@@ -891,7 +925,7 @@ async function createLocalEventFromGoogle(userId: string, googleEvent: any, supa
         user_id: userId,
         course_id: null,
         title,
-        due_date: start.toISOString(),
+        due_date: startTime, // Keep original ISO string with timezone
         description: `Imported from Google Calendar: ${description}`,
         assignment_type: 'homework',
       })
@@ -902,8 +936,8 @@ async function createLocalEventFromGoogle(userId: string, googleEvent: any, supa
     entityType = 'assignment';
     entityId = assignment.id;
   } else {
-    // Create as schedule block
-    const dayOfWeek = start.getDay();
+    // Create as schedule block - extract local time to store separately
+    const dayOfWeek = startDate.getDay();
     const { data: scheduleBlock, error } = await supabase
       .from('schedule_blocks')
       .insert({
@@ -911,10 +945,10 @@ async function createLocalEventFromGoogle(userId: string, googleEvent: any, supa
         course_id: null,
         title,
         description: `Imported from Google Calendar: ${description}`,
-        start_time: start.toTimeString().slice(0, 8),
-        end_time: end.toTimeString().slice(0, 8),
+        start_time: startLocal.time, // Local time extracted from ISO
+        end_time: endLocal.time, // Local time extracted from ISO
         day_of_week: dayOfWeek,
-        specific_date: start.toISOString().slice(0, 10),
+        specific_date: startLocal.date, // Local date extracted from ISO
         is_recurring: false,
         location: googleEvent.location,
       })
@@ -1023,17 +1057,24 @@ async function exportExams(userId: string, accessToken: string, supabase: any) {
 }
 
 async function createGoogleEventFromScheduleBlock(block: any, accessToken: string, userId: string, supabase: any) {
+  // Get user's timezone from profile, fallback to UTC
+  const userTimezone = await getUserTimezone(userId, supabase);
+  
+  // Construct local datetime string (without timezone conversion)
+  const startDateTime = `${block.specific_date || '2024-01-01'}T${block.start_time}`;
+  const endDateTime = `${block.specific_date || '2024-01-01'}T${block.end_time}`;
+  
   const eventData = {
     summary: `[Aqademiq] ${block.title}`,
     description: `Academic schedule block from Aqademiq\n\n${block.description || ''}`,
     location: block.location,
     start: {
-      dateTime: new Date(`${block.specific_date || '2024-01-01'}T${block.start_time}`).toISOString(),
-      timeZone: 'UTC',
+      dateTime: startDateTime, // Local time without Z suffix
+      timeZone: userTimezone, // User's timezone
     },
     end: {
-      dateTime: new Date(`${block.specific_date || '2024-01-01'}T${block.end_time}`).toISOString(),
-      timeZone: 'UTC',
+      dateTime: endDateTime, // Local time without Z suffix  
+      timeZone: userTimezone, // User's timezone
     },
     colorId: getGoogleColorId(block.courses?.color),
   };
@@ -1042,19 +1083,25 @@ async function createGoogleEventFromScheduleBlock(block: any, accessToken: strin
 }
 
 async function createGoogleEventFromAssignment(assignment: any, accessToken: string, userId: string, supabase: any) {
+  // Get user's timezone from profile
+  const userTimezone = await getUserTimezone(userId, supabase);
+  
+  // Extract local datetime from the stored due_date
+  const dueLocal = extractLocalTimeFromISO(assignment.due_date);
   const dueDate = new Date(assignment.due_date);
   const startDate = new Date(dueDate.getTime() - (assignment.estimated_hours || 2) * 60 * 60 * 1000);
+  const startLocal = extractLocalTimeFromISO(startDate.toISOString());
 
   const eventData = {
     summary: `[Aqademiq] Assignment: ${assignment.title}`,
-    description: `Assignment from Aqademiq\n\nDue: ${dueDate.toLocaleString()}\nEstimated Hours: ${assignment.estimated_hours || 2}\n\n${assignment.description || ''}`,
+    description: `Assignment from Aqademiq\n\nDue: ${dueLocal.date} ${dueLocal.time}\nEstimated Hours: ${assignment.estimated_hours || 2}\n\n${assignment.description || ''}`,
     start: {
-      dateTime: startDate.toISOString(),
-      timeZone: 'UTC',
+      dateTime: `${startLocal.date}T${startLocal.time}`,
+      timeZone: userTimezone,
     },
     end: {
-      dateTime: dueDate.toISOString(),
-      timeZone: 'UTC',
+      dateTime: `${dueLocal.date}T${dueLocal.time}`,
+      timeZone: userTimezone,
     },
     colorId: getGoogleColorId(assignment.courses?.color),
   };
@@ -1063,20 +1110,26 @@ async function createGoogleEventFromAssignment(assignment: any, accessToken: str
 }
 
 async function createGoogleEventFromExam(exam: any, accessToken: string, userId: string, supabase: any) {
+  // Get user's timezone from profile
+  const userTimezone = await getUserTimezone(userId, supabase);
+  
+  // Extract local datetime from the stored exam_date
+  const examLocal = extractLocalTimeFromISO(exam.exam_date);
   const examDate = new Date(exam.exam_date);
   const endDate = new Date(examDate.getTime() + (exam.duration_minutes || 60) * 60 * 1000);
+  const endLocal = extractLocalTimeFromISO(endDate.toISOString());
 
   const eventData = {
     summary: `[Aqademiq] Exam: ${exam.title}`,
     description: `Exam from Aqademiq\n\nDuration: ${exam.duration_minutes || 60} minutes\nLocation: ${exam.location || 'TBD'}\n\n${exam.notes || ''}`,
     location: exam.location,
     start: {
-      dateTime: examDate.toISOString(),
-      timeZone: 'UTC',
+      dateTime: `${examLocal.date}T${examLocal.time}`,
+      timeZone: userTimezone,
     },
     end: {
-      dateTime: endDate.toISOString(),
-      timeZone: 'UTC',
+      dateTime: `${endLocal.date}T${endLocal.time}`,
+      timeZone: userTimezone,
     },
     colorId: getGoogleColorId(exam.courses?.color),
   };
@@ -1118,6 +1171,22 @@ async function createGoogleEvent(eventData: any, accessToken: string, userId: st
   } catch (error) {
     console.error(`Error creating Google event for ${entityType} ${entityId}:`, error);
     throw error;
+  }
+}
+
+// Helper to get user's timezone from profile
+async function getUserTimezone(userId: string, supabase: any): Promise<string> {
+  try {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('timezone')
+      .eq('user_id', userId)
+      .single();
+    
+    return profile?.timezone || 'UTC';
+  } catch (error) {
+    console.error('Error fetching user timezone:', error);
+    return 'UTC';
   }
 }
 
