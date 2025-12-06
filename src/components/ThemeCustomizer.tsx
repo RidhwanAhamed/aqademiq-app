@@ -48,20 +48,30 @@ export function ThemeCustomizer() {
   }, []);
 
   const applyColorTheme = (themeId: string) => {
-    const themeData = themeColors[themeId as keyof typeof themeColors];
-    if (!themeData) return;
-    
     const root = document.documentElement;
     
-    // Apply HSL values
-    root.style.setProperty('--primary', themeData.primary);
-    root.style.setProperty('--secondary', themeData.secondary);
-    root.style.setProperty('--accent', themeData.accent);
-    
-    // Update gradient variables
-    root.style.setProperty('--gradient-primary', `linear-gradient(135deg, hsl(${themeData.primary}), hsl(${themeData.accent}))`);
-    root.style.setProperty('--gradient-progress', `linear-gradient(90deg, hsl(${themeData.primary}), hsl(${themeData.accent}))`);
-    root.style.setProperty('--ring', themeData.primary);
+    if (themeId === 'default') {
+      // Reset to original CSS by removing overrides - let index.css take effect
+      root.style.removeProperty('--primary');
+      root.style.removeProperty('--secondary');
+      root.style.removeProperty('--accent');
+      root.style.removeProperty('--gradient-primary');
+      root.style.removeProperty('--gradient-progress');
+      root.style.removeProperty('--ring');
+    } else {
+      const themeData = themeColors[themeId as keyof typeof themeColors];
+      if (!themeData) return;
+      
+      // Apply HSL values
+      root.style.setProperty('--primary', themeData.primary);
+      root.style.setProperty('--secondary', themeData.secondary);
+      root.style.setProperty('--accent', themeData.accent);
+      
+      // Update gradient variables
+      root.style.setProperty('--gradient-primary', `linear-gradient(135deg, hsl(${themeData.primary}), hsl(${themeData.accent}))`);
+      root.style.setProperty('--gradient-progress', `linear-gradient(90deg, hsl(${themeData.primary}), hsl(${themeData.accent}))`);
+      root.style.setProperty('--ring', themeData.primary);
+    }
     
     if (!previewMode) {
       setSelectedColorTheme(themeId);
@@ -89,16 +99,13 @@ export function ThemeCustomizer() {
   const resetToDefaults = () => {
     const root = document.documentElement;
     
-    // Reset colors using the centralized theme data
-    const defaultTheme = themeColors['default'];
-    root.style.setProperty('--primary', defaultTheme.primary);
-    root.style.setProperty('--secondary', defaultTheme.secondary);
-    root.style.setProperty('--accent', defaultTheme.accent);
-    root.style.setProperty('--gradient-primary', `linear-gradient(135deg, hsl(${defaultTheme.primary}), hsl(${defaultTheme.accent}))`);
-    root.style.setProperty('--gradient-progress', `linear-gradient(90deg, hsl(${defaultTheme.primary}), hsl(${defaultTheme.accent}))`);
-    root.style.setProperty('--ring', defaultTheme.primary);
-    
-    // Reset font size
+    // Remove all custom CSS properties to restore original index.css values
+    root.style.removeProperty('--primary');
+    root.style.removeProperty('--secondary');
+    root.style.removeProperty('--accent');
+    root.style.removeProperty('--gradient-primary');
+    root.style.removeProperty('--gradient-progress');
+    root.style.removeProperty('--ring');
     root.style.removeProperty('font-size');
     
     setSelectedColorTheme('default');
