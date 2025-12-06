@@ -84,6 +84,22 @@ The frontend (`src/components/AdaAIChat.tsx`) handles these actions with:
 2. Conflict detection before insert
 3. Undo functionality via toast action
 
+## Voice to Text Capture
+
+Ada’s chat input now ships with browser-based speech-to-text powered by the Web Speech API inside `src/hooks/useSpeechToText.ts`. The hook sanitizes transcripts via `src/utils/voice-cleaner.ts` to remove filler words before shipping tokens to Gemini. When you are ready to replace this mock with the real backend, call your transcription service before resolving the hook:
+
+```ts
+// TODO: Swap Web Speech API with backend STT
+const response = await fetch('/api/transcripts', {
+  method: 'POST',
+  body: audioBlob,
+});
+const { cleanedTranscript } = await response.json();
+setTranscript(cleanedTranscript);
+```
+
+`src/components/AdaAIChat.tsx` already expects promises from the hook, so the frontend will work unchanged once `/api/transcripts` (or a Gemini/S3 pipeline) returns the processed text.
+
 ## How can I edit this code?
 
 There are several ways of editing your application.

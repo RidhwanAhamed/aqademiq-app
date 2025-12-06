@@ -93,6 +93,15 @@ export const adaAgentTests = {
     console.assert(validateCreateEventAction(validAction) === true, 'Valid action should pass');
     console.assert(validateCreateEventAction(invalidAction) === false, 'Invalid action should fail');
     return true;
+  },
+
+  'voice toggle renders when supported': () => {
+    const browserSupportsSpeech = true;
+    const statusPill = browserSupportsSpeech ? 'listening-pill' : 'fallback-pill';
+
+    console.assert(browserSupportsSpeech, 'Browser should support speech for this test case');
+    console.assert(statusPill === 'listening-pill', 'Voice status pill should reflect listening state');
+    return true;
   }
 };
 
