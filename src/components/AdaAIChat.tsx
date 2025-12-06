@@ -1,3 +1,4 @@
+// Purpose: Ada AI chat UI + voice transcript capture. TODO: API -> /api/chat/messages & /api/transcripts.
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -19,7 +20,9 @@ import { Label } from '@/components/ui/label';
 import { EnhancedFileUpload } from '@/components/EnhancedFileUpload';
 import { ConflictResolutionPanel } from '@/components/ConflictResolutionPanel';
 import { useAdvancedConflictDetection } from '@/hooks/useAdvancedConflictDetection';
+import { useSpeechToText } from '@/hooks/useSpeechToText';
 import { createScheduleBlock, detectScheduleConflicts, deleteScheduleBlock } from '@/services/api';
+import { mergeTranscriptWithInput } from '@/utils/voice-cleaner';
 import {
   Upload,
   Send,
@@ -51,7 +54,9 @@ import {
   MessageCircle,
   Paperclip,
   Maximize2,
-  Minimize2
+  Minimize2,
+  Mic,
+  MicOff
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -135,12 +140,25 @@ export function AdaAIChat({
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [pendingActions, setPendingActions] = useState<PendingAction[]>([]);
   const [lastCreatedBlockId, setLastCreatedBlockId] = useState<string | null>(null);
+  const [hasVoiceDraft, setHasVoiceDraft] = useState(false);
   
   // Enhanced conflict detection
   const { 
     detectConflicts, 
     loading: isDetecting 
   } = useAdvancedConflictDetection();
+
+  const {
+    isSupported: isSpeechSupported,
+    isListening: isVoiceListening,
+    interimTranscript: voiceInterimTranscript,
+    finalChunk: voiceFinalChunk,
+    error: speechError,
+    startListening,
+    stopListening,
+    acknowledgeFinalChunk,
+    resetTranscript
+  } = useSpeechToText();
   
   // Accessibility state
   const [accessibilitySettings, setAccessibilitySettings] = useState<AccessibilitySettings>({
@@ -256,6 +274,28 @@ export function AdaAIChat({
   useEffect(() => {
     scrollToBottom();
   }, [messages, isProcessing]);
+
+  useEffect(() => {
+    if (!voiceFinalChunk) return;
+    setInputMessage(prev => mergeTranscriptWithInput(prev, voiceFinalChunk.text));
+    setHasVoiceDraft(true);
+    acknowledgeFinalChunk();
+  }, [voiceFinalChunk, acknowledgeFinalChunk]);
+
+  useEffect(() => {
+    if (inputMessage.trim().length === 0) {
+      setHasVoiceDraft(false);
+    }
+  }, [inputMessage]);
+
+  useEffect(() => {
+    if (!speechError) return;
+    toast({
+      title: 'Voice capture unavailable',
+      description: speechError,
+      variant: 'destructive'
+    });
+  }, [speechError, toast]);
 
   useEffect(() => {
     const handleEscKey = (e: KeyboardEvent) => {
@@ -798,6 +838,43 @@ export function AdaAIChat({
       e.preventDefault();
       handleSendMessage();
     }
+  };
+
+  const handleVoiceToggle = async () => {
+    if (!isSpeechSupported) {
+      toast({
+        title: 'Voice capture not supported',
+        description: 'Try switching to Chrome or Edge to enable speech input.',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    if (isVoiceListening) {
+      stopListening();
+      return;
+    }
+
+    try {
+      await startListening();
+    } catch (error) {
+      const message = (error as Error)?.message || 'Could not access microphone.';
+      toast({
+        title: 'Voice capture error',
+        description: message,
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const handleVoiceDraftCleared = () => {
+    resetTranscript();
+    setHasVoiceDraft(false);
+  };
+
+  const handleVoiceQuickSend = () => {
+    handleSendMessage();
+    handleVoiceDraftCleared();
   };
 
   const addReaction = async (messageId: string, reaction: string) => {
@@ -1444,6 +1521,42 @@ export function AdaAIChat({
 
         {/* Enhanced Input Area */}
         <div className="border-t bg-background/95 backdrop-blur-sm p-4 sm:p-6">
+          {(isVoiceListening || hasVoiceDraft) && (
+            <div className="mb-3 flex items-center justify-between rounded-lg border border-dashed border-primary/40 bg-primary/5 px-3 py-2 text-xs text-foreground">
+              <div className="flex items-center gap-2">
+                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/20 text-primary">
+                  {isVoiceListening ? <Mic className="h-3.5 w-3.5" /> : <Bot className="h-3.5 w-3.5" />}
+                </div>
+                <span className="font-medium">
+                  {isVoiceListening
+                    ? voiceInterimTranscript || 'Listening for your instructions…'
+                    : 'Transcript ready. Review and send when you are ready.'}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                {hasVoiceDraft && !isVoiceListening && (
+                  <Button
+                    size="xs"
+                    variant="secondary"
+                    className="h-7 px-3 text-[11px]"
+                    onClick={handleVoiceQuickSend}
+                    disabled={!inputMessage.trim() || isProcessing}
+                  >
+                    Send transcript
+                  </Button>
+                )}
+                <Button
+                  size="xs"
+                  variant="ghost"
+                  className="h-7 px-3 text-[11px]"
+                  onClick={isVoiceListening ? stopListening : handleVoiceDraftCleared}
+                  disabled={isProcessing}
+                >
+                  {isVoiceListening ? 'Stop' : 'Clear'}
+                </Button>
+              </div>
+            </div>
+          )}
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="flex-1 relative">
               <Textarea
@@ -1461,6 +1574,35 @@ export function AdaAIChat({
               <div className="absolute bottom-2 right-2">
                 {/* Attachment and Enhanced Upload buttons */}
                 <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={handleVoiceToggle}
+                    className={cn(
+                      'h-8 w-8 p-0',
+                      isVoiceListening
+                        ? 'bg-destructive/10 text-destructive hover:bg-destructive/20'
+                        : 'hover:bg-muted'
+                    )}
+                    disabled={isProcessing}
+                    aria-pressed={isVoiceListening}
+                    aria-label={
+                      isSpeechSupported
+                        ? isVoiceListening
+                          ? 'Stop voice capture'
+                          : 'Start voice capture'
+                        : 'Voice capture not supported'
+                    }
+                    title={
+                      isSpeechSupported
+                        ? isVoiceListening
+                          ? 'Stop voice capture'
+                          : 'Speak your request'
+                        : 'Voice capture not supported in this browser'
+                    }
+                  >
+                    {isVoiceListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                  </Button>
                   <Button
                     size="sm"
                     variant="ghost"
