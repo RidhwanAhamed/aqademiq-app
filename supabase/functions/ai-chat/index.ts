@@ -58,8 +58,8 @@ async function searchDocuments(
     const { data, error } = await supabase.rpc('search_documents', {
       p_user_id: userId,
       p_query_embedding: embeddingString,
-      p_match_threshold: 0.65,
-      p_match_count: 3,
+      p_match_threshold: 0.5, // Lower threshold for better recall
+      p_match_count: 5, // More context
       p_course_id: courseId || null,
     });
     
@@ -220,20 +220,27 @@ serve(async (req) => {
           const relevantDocs = await searchDocuments(supabase, userId, queryEmbedding, course_id);
           
           if (relevantDocs.length > 0) {
-            console.log(`RAG: Found ${relevantDocs.length} relevant documents`);
+            console.log(`RAG: Found ${relevantDocs.length} relevant documents with similarities:`, 
+              relevantDocs.map(d => `${(d.similarity * 100).toFixed(0)}%`).join(', '));
             
             const docContextParts = relevantDocs.map((doc, i) => {
-              const source = doc.file_name || doc.source_type || 'Document';
-              return `[Source ${i + 1}: ${source} (similarity: ${(doc.similarity * 100).toFixed(0)}%)]\n${doc.content}`;
+              const source = doc.file_name || doc.source_type || 'Uploaded Document';
+              return `[Source ${i + 1}: ${source} (${(doc.similarity * 100).toFixed(0)}% match)]\n${doc.content}`;
             });
             
             documentContext = `
-## Relevant Documents from User's Knowledge Base:
-${docContextParts.join('\n\n')}
+## IMPORTANT: User's Uploaded Documents (Use This Information!)
+The following content was extracted from documents the user has uploaded. Use this information to answer their questions accurately.
 
-Use this context to provide more informed and personalized responses. Reference specific information when relevant.
+${docContextParts.join('\n\n---\n\n')}
+
+When answering, cite the source (e.g., "According to your uploaded document...") if using this information.
 `;
+          } else {
+            console.log('RAG: No relevant documents found above threshold');
           }
+        } else {
+          console.log('RAG: No embedding generated for query');
         }
       } catch (ragError) {
         console.log('RAG retrieval failed, continuing without document context:', ragError);
