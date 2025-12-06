@@ -2,6 +2,7 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { Resend } from "npm:resend@2.0.0";
+import { EMAIL_CONFIG } from "../_shared/email-config.ts";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -136,9 +137,9 @@ serve(async (req) => {
         });
     }
 
-    // Send email via Resend
+    // Send email via Resend using verified domain
     const emailResponse = await resend.emails.send({
-      from: "Aqademiq <notifications@resend.dev>",
+      from: EMAIL_CONFIG.senders.notifications,
       to: [profile.email],
       subject,
       html: emailHtml,
