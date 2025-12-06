@@ -405,6 +405,63 @@ export type Database = {
           },
         ]
       }
+      document_embeddings: {
+        Row: {
+          chunk_index: number
+          content: string
+          course_id: string | null
+          created_at: string | null
+          embedding: string | null
+          file_upload_id: string | null
+          id: string
+          metadata: Json | null
+          source_type: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          chunk_index?: number
+          content: string
+          course_id?: string | null
+          created_at?: string | null
+          embedding?: string | null
+          file_upload_id?: string | null
+          id?: string
+          metadata?: Json | null
+          source_type?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          chunk_index?: number
+          content?: string
+          course_id?: string | null
+          created_at?: string | null
+          embedding?: string | null
+          file_upload_id?: string | null
+          id?: string
+          metadata?: Json | null
+          source_type?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_embeddings_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_embeddings_file_upload_id_fkey"
+            columns: ["file_upload_id"]
+            isOneToOne: false
+            referencedRelation: "file_uploads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       exams: {
         Row: {
           course_id: string
@@ -1912,6 +1969,24 @@ export type Database = {
         }[]
       }
       revoke_google_tokens: { Args: { p_user_id?: string }; Returns: boolean }
+      search_documents: {
+        Args: {
+          p_course_id?: string
+          p_match_count?: number
+          p_match_threshold?: number
+          p_query_embedding: string
+          p_user_id: string
+        }
+        Returns: {
+          content: string
+          course_id: string
+          file_upload_id: string
+          id: string
+          metadata: Json
+          similarity: number
+          source_type: string
+        }[]
+      }
       should_class_occur_on_date: {
         Args: { p_schedule_id: string; p_target_date: string }
         Returns: boolean
