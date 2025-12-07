@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAssignments } from "@/hooks/useAssignments";
+import { useAuth } from "@/hooks/useAuth";
 import { useCourses } from "@/hooks/useCourses";
 import { useExams } from "@/hooks/useExams";
 import { useUserStats } from "@/hooks/useUserStats";
@@ -25,10 +26,17 @@ export function Dashboard() {
   const [aiContext, setAiContext] = useState<string>('');
   const [aiContextData, setAiContextData] = useState<any>(null);
   
+  const { user } = useAuth();
   const { courses } = useCourses();
   const { assignments } = useAssignments();
   const { exams } = useExams();
   const { stats } = useUserStats();
+
+  // Get user's first name for personalized greeting
+  const userName = user?.user_metadata?.first_name || 
+                   user?.user_metadata?.full_name?.split(' ')[0] ||
+                   user?.email?.split('@')[0] || 
+                   null;
 
   const handleNeedAIInsights = (context: string, data: any) => {
     setAiContext(context);
@@ -79,7 +87,9 @@ export function Dashboard() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Welcome back!</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
+            Welcome back{userName ? `, ${userName}` : ''}!
+          </h1>
           <p className="text-muted-foreground text-sm sm:text-base">Here's your study overview for today</p>
         </div>
         <Button 
