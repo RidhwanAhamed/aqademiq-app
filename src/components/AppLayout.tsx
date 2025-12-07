@@ -1,6 +1,7 @@
 import { Outlet, useNavigate } from "react-router-dom";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
+import { MobileBottomNav } from "@/components/MobileBottomNav";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { LogOut, Menu, Loader2 } from "lucide-react";
@@ -38,10 +39,10 @@ export function AppLayout() {
         <AppSidebar />
         
         <div className="flex-1 flex flex-col">
-          {/* Mobile Header */}
-          <header className="lg:hidden h-16 border-b bg-card flex items-center justify-between px-4">
+          {/* Mobile Header - Only visible on mobile */}
+          <header className="lg:hidden h-14 border-b bg-card/95 backdrop-blur-lg flex items-center justify-between px-4 sticky top-0 z-40">
             <div className="flex items-center space-x-2">
-              <SidebarTrigger className="h-8 w-8">
+              <SidebarTrigger className="h-9 w-9">
                 <Menu className="h-4 w-4" />
               </SidebarTrigger>
               <span className="font-bold text-lg bg-gradient-primary bg-clip-text text-transparent">
@@ -52,16 +53,19 @@ export function AppLayout() {
               onClick={() => signOut()}
               variant="ghost" 
               size="icon"
-              className="h-8 w-8"
+              className="h-9 w-9"
             >
               <LogOut className="h-4 w-4" />
             </Button>
           </header>
 
-          {/* Main Content */}
-          <main className="flex-1 overflow-auto">
+          {/* Main Content - With bottom padding on mobile for nav */}
+          <main className="flex-1 overflow-auto pb-20 lg:pb-0">
             <Outlet />
           </main>
+
+          {/* Mobile Bottom Navigation */}
+          <MobileBottomNav />
         </div>
       </div>
     </SidebarProvider>

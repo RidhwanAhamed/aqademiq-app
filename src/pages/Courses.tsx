@@ -49,71 +49,73 @@ export default function Courses() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Courses</h1>
-          <p className="text-muted-foreground">Manage your academic courses</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Courses</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">Manage your academic courses</p>
         </div>
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center gap-2 w-full sm:w-auto">
           <Button 
             variant="outline" 
             onClick={() => setShowAddSemester(true)}
-            className="hidden sm:flex"
+            className="flex-1 sm:flex-none text-sm"
+            size="sm"
           >
-            <Calendar className="w-4 h-4 mr-2" />
-            Add Semester
+            <Calendar className="w-4 h-4 mr-1 sm:mr-2" />
+            <span className="hidden xs:inline">Add </span>Semester
           </Button>
           <Button 
             onClick={() => setShowAddCourse(true)}
-            className="bg-gradient-primary hover:opacity-90"
+            className="bg-gradient-primary hover:opacity-90 flex-1 sm:flex-none"
+            size="sm"
           >
-            <Plus className="w-4 h-4 mr-2" />
-            Add Course
+            <Plus className="w-4 h-4 mr-1 sm:mr-2" />
+            <span className="hidden xs:inline">Add </span>Course
           </Button>
         </div>
       </div>
 
-      {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* Quick Stats - 3 column grid on mobile */}
+      <div className="grid grid-cols-3 gap-2 sm:gap-4">
         <Card className="bg-gradient-card">
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-3">
-              <div className="p-2 bg-primary/10 rounded-lg">
-                <BookOpen className="w-5 h-5 text-primary" />
+          <CardContent className="p-3 sm:p-4">
+            <div className="flex flex-col sm:flex-row items-center sm:items-center sm:space-x-3 text-center sm:text-left">
+              <div className="p-1.5 sm:p-2 bg-primary/10 rounded-lg mb-1 sm:mb-0">
+                <BookOpen className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Active Courses</p>
-                <p className="text-2xl font-bold">{activeCourses.length}</p>
+                <p className="text-[10px] sm:text-sm text-muted-foreground">Courses</p>
+                <p className="text-lg sm:text-2xl font-bold">{activeCourses.length}</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
         <Card className="bg-gradient-card">
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-3">
-              <div className="p-2 bg-success/10 rounded-lg">
-                <Award className="w-5 h-5 text-success" />
+          <CardContent className="p-3 sm:p-4">
+            <div className="flex flex-col sm:flex-row items-center sm:items-center sm:space-x-3 text-center sm:text-left">
+              <div className="p-1.5 sm:p-2 bg-success/10 rounded-lg mb-1 sm:mb-0">
+                <Award className="w-4 h-4 sm:w-5 sm:h-5 text-success" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Avg Progress</p>
-                <p className="text-2xl font-bold">{averageProgress}%</p>
+                <p className="text-[10px] sm:text-sm text-muted-foreground">Progress</p>
+                <p className="text-lg sm:text-2xl font-bold">{averageProgress}%</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
         <Card className="bg-gradient-card">
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-3">
-              <div className="p-2 bg-accent/10 rounded-lg">
-                <GraduationCap className="w-5 h-5 text-accent" />
+          <CardContent className="p-3 sm:p-4">
+            <div className="flex flex-col sm:flex-row items-center sm:items-center sm:space-x-3 text-center sm:text-left">
+              <div className="p-1.5 sm:p-2 bg-accent/10 rounded-lg mb-1 sm:mb-0">
+                <GraduationCap className="w-4 h-4 sm:w-5 sm:h-5 text-accent" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Credits</p>
-                <p className="text-2xl font-bold">{totalCredits}</p>
+                <p className="text-[10px] sm:text-sm text-muted-foreground">Credits</p>
+                <p className="text-lg sm:text-2xl font-bold">{totalCredits}</p>
               </div>
             </div>
           </CardContent>
@@ -123,10 +125,10 @@ export default function Courses() {
       {/* No semesters state */}
       {semesters.length === 0 && (
         <Card className="bg-gradient-card">
-          <CardContent className="p-8 text-center">
-            <Calendar className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-            <h3 className="text-lg font-medium mb-2">No Semesters Yet</h3>
-            <p className="text-muted-foreground mb-4">
+          <CardContent className="p-6 sm:p-8 text-center">
+            <Calendar className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+            <h3 className="text-base sm:text-lg font-medium mb-2">No Semesters Yet</h3>
+            <p className="text-sm text-muted-foreground mb-4">
               Create your first semester to start adding courses.
             </p>
             <Button 
@@ -143,15 +145,15 @@ export default function Courses() {
       {/* Courses Grid */}
       {semesters.length > 0 && (
         <Card className="bg-gradient-card">
-          <CardHeader>
-            <CardTitle>Your Courses</CardTitle>
+          <CardHeader className="pb-2 sm:pb-4">
+            <CardTitle className="text-lg sm:text-xl">Your Courses</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
             {activeCourses.length === 0 ? (
-              <div className="text-center py-12">
-                <BookOpen className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-                <h3 className="text-lg font-medium mb-2">No Courses Yet</h3>
-                <p className="text-muted-foreground mb-4">
+              <div className="text-center py-8 sm:py-12">
+                <BookOpen className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                <h3 className="text-base sm:text-lg font-medium mb-2">No Courses Yet</h3>
+                <p className="text-sm text-muted-foreground mb-4">
                   Add your first course to get started.
                 </p>
                 <Button 
@@ -163,7 +165,7 @@ export default function Courses() {
                 </Button>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                 {activeCourses.map((course) => (
                   <CourseCard 
                     key={course.id} 
