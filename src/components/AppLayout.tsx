@@ -38,7 +38,7 @@ export function AppLayout() {
       <div className="min-h-screen flex w-full bg-background">
         <AppSidebar />
         
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
           {/* Mobile Header - Only visible on mobile */}
           <header className="lg:hidden h-14 border-b bg-card/95 backdrop-blur-lg flex items-center justify-between px-4 sticky top-0 z-40">
             <div className="flex items-center space-x-2">
@@ -60,7 +60,7 @@ export function AppLayout() {
           </header>
 
           {/* Main Content - With bottom padding on mobile for nav */}
-          <main className="flex-1 overflow-auto pb-20 lg:pb-0">
+          <main className="flex-1 overflow-y-auto overflow-x-hidden pb-20 lg:pb-0 min-w-0">
             <Outlet />
           </main>
 
