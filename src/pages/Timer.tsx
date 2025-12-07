@@ -1,5 +1,6 @@
 import { AddStudySessionDialog } from "@/components/AddStudySessionDialog";
 import { TimerSettingsDialog } from "@/components/TimerSettingsDialog";
+import { AchievementUnlockModal } from "@/components/AchievementUnlockModal";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -7,15 +8,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useBackgroundTimer, type TimerMode } from "@/hooks/useBackgroundTimer";
+import { useAchievements } from "@/hooks/useAchievements";
 import { supabase } from "@/integrations/supabase/client";
-import { Clock, Coffee, Maximize2, Minimize2, Pause, Play, Plus, RotateCcw, Settings, Target, Volume2, VolumeX } from "lucide-react";
+import { Clock, Coffee, Maximize2, Minimize2, Pause, Play, Plus, RotateCcw, Settings, Target, Volume2, VolumeX, Trophy } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { Badge as BadgeType } from "@/services/api";
 
 export default function Timer() {
   const [showStudySessionDialog, setShowStudySessionDialog] = useState(false);
   const [currentSessionStart, setCurrentSessionStart] = useState<Date | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [unlockedBadge, setUnlockedBadge] = useState<BadgeType | null>(null);
+  const [showBadgeModal, setShowBadgeModal] = useState(false);
   const timerContainerRef = useRef<HTMLDivElement>(null);
   
   const { 
@@ -36,6 +41,7 @@ export default function Timer() {
   
   const { toast } = useToast();
   const { user } = useAuth();
+  const { checkAndAwardBadges, userBadges } = useAchievements();
 
   // Track timer completion for database logging
   useEffect(() => {
@@ -88,6 +94,20 @@ export default function Timer() {
             }
           } catch (err) {
             console.error('Error updating study stats:', err);
+          }
+
+          // Check for Laser Focus badge (first Pomodoro completion)
+          const totalSessions = sessionsCompleted + 1;
+          const awardedBadges = await checkAndAwardBadges({
+            totalPomodoroSessions: totalSessions,
+            currentStreak: 0, // Streak is handled separately
+            assignmentsCompleted: 0
+          });
+
+          // Show badge unlock modal if earned
+          if (awardedBadges.length > 0) {
+            setUnlockedBadge(awardedBadges[0]);
+            setShowBadgeModal(true);
           }
         }
       }
@@ -317,6 +337,16 @@ export default function Timer() {
         soundSettings={soundSettings}
         onSoundSettingsChange={updateSoundSettings}
         onTestSound={testSound}
+      />
+
+      {/* Achievement Unlock Modal */}
+      <AchievementUnlockModal
+        badge={unlockedBadge}
+        isOpen={showBadgeModal}
+        onClose={() => {
+          setShowBadgeModal(false);
+          setUnlockedBadge(null);
+        }}
       />
     </div>
   );

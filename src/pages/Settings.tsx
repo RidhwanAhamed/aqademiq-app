@@ -5,11 +5,12 @@ import { NotificationSettings } from "@/components/NotificationSettings";
 import { GoogleCalendarSettings } from "@/components/GoogleCalendarSettings";
 import { EnhancedNotificationSettings } from "@/components/EnhancedNotificationSettings";
 import { SecurityMonitorDashboard } from "@/components/SecurityMonitorDashboard";
+import { AchievementShowcase } from "@/components/AchievementShowcase";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Settings as SettingsIcon, User, Bell, Palette, Shield, Moon, Sun, Monitor, Download, Smartphone, CheckCircle2 } from "lucide-react";
+import { Settings as SettingsIcon, User, Bell, Palette, Shield, Moon, Sun, Monitor, Download, Smartphone, CheckCircle2, Trophy } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useTheme } from "next-themes";
 import { useState, useEffect } from "react";
@@ -156,10 +157,14 @@ export default function Settings() {
       </div>
 
       <Tabs defaultValue="general" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="general" className="flex items-center gap-2">
             <User className="w-4 h-4" />
             General
+          </TabsTrigger>
+          <TabsTrigger value="achievements" className="flex items-center gap-2">
+            <Trophy className="w-4 h-4" />
+            Achievements
           </TabsTrigger>
           <TabsTrigger value="notifications" className="flex items-center gap-2">
             <Bell className="w-4 h-4" />
@@ -296,6 +301,10 @@ export default function Settings() {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        <TabsContent value="achievements" className="space-y-6">
+          <AchievementShowcase />
         </TabsContent>
 
         <TabsContent value="notifications" className="space-y-6">
