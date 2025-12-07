@@ -132,14 +132,14 @@ export function StudyHoursDistribution({ studySessions, courses }: StudyHoursDis
         </div>
         
         {/* Date Range Presets */}
-        <div className="flex gap-2 items-center flex-wrap">
+        <div className="flex gap-1 sm:gap-2 items-center flex-wrap">
           {presets.map((preset) => (
             <Button
               key={preset.label}
               variant={range.preset === preset.label ? "default" : "outline"}
               size="sm"
               onClick={() => handlePresetChange(preset)}
-              className="text-xs"
+              className="text-[10px] sm:text-xs px-2 sm:px-3 h-7 sm:h-8"
             >
               {preset.label}
             </Button>
