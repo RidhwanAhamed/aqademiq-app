@@ -390,6 +390,42 @@ export function AdaAIChat({
     setPendingFileStatus('');
   };
 
+  // Explicit "Import as Schedule" handler for pending file
+  const handleImportPendingFileAsSchedule = async () => {
+    if (!pendingFile || !user || isProcessing) return;
+
+    setIsProcessing(true);
+    const file = pendingFile;
+    setPendingFile(null);
+    setPendingFileStatus('');
+
+    try {
+      // Add user message indicating schedule import intent
+      const userMessage = await saveChatMessage(
+        `📅 Import this file as my schedule: **${file.name}**`,
+        true,
+        undefined,
+        { intent: 'schedule_import', file_name: file.name }
+      );
+      if (userMessage) {
+        setMessages(prev => [...prev, userMessage]);
+        setMessageCount(prev => prev + 1);
+      }
+
+      // Use the full enhanced upload flow with schedule parsing
+      await handleEnhancedFileUpload(file);
+    } catch (error: any) {
+      console.error('Schedule import error:', error);
+      toast({
+        title: 'Import Failed',
+        description: error.message || 'Failed to import file as schedule',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   // Upload and index file for RAG (without auto schedule parsing)
   const uploadAndIndexFile = async (file: File, userPrompt?: string): Promise<{ fileId: string; ocrText?: string } | null> => {
     if (!user) return null;
@@ -1728,6 +1764,7 @@ export function AdaAIChat({
               <FileAttachmentChip
                 file={pendingFile}
                 onRemove={handleRemovePendingFile}
+                onImportAsSchedule={handleImportPendingFileAsSchedule}
                 isProcessing={isProcessing && !!pendingFileStatus}
                 processingStatus={pendingFileStatus}
               />
