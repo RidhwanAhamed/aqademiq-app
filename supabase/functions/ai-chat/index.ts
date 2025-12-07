@@ -197,7 +197,7 @@ serve(async (req) => {
       });
     }
 
-    const { message, conversation_id, course_id } = await req.json();
+    const { message, conversation_id, course_id, just_indexed_file_id } = await req.json();
 
     if (!message) {
       return new Response(
@@ -207,6 +207,9 @@ serve(async (req) => {
     }
 
     console.log('Processing message:', message.substring(0, 100));
+    if (just_indexed_file_id) {
+      console.log('Recently indexed file ID:', just_indexed_file_id);
+    }
 
     // RAG: Search for relevant documents
     let documentContext = '';
