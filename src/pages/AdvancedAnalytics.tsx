@@ -151,60 +151,60 @@ export default function Analytics() {
   const [activeSegment, setActiveSegment] = useState(analyticsSegments[0]?.id ?? "");
 
   return (
-    <div className="p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6 animate-fade-in">
+    <div className="p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6 animate-fade-in w-full max-w-full overflow-x-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between gap-4 mb-4 sm:mb-6">
-        <div className="space-y-1 sm:space-y-2 min-w-0">
+      <div className="flex items-center justify-between gap-4">
+        <div className="space-y-1 min-w-0 flex-1">
           <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground">
             Analytics
           </h1>
           <p className="text-muted-foreground text-xs sm:text-sm lg:text-base line-clamp-2">
-            Database-driven insights from your study activity, assignments, exams, and courses
+            Insights from your study activity, assignments, exams, and courses
           </p>
         </div>
         <BarChart3 className="w-6 h-6 sm:w-8 sm:h-8 text-primary flex-shrink-0" />
       </div>
 
       {/* Segmented analytics content */}
-      <div className="rounded-3xl border border-border/60 bg-card/70 p-3 sm:p-4 lg:p-6 shadow-lg shadow-black/10">
-        <Tabs value={activeSegment} onValueChange={setActiveSegment} className="space-y-4 sm:space-y-6">
-          <TabsList className="flex w-full gap-1 sm:gap-2 overflow-x-auto scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent rounded-2xl bg-muted/30 p-1.5 sm:p-2">
-            {analyticsSegments.map((segment) => {
-              const Icon = segment.icon;
-              return (
-                <TabsTrigger
-                  key={segment.id}
-                  value={segment.id}
-                  className="flex items-center justify-center gap-1 sm:gap-2 rounded-xl px-2 sm:px-3 lg:px-4 py-2 text-xs sm:text-sm lg:text-[0.95rem] font-semibold whitespace-nowrap data-[state=inactive]:text-muted-foreground data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-inner flex-shrink-0"
-                >
-                  <Icon className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
-                  <span className="hidden sm:inline text-center">{segment.title}</span>
-                </TabsTrigger>
-              );
-            })}
-          </TabsList>
+      <div className="rounded-2xl sm:rounded-3xl border border-border/60 bg-card/70 p-3 sm:p-4 lg:p-6 shadow-lg shadow-black/10 w-full">
+        <Tabs value={activeSegment} onValueChange={setActiveSegment} className="space-y-4 sm:space-y-6 w-full">
+          <div className="overflow-x-auto -mx-1 px-1">
+            <TabsList className="inline-flex w-max min-w-full gap-1 sm:gap-2 rounded-xl bg-muted/30 p-1 sm:p-1.5">
+              {analyticsSegments.map((segment) => {
+                const Icon = segment.icon;
+                return (
+                  <TabsTrigger
+                    key={segment.id}
+                    value={segment.id}
+                    className="flex items-center justify-center gap-1 sm:gap-2 rounded-lg px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-medium whitespace-nowrap data-[state=inactive]:text-muted-foreground data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm"
+                  >
+                    <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" aria-hidden="true" />
+                    <span className="hidden sm:inline">{segment.title}</span>
+                  </TabsTrigger>
+                );
+              })}
+            </TabsList>
+          </div>
 
           {analyticsSegments.map((segment) => (
-            <TabsContent key={segment.id} value={segment.id} className="space-y-4">
+            <TabsContent key={segment.id} value={segment.id} className="mt-4 space-y-4">
               <section
-                className="space-y-4 border border-border/60 rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-8 bg-background shadow-xl shadow-black/10 min-h-fit"
+                className="space-y-4 border border-border/60 rounded-xl sm:rounded-2xl p-3 sm:p-5 lg:p-6 bg-background shadow-md"
                 aria-labelledby={`${segment.id}-title`}
               >
-                <header className="space-y-2 sm:space-y-3">
-                  <div className="flex items-center gap-2 sm:gap-3">
-                    <div className="h-8 sm:h-12 w-1 sm:w-1.5 rounded-full bg-primary" aria-hidden="true" />
-                    <div>
-                      <h2
-                        id={`${segment.id}-title`}
-                        className="text-lg sm:text-2xl lg:text-4xl font-semibold text-foreground"
-                      >
-                        {segment.title}
-                      </h2>
-                    </div>
+                <header className="space-y-1 sm:space-y-2">
+                  <div className="flex items-center gap-2">
+                    <div className="h-6 sm:h-8 w-1 rounded-full bg-primary" aria-hidden="true" />
+                    <h2
+                      id={`${segment.id}-title`}
+                      className="text-base sm:text-xl lg:text-2xl font-semibold text-foreground"
+                    >
+                      {segment.title}
+                    </h2>
                   </div>
-                  <p className="text-muted-foreground text-sm sm:text-base">{segment.description}</p>
+                  <p className="text-muted-foreground text-xs sm:text-sm pl-3">{segment.description}</p>
                 </header>
-                <div>{segment.content}</div>
+                <div className="w-full">{segment.content}</div>
               </section>
             </TabsContent>
           ))}
