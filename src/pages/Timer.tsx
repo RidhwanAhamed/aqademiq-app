@@ -62,9 +62,8 @@ export default function Timer() {
 
   const handleTimerComplete = async () => {
     if (mode === 'focus' && currentSessionStart) {
-      const sessionDuration = presets.focus / 60; // Convert seconds to minutes
+      const sessionDuration = presets.focus / 60;
       
-      // Save study session to database
       if (user) {
         const endTime = new Date();
         const { error } = await supabase.from('study_sessions').insert({
@@ -78,11 +77,9 @@ export default function Timer() {
         });
         
         if (!error) {
-          // Update user stats with the study session duration
-          const durationHours = sessionDuration / 60; // Convert minutes to hours
+          const durationHours = sessionDuration / 60;
           
           try {
-            // Use the database function to update study stats
             const { error: statsError } = await supabase
               .rpc('update_user_study_stats', {
                 p_user_id: user.id,
@@ -96,15 +93,13 @@ export default function Timer() {
             console.error('Error updating study stats:', err);
           }
 
-          // Check for Laser Focus badge (first Pomodoro completion)
           const totalSessions = sessionsCompleted + 1;
           const awardedBadges = await checkAndAwardBadges({
             totalPomodoroSessions: totalSessions,
-            currentStreak: 0, // Streak is handled separately
+            currentStreak: 0,
             assignmentsCompleted: 0
           });
 
-          // Show badge unlock modal if earned
           if (awardedBadges.length > 0) {
             setUnlockedBadge(awardedBadges[0]);
             setShowBadgeModal(true);
@@ -112,11 +107,9 @@ export default function Timer() {
         }
       }
       
-      // Auto-switch to break after focus session
       const nextMode = sessionsCompleted % 4 === 3 ? 'long-break' : 'short-break';
       setMode(nextMode);
     } else if (mode !== 'focus') {
-      // Auto-switch back to focus after break
       setMode('focus');
     }
     
@@ -160,27 +153,28 @@ export default function Timer() {
 
   const getModeIcon = () => {
     switch (mode) {
-      case 'focus': return <Target className="w-6 h-6" />;
+      case 'focus': return <Target className="w-5 h-5 sm:w-6 sm:h-6" />;
       case 'short-break':
-      case 'long-break': return <Coffee className="w-6 h-6" />;
+      case 'long-break': return <Coffee className="w-5 h-5 sm:w-6 sm:h-6" />;
     }
   };
 
   const progress = ((presets[mode] - timeLeft) / presets[mode]) * 100;
 
   return (
-    <div ref={timerContainerRef} className="p-6 space-y-6 min-h-screen bg-background">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+    <div ref={timerContainerRef} className="p-4 sm:p-6 space-y-4 sm:space-y-6 min-h-screen bg-background">
+      {/* Header - responsive */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Study Timer</h1>
-          <p className="text-muted-foreground">Focus with Pomodoro technique</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Study Timer</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">Focus with Pomodoro technique</p>
         </div>
         <div className="flex gap-2">
           <Button 
             onClick={() => setSettingsOpen(true)}
             variant="outline"
             aria-label="Timer settings"
+            className="h-11 w-11 sm:h-10 sm:w-10 p-0"
           >
             <Settings className="w-4 h-4" />
           </Button>
@@ -188,6 +182,7 @@ export default function Timer() {
             onClick={handleToggleFullscreen}
             variant="outline"
             aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+            className="h-11 w-11 sm:h-10 sm:w-10 p-0"
           >
             {isFullscreen ? (
               <Minimize2 className="w-4 h-4" />
@@ -198,25 +193,26 @@ export default function Timer() {
           <Button 
             onClick={() => setShowStudySessionDialog(true)}
             variant="outline"
+            className="h-11 sm:h-10"
           >
-            <Plus className="w-4 h-4 mr-2" />
-            Log Manual Session
+            <Plus className="w-4 h-4 sm:mr-2" />
+            <span className="hidden sm:inline">Log Manual Session</span>
           </Button>
         </div>
       </div>
 
-      <div className={`grid ${isFullscreen ? 'grid-cols-1 max-w-4xl mx-auto' : 'grid-cols-1 lg:grid-cols-2'} gap-6`}>
+      <div className={`grid ${isFullscreen ? 'grid-cols-1 max-w-4xl mx-auto' : 'grid-cols-1 lg:grid-cols-2'} gap-4 sm:gap-6`}>
         {/* Timer */}
         <Card className="bg-gradient-card">
-          <CardHeader>
-            <CardTitle className="text-center flex items-center justify-center gap-2">
+          <CardHeader className="pb-2 sm:pb-4">
+            <CardTitle className="text-center flex items-center justify-center gap-2 text-lg sm:text-xl">
               {getModeIcon()}
               Pomodoro Timer
             </CardTitle>
           </CardHeader>
-          <CardContent className="text-center space-y-6">
+          <CardContent className="text-center space-y-4 sm:space-y-6 pb-6">
             <div className="space-y-4">
-                <Select 
+              <Select 
                 value={mode} 
                 onValueChange={(value: TimerMode) => {
                   if (!isRunning) {
@@ -225,7 +221,7 @@ export default function Timer() {
                 }}
                 disabled={isRunning}
               >
-                <SelectTrigger className="w-48 mx-auto">
+                <SelectTrigger className="w-full sm:w-48 mx-auto h-12 sm:h-10">
                   <SelectValue placeholder="Select timer mode" />
                 </SelectTrigger>
                 <SelectContent>
@@ -236,17 +232,17 @@ export default function Timer() {
               </Select>
               
               <div className="flex items-center justify-center gap-3">
-                <div className={`${isFullscreen ? 'text-9xl' : 'text-6xl'} font-mono font-bold text-primary transition-all`}>
+                <div className={`${isFullscreen ? 'text-9xl' : 'text-5xl sm:text-6xl lg:text-7xl'} font-mono font-bold text-primary transition-all`}>
                   {formatTime(timeLeft)}
                 </div>
                 {soundSettings.enabled ? (
-                  <Volume2 className="w-6 h-6 text-muted-foreground" />
+                  <Volume2 className="w-5 h-5 sm:w-6 sm:h-6 text-muted-foreground" />
                 ) : (
-                  <VolumeX className="w-6 h-6 text-muted-foreground" />
+                  <VolumeX className="w-5 h-5 sm:w-6 sm:h-6 text-muted-foreground" />
                 )}
               </div>
               
-              <div className="text-lg text-muted-foreground flex items-center justify-center gap-2">
+              <div className="text-base sm:text-lg text-muted-foreground flex items-center justify-center gap-2">
                 {getModeIcon()}
                 {getModeLabel()}
               </div>
@@ -254,20 +250,35 @@ export default function Timer() {
               <Progress value={progress} className="w-full max-w-md mx-auto" />
             </div>
             
-            <div className="flex justify-center space-x-4">
+            {/* Larger touch targets for controls */}
+            <div className="flex justify-center space-x-3 sm:space-x-4">
               {!isRunning ? (
-                <Button size="lg" onClick={startTimer} className="bg-gradient-primary hover:opacity-90">
-                  <Play className="w-5 h-5 mr-2" />
-                  Start
+                <Button 
+                  size="lg" 
+                  onClick={startTimer} 
+                  className="bg-gradient-primary hover:opacity-90 h-14 w-14 sm:h-12 sm:w-auto sm:px-6 rounded-full sm:rounded-md"
+                >
+                  <Play className="w-6 h-6 sm:w-5 sm:h-5 sm:mr-2" />
+                  <span className="hidden sm:inline">Start</span>
                 </Button>
               ) : (
-                <Button size="lg" onClick={pauseTimer} variant="outline">
-                  <Pause className="w-5 h-5 mr-2" />
-                  Pause
+                <Button 
+                  size="lg" 
+                  onClick={pauseTimer} 
+                  variant="outline"
+                  className="h-14 w-14 sm:h-12 sm:w-auto sm:px-6 rounded-full sm:rounded-md"
+                >
+                  <Pause className="w-6 h-6 sm:w-5 sm:h-5 sm:mr-2" />
+                  <span className="hidden sm:inline">Pause</span>
                 </Button>
               )}
-              <Button size="lg" onClick={resetTimer} variant="outline">
-                <RotateCcw className="w-5 h-5" />
+              <Button 
+                size="lg" 
+                onClick={resetTimer} 
+                variant="outline"
+                className="h-14 w-14 sm:h-12 sm:w-12 rounded-full sm:rounded-md"
+              >
+                <RotateCcw className="w-6 h-6 sm:w-5 sm:h-5" />
               </Button>
             </div>
           </CardContent>
@@ -275,21 +286,21 @@ export default function Timer() {
 
         {/* Stats */}
         <Card className="bg-gradient-card">
-          <CardHeader>
-            <CardTitle>Today's Focus</CardTitle>
+          <CardHeader className="pb-2 sm:pb-4">
+            <CardTitle className="text-lg sm:text-xl">Today's Focus</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex justify-between items-center">
-              <span className="text-muted-foreground">Sessions Completed</span>
-              <span className="font-bold text-2xl">{sessionsCompleted}</span>
+          <CardContent className="space-y-3 sm:space-y-4">
+            <div className="flex justify-between items-center p-3 sm:p-4 bg-muted/30 rounded-lg">
+              <span className="text-sm sm:text-base text-muted-foreground">Sessions Completed</span>
+              <span className="font-bold text-xl sm:text-2xl">{sessionsCompleted}</span>
             </div>
-            <div className="flex justify-between items-center">
-              <span className="text-muted-foreground">Total Focus Time</span>
-              <span className="font-bold text-2xl">{Math.floor(totalFocusTime / 60)}h {totalFocusTime % 60}m</span>
+            <div className="flex justify-between items-center p-3 sm:p-4 bg-muted/30 rounded-lg">
+              <span className="text-sm sm:text-base text-muted-foreground">Total Focus Time</span>
+              <span className="font-bold text-xl sm:text-2xl">{Math.floor(totalFocusTime / 60)}h {totalFocusTime % 60}m</span>
             </div>
-            <div className="flex justify-between items-center">
-              <span className="text-muted-foreground">Focus Score</span>
-              <span className="font-bold text-2xl text-success">
+            <div className="flex justify-between items-center p-3 sm:p-4 bg-muted/30 rounded-lg">
+              <span className="text-sm sm:text-base text-muted-foreground">Focus Score</span>
+              <span className="font-bold text-xl sm:text-2xl text-success">
                 {sessionsCompleted > 0 ? Math.min(10, sessionsCompleted + 6) : 0}/10
               </span>
             </div>
@@ -300,8 +311,8 @@ export default function Timer() {
       {/* Recent Sessions - Hidden in fullscreen */}
       {!isFullscreen && (
         <Card className="bg-gradient-card">
-          <CardHeader>
-            <CardTitle>Session History</CardTitle>
+          <CardHeader className="pb-2 sm:pb-4">
+            <CardTitle className="text-lg sm:text-xl">Session History</CardTitle>
           </CardHeader>
           <CardContent>
             {sessionsCompleted > 0 ? (
@@ -310,16 +321,16 @@ export default function Timer() {
                   <div key={i} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                     <div className="flex items-center gap-2">
                       <Target className="w-4 h-4 text-success" />
-                      <span>Focus Session {sessionsCompleted - i}</span>
+                      <span className="text-sm sm:text-base">Focus Session {sessionsCompleted - i}</span>
                     </div>
-                    <span className="text-sm text-muted-foreground">25 min</span>
+                    <span className="text-xs sm:text-sm text-muted-foreground">25 min</span>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="text-center py-12 text-muted-foreground">
-                <Clock className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                <p>Start your first Pomodoro session!</p>
+              <div className="text-center py-8 sm:py-12 text-muted-foreground">
+                <Clock className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-3 sm:mb-4 opacity-50" />
+                <p className="text-sm sm:text-base">Start your first Pomodoro session!</p>
               </div>
             )}
           </CardContent>
@@ -339,7 +350,6 @@ export default function Timer() {
         onTestSound={testSound}
       />
 
-      {/* Achievement Unlock Modal */}
       <AchievementUnlockModal
         badge={unlockedBadge}
         isOpen={showBadgeModal}
