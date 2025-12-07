@@ -155,6 +155,21 @@ serve(async (req) => {
     const aiData = await aiResponse.json();
     const aiContent = aiData.choices[0].message.content;
 
+    // Helper function to normalize array items to strings
+    const normalizeToStrings = (arr: any[]): string[] => {
+      if (!Array.isArray(arr)) return [];
+      return arr.map(item => {
+        if (typeof item === 'string') return item;
+        if (typeof item === 'object' && item !== null) {
+          return item.recommendation || item.tip || item.text || 
+                 item.description || item.value || item.content ||
+                 item.suggestion || item.session || item.focus ||
+                 JSON.stringify(item);
+        }
+        return String(item);
+      });
+    };
+
     // Parse AI response - handle both plain JSON and markdown-wrapped JSON
     let parsedResponse: AIInsightResponse;
     try {
@@ -167,8 +182,21 @@ serve(async (req) => {
         console.log('Extracted JSON from markdown:', jsonContent);
       }
       
-      parsedResponse = JSON.parse(jsonContent);
-      console.log('Successfully parsed AI response');
+      const rawParsed = JSON.parse(jsonContent);
+      
+      // Normalize the response to ensure arrays contain only strings
+      parsedResponse = {
+        suggestedSessions: (rawParsed.suggestedSessions || []).map((session: any) => {
+          if (typeof session === 'string') {
+            return { date: 'Today', time: 'Flexible', duration: '1 hour', focus: session, description: session };
+          }
+          return session;
+        }),
+        productivityTips: normalizeToStrings(rawParsed.productivityTips),
+        planningRecommendations: normalizeToStrings(rawParsed.planningRecommendations)
+      };
+      
+      console.log('Successfully parsed and normalized AI response');
     } catch (parseError) {
       console.error('Failed to parse AI response:', parseError);
       console.error('Original AI content:', aiContent);
