@@ -119,7 +119,7 @@ export function StudyHoursDistribution({ studySessions, courses }: StudyHoursDis
   };
 
   return (
-    <Card className="bg-gradient-card">
+    <Card className="bg-gradient-card w-full min-w-0 overflow-hidden">
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2">
