@@ -239,3 +239,44 @@ All colors MUST be HSL.
     display: none;
   }
 }
+
+/* Mobile touch target utilities */
+@layer utilities {
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  .active-scale {
+    @apply active:scale-95 transition-transform;
+  }
+}
+
+/* Mobile-optimized scrollbar for horizontal scrolling */
+.scrollbar-thin-x {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.scrollbar-thin-x::-webkit-scrollbar {
+  display: none;
+}
+
+/* Safe area insets for modern mobile devices */
+@supports (padding: max(0px)) {
+  .safe-area-inset-bottom {
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), 16px);
+  }
+  
+  .safe-area-inset-top {
+    padding-top: max(env(safe-area-inset-top, 0px), 0px);
+  }
+}
+
+/* Prevent text selection on touch devices for interactive elements */
+@media (hover: none) and (pointer: coarse) {
+  .no-select-touch {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+}

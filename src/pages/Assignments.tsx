@@ -89,72 +89,75 @@ export default function Assignments() {
   }, [filters]);
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+    <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
+      {/* Header - stacks on mobile */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Assignments</h1>
-          <p className="text-muted-foreground">Track your homework and projects</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Assignments</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">Track your homework and projects</p>
         </div>
-        <Button className="bg-gradient-primary hover:opacity-90" onClick={() => setOpen(true)}>
+        <Button 
+          className="bg-gradient-primary hover:opacity-90 w-full sm:w-auto h-12 sm:h-10" 
+          onClick={() => setOpen(true)}
+        >
           <Plus className="w-4 h-4 mr-2" />
           Add Assignment
         </Button>
       </div>
 
-      {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      {/* Quick Stats - 2 cols on mobile, 4 on desktop */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
         <Card className="bg-gradient-card">
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-3">
-              <div className="p-2 bg-warning/10 rounded-lg">
-                <AlertCircle className="w-5 h-5 text-warning" />
+          <CardContent className="p-3 sm:p-4">
+            <div className="flex items-center space-x-2 sm:space-x-3">
+              <div className="p-1.5 sm:p-2 bg-warning/10 rounded-lg">
+                <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-warning" />
               </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Due Today</p>
-                <p className="text-2xl font-bold">{stats.dueToday}</p>
+              <div className="min-w-0">
+                <p className="text-xs sm:text-sm text-muted-foreground truncate">Due Today</p>
+                <p className="text-xl sm:text-2xl font-bold">{stats.dueToday}</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
         <Card className="bg-gradient-card">
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-3">
-              <div className="p-2 bg-destructive/10 rounded-lg">
-                <Target className="w-5 h-5 text-destructive" />
+          <CardContent className="p-3 sm:p-4">
+            <div className="flex items-center space-x-2 sm:space-x-3">
+              <div className="p-1.5 sm:p-2 bg-destructive/10 rounded-lg">
+                <Target className="w-4 h-4 sm:w-5 sm:h-5 text-destructive" />
               </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Overdue</p>
-                <p className="text-2xl font-bold">{stats.overdue}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-card">
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-3">
-              <div className="p-2 bg-primary/10 rounded-lg">
-                <Target className="w-5 h-5 text-primary" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">In Progress</p>
-                <p className="text-2xl font-bold">{stats.inProgress}</p>
+              <div className="min-w-0">
+                <p className="text-xs sm:text-sm text-muted-foreground truncate">Overdue</p>
+                <p className="text-xl sm:text-2xl font-bold">{stats.overdue}</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
         <Card className="bg-gradient-card">
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-3">
-              <div className="p-2 bg-success/10 rounded-lg">
-                <CheckCircle className="w-5 h-5 text-success" />
+          <CardContent className="p-3 sm:p-4">
+            <div className="flex items-center space-x-2 sm:space-x-3">
+              <div className="p-1.5 sm:p-2 bg-primary/10 rounded-lg">
+                <Target className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
               </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Completed</p>
-                <p className="text-2xl font-bold">{stats.completed}</p>
+              <div className="min-w-0">
+                <p className="text-xs sm:text-sm text-muted-foreground truncate">In Progress</p>
+                <p className="text-xl sm:text-2xl font-bold">{stats.inProgress}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-card">
+          <CardContent className="p-3 sm:p-4">
+            <div className="flex items-center space-x-2 sm:space-x-3">
+              <div className="p-1.5 sm:p-2 bg-success/10 rounded-lg">
+                <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-success" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs sm:text-sm text-muted-foreground truncate">Completed</p>
+                <p className="text-xl sm:text-2xl font-bold">{stats.completed}</p>
               </div>
             </div>
           </CardContent>
@@ -163,19 +166,19 @@ export default function Assignments() {
 
       {/* Assignments List */}
       <Card className="bg-gradient-card">
-        <CardHeader>
-          <CardTitle>Recent Assignments</CardTitle>
+        <CardHeader className="p-4 sm:p-6">
+          <CardTitle className="text-lg sm:text-xl">Recent Assignments</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0 sm:p-6 sm:pt-0">
           {loading ? (
-            <div className="text-center py-12 text-muted-foreground">Loading assignments...</div>
+            <div className="text-center py-8 sm:py-12 text-muted-foreground">Loading assignments...</div>
           ) : assignments.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              <Target className="w-12 h-12 mx-auto mb-4 opacity-50" />
-              <p>No assignments yet. Click “Add Assignment”.</p>
+            <div className="text-center py-8 sm:py-12 text-muted-foreground px-4">
+              <Target className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-3 sm:mb-4 opacity-50" />
+              <p className="text-sm sm:text-base">No assignments yet. Click "Add Assignment".</p>
             </div>
           ) : (
-            <div className="space-y-2">
+            <div className="divide-y divide-border">
               {assignments.slice(0, 8).map((a) => (
                 <AssignmentRow 
                   key={a.id} 
