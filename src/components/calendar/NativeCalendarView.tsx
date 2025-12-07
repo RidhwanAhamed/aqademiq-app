@@ -8,11 +8,14 @@ import { useConflictDetection } from '@/hooks/useConflictDetection';
 import { EnhancedWeekView } from './EnhancedWeekView';
 import { EnhancedMonthView } from './EnhancedMonthView';
 import { EnhancedAgendaView } from './EnhancedAgendaView';
+import { MobileWeekView } from './MobileWeekView';
+import { MobileMonthView } from './MobileMonthView';
 import { EnhancedEventContextMenu } from './EnhancedEventContextMenu';
 import { CalendarErrorBoundaryWrapper } from './ErrorBoundary';
 import { AccessibleCalendarView } from './AccessibleCalendarView';
 import { TimezoneSelector } from './TimezoneSelector';
 import { useEnhancedDragDrop } from '@/hooks/useEnhancedDragDrop';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { formatInUserTimezone } from '@/utils/timezone';
@@ -23,6 +26,8 @@ interface NativeCalendarViewProps {
 }
 
 export function NativeCalendarView({ selectedDate, onDateChange }: NativeCalendarViewProps) {
+  const isMobile = useIsMobile();
+  // Default to agenda on mobile for best readability
   const [activeView, setActiveView] = useState<'week' | 'month' | 'agenda'>('week');
   const [contextMenu, setContextMenu] = useState<{ 
     event: CalendarEvent; 
@@ -232,29 +237,29 @@ export function NativeCalendarView({ selectedDate, onDateChange }: NativeCalenda
     <>
       <Card className="flex flex-col">
         {/* Calendar Header */}
-        <div className="flex items-center justify-between p-4 border-b border-border">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 sm:p-4 border-b border-border gap-3">
           <div className="flex items-center gap-2">
             <CalendarIcon className="h-5 w-5 text-primary" />
-            <h2 className="text-lg font-semibold">Academic Calendar</h2>
+            <h2 className="text-base sm:text-lg font-semibold">Academic Calendar</h2>
             {conflicts.length > 0 && (
-              <div className="text-xs text-destructive bg-destructive/10 px-2 py-1 rounded-md">
+              <div className="text-[10px] sm:text-xs text-destructive bg-destructive/10 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md">
                 {conflicts.length} conflict{conflicts.length > 1 ? 's' : ''}
               </div>
             )}
           </div>
           
           <Tabs value={activeView} onValueChange={(v) => setActiveView(v as any)}>
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="week" className="flex items-center gap-1">
-                <Grid3x3 className="h-3 w-3" />
+            <TabsList className="grid w-full grid-cols-3 h-9">
+              <TabsTrigger value="week" className="flex items-center gap-1 text-xs sm:text-sm px-2 sm:px-3">
+                <Grid3x3 className="h-3 w-3 sm:h-4 sm:w-4" />
                 <span className="hidden sm:inline">Week</span>
               </TabsTrigger>
-              <TabsTrigger value="month" className="flex items-center gap-1">
-                <CalendarIcon className="h-3 w-3" />
+              <TabsTrigger value="month" className="flex items-center gap-1 text-xs sm:text-sm px-2 sm:px-3">
+                <CalendarIcon className="h-3 w-3 sm:h-4 sm:w-4" />
                 <span className="hidden sm:inline">Month</span>
               </TabsTrigger>
-              <TabsTrigger value="agenda" className="flex items-center gap-1">
-                <List className="h-3 w-3" />
+              <TabsTrigger value="agenda" className="flex items-center gap-1 text-xs sm:text-sm px-2 sm:px-3">
+                <List className="h-3 w-3 sm:h-4 sm:w-4" />
                 <span className="hidden sm:inline">Agenda</span>
               </TabsTrigger>
             </TabsList>
@@ -262,29 +267,52 @@ export function NativeCalendarView({ selectedDate, onDateChange }: NativeCalenda
         </div>
 
         {/* Calendar Content */}
-        <div className="flex-1 p-4">
+        <div className="flex-1 p-2 sm:p-4">
           <Tabs value={activeView} className="w-full h-full">
             <TabsContent value="week" className="mt-0 h-full">
-              <EnhancedWeekView
-                selectedDate={selectedDate}
-                onDateChange={onDateChange}
-                events={events}
-                onEventClick={handleEventClick}
-                onEventUpdate={handleEventUpdate}
-                onTimeSlotClick={handleTimeSlotClick}
-                conflicts={conflictIds}
-              />
+              {isMobile ? (
+                <MobileWeekView
+                  selectedDate={selectedDate}
+                  onDateChange={onDateChange}
+                  events={events}
+                  onEventClick={handleEventClick}
+                  onEventUpdate={handleEventUpdate}
+                  onTimeSlotClick={handleTimeSlotClick}
+                  conflicts={conflictIds}
+                />
+              ) : (
+                <EnhancedWeekView
+                  selectedDate={selectedDate}
+                  onDateChange={onDateChange}
+                  events={events}
+                  onEventClick={handleEventClick}
+                  onEventUpdate={handleEventUpdate}
+                  onTimeSlotClick={handleTimeSlotClick}
+                  conflicts={conflictIds}
+                />
+              )}
             </TabsContent>
             
             <TabsContent value="month" className="mt-0 h-full">
-              <EnhancedMonthView
-                selectedDate={selectedDate}
-                onDateChange={onDateChange}
-                events={events}
-                onEventClick={handleEventClick}
-                onDayClick={handleDayClick}
-                conflicts={conflictIds}
-              />
+              {isMobile ? (
+                <MobileMonthView
+                  selectedDate={selectedDate}
+                  onDateChange={onDateChange}
+                  events={events}
+                  onEventClick={handleEventClick}
+                  onDayClick={handleDayClick}
+                  conflicts={conflictIds}
+                />
+              ) : (
+                <EnhancedMonthView
+                  selectedDate={selectedDate}
+                  onDateChange={onDateChange}
+                  events={events}
+                  onEventClick={handleEventClick}
+                  onDayClick={handleDayClick}
+                  conflicts={conflictIds}
+                />
+              )}
             </TabsContent>
             
             <TabsContent value="agenda" className="mt-0 h-full">
