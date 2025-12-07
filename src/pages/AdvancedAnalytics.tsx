@@ -38,13 +38,21 @@ import { CoursePerformanceComparison } from "@/components/analytics/CoursePerfor
 import { StudyScheduleOptimization } from "@/components/analytics/StudyScheduleOptimization";
 import { WorkloadDistributionAnalysis } from "@/components/analytics/WorkloadDistributionAnalysis";
 
+// Mobile abbreviated labels
+const mobileLabels: Record<string, string> = {
+  "study-activity": "Activity",
+  "performance-trends": "Trends",
+  "efficiency": "Efficiency",
+  "time-tracking": "Time",
+  "planning": "Planning",
+  "tasks-compliance": "Tasks",
+};
+
 export default function Analytics() {
   const { courses } = useCourses();
   const { assignments } = useAssignments();
   const { studySessions, loading } = useStudySessions();
   const { exams } = useExams();
-
-  // TODO: API -> /api/* endpoints once real backend is ready.
 
   const analyticsSegments = useMemo(
     () => [
@@ -86,7 +94,7 @@ export default function Analytics() {
         description:
           "Understand how consistently you are studying and where completion rates drop off.",
         content: (
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             <StudyEfficiencyMetrics
               studySessions={studySessions}
               assignments={assignments}
@@ -165,44 +173,51 @@ export default function Analytics() {
         <BarChart3 className="w-6 h-6 sm:w-8 sm:h-8 text-primary flex-shrink-0" />
       </div>
 
-      {/* Segmented analytics content - fills remaining space */}
+      {/* Segmented analytics content */}
       <div className="flex-1 min-h-0 min-w-0 w-full max-w-full rounded-2xl sm:rounded-3xl border border-border/60 bg-card/70 p-3 sm:p-4 lg:p-6 shadow-lg shadow-black/10 overflow-hidden flex flex-col">
         <Tabs value={activeSegment} onValueChange={setActiveSegment} className="flex flex-col h-full min-h-0 min-w-0">
-          <div className="overflow-x-auto flex-shrink-0 pb-2 max-w-full">
-            <TabsList className="inline-flex gap-1 sm:gap-2 rounded-xl bg-muted/30 p-1 sm:p-1.5">
-              {analyticsSegments.map((segment) => {
-                const Icon = segment.icon;
-                return (
-                  <TabsTrigger
-                    key={segment.id}
-                    value={segment.id}
-                    className="flex items-center justify-center gap-1 sm:gap-2 rounded-lg px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-medium whitespace-nowrap data-[state=inactive]:text-muted-foreground data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm"
-                  >
-                    <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" aria-hidden="true" />
-                    <span className="hidden sm:inline">{segment.title}</span>
-                  </TabsTrigger>
-                );
-              })}
-            </TabsList>
+          {/* Scrollable tabs with gradient fade indicators */}
+          <div className="relative flex-shrink-0 pb-2 max-w-full">
+            <div className="overflow-x-auto scrollbar-thin">
+              <TabsList className="inline-flex gap-1 sm:gap-2 rounded-xl bg-muted/30 p-1 sm:p-1.5 min-w-max">
+                {analyticsSegments.map((segment) => {
+                  const Icon = segment.icon;
+                  return (
+                    <TabsTrigger
+                      key={segment.id}
+                      value={segment.id}
+                      className="flex items-center justify-center gap-1 sm:gap-2 rounded-lg px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-medium whitespace-nowrap data-[state=inactive]:text-muted-foreground data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm min-h-[40px] sm:min-h-0"
+                    >
+                      <Icon className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
+                      {/* Mobile: short labels, Desktop: full titles */}
+                      <span className="sm:hidden">{mobileLabels[segment.id]}</span>
+                      <span className="hidden sm:inline">{segment.title}</span>
+                    </TabsTrigger>
+                  );
+                })}
+              </TabsList>
+            </div>
+            {/* Gradient fade indicators for scroll */}
+            <div className="absolute right-0 top-0 bottom-2 w-8 bg-gradient-to-l from-card/70 to-transparent pointer-events-none sm:hidden" />
           </div>
 
           {analyticsSegments.map((segment) => (
             <TabsContent key={segment.id} value={segment.id} className="flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden mt-2">
               <section
-                className="h-full space-y-4 border border-border/60 rounded-xl sm:rounded-2xl p-3 sm:p-5 lg:p-6 bg-background shadow-md"
+                className="h-full space-y-3 sm:space-y-4 border border-border/60 rounded-xl sm:rounded-2xl p-3 sm:p-5 lg:p-6 bg-background shadow-md"
                 aria-labelledby={`${segment.id}-title`}
               >
                 <header className="space-y-1 sm:space-y-2">
                   <div className="flex items-center gap-2">
-                    <div className="h-6 sm:h-8 w-1 rounded-full bg-primary" aria-hidden="true" />
+                    <div className="h-5 sm:h-8 w-1 rounded-full bg-primary" aria-hidden="true" />
                     <h2
                       id={`${segment.id}-title`}
-                      className="text-base sm:text-xl lg:text-2xl font-semibold text-foreground"
+                      className="text-sm sm:text-xl lg:text-2xl font-semibold text-foreground"
                     >
                       {segment.title}
                     </h2>
                   </div>
-                  <p className="text-muted-foreground text-xs sm:text-sm pl-3">{segment.description}</p>
+                  <p className="text-muted-foreground text-xs sm:text-sm pl-3 line-clamp-2 sm:line-clamp-none">{segment.description}</p>
                 </header>
                 <div className="w-full min-w-0">{segment.content}</div>
               </section>

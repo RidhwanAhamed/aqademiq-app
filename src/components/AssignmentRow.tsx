@@ -70,12 +70,12 @@ export function AssignmentRow({ assignment, onUpdate, onToggleComplete }: Assign
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Assignment title"
-            className="font-medium"
+            className="font-medium h-12 sm:h-10"
           />
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 gap-3 sm:gap-4">
             <Select value={courseId} onValueChange={setCourseId}>
-              <SelectTrigger>
+              <SelectTrigger className="h-12 sm:h-10">
                 <SelectValue placeholder="Select course" />
               </SelectTrigger>
               <SelectContent>
@@ -89,7 +89,7 @@ export function AssignmentRow({ assignment, onUpdate, onToggleComplete }: Assign
 
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" className="justify-start text-left font-normal">
+                <Button variant="outline" className="justify-start text-left font-normal h-12 sm:h-10">
                   <CalendarIcon className="mr-2 h-4 w-4" />
                   {format(dueDate, "PPP")}
                 </Button>
@@ -105,14 +105,14 @@ export function AssignmentRow({ assignment, onUpdate, onToggleComplete }: Assign
             </Popover>
 
             <div className="flex items-center gap-2">
-              <Clock className="w-4 h-4 text-muted-foreground" />
+              <Clock className="w-4 h-4 text-muted-foreground flex-shrink-0" />
               <Input
                 type="number"
                 value={estimatedHours}
                 onChange={(e) => setEstimatedHours(Number(e.target.value))}
                 min="0.5"
                 step="0.5"
-                className="flex-1"
+                className="flex-1 h-12 sm:h-10"
               />
               <span className="text-sm text-muted-foreground">hrs</span>
             </div>
@@ -123,14 +123,15 @@ export function AssignmentRow({ assignment, onUpdate, onToggleComplete }: Assign
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Description (optional)"
             rows={2}
+            className="min-h-[80px]"
           />
 
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" size="sm" onClick={handleCancel} disabled={saving}>
+          <div className="flex flex-col sm:flex-row justify-end gap-2">
+            <Button variant="outline" size="sm" onClick={handleCancel} disabled={saving} className="h-11 sm:h-9">
               <X className="w-4 h-4 mr-1" />
               Cancel
             </Button>
-            <Button size="sm" onClick={handleSave} disabled={!title || saving}>
+            <Button size="sm" onClick={handleSave} disabled={!title || saving} className="h-11 sm:h-9">
               <Save className="w-4 h-4 mr-1" />
               {saving ? "Saving..." : "Save"}
             </Button>
@@ -143,64 +144,69 @@ export function AssignmentRow({ assignment, onUpdate, onToggleComplete }: Assign
   return (
     <>
       <div className={cn(
-        "flex items-center justify-between p-4 border-b border-border last:border-b-0 hover:bg-muted/50 transition-colors",
+        "flex flex-col sm:flex-row sm:items-center justify-between p-4 hover:bg-muted/50 transition-colors active:bg-muted/70",
         assignment.is_completed && "opacity-60"
       )}>
-        <div className="flex items-center gap-3 flex-1">
-          <Checkbox
-            checked={assignment.is_completed || false}
-            onCheckedChange={handleToggle}
-            className="mt-0.5"
-          />
+        <div className="flex items-start sm:items-center gap-3 flex-1 min-w-0">
+          {/* Larger touch target for checkbox */}
+          <div className="flex items-center justify-center w-11 h-11 sm:w-6 sm:h-6 -ml-2 sm:ml-0">
+            <Checkbox
+              checked={assignment.is_completed || false}
+              onCheckedChange={handleToggle}
+              className="w-5 h-5 sm:w-4 sm:h-4"
+            />
+          </div>
           
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
+            <div className="flex flex-wrap items-center gap-2 mb-1">
               <h3 className={cn(
-                "font-medium",
+                "font-medium text-sm sm:text-base",
                 assignment.is_completed && "line-through text-muted-foreground"
               )}>
                 {assignment.title}
               </h3>
               {assignment.is_completed && (
-                <Badge variant="outline" className="text-success border-success">
+                <Badge variant="outline" className="text-success border-success text-xs">
                   Completed
                 </Badge>
               )}
               {(assignment.is_recurring || assignment.parent_assignment_id) && (
-                <Badge variant="outline" className="text-primary border-primary">
+                <Badge variant="outline" className="text-primary border-primary text-xs">
                   <Repeat className="w-3 h-3 mr-1" />
                   {assignment.is_recurring ? "Recurring" : "Instance"}
                 </Badge>
               )}
             </div>
             
-            <div className="flex items-center gap-4 text-sm text-muted-foreground">
-              <span>Due {format(new Date(assignment.due_date), "MMM d, yyyy")}</span>
-              <span>•</span>
-              <span>{course?.name || "Unknown Course"}</span>
+            {/* Mobile: stack vertically, Desktop: inline */}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-xs sm:text-sm text-muted-foreground">
+              <span>Due {format(new Date(assignment.due_date), "MMM d")}</span>
+              <span className="hidden sm:inline">•</span>
+              <span className="truncate">{course?.name || "Unknown Course"}</span>
               {assignment.estimated_hours && (
                 <>
-                  <span>•</span>
-                  <span>{assignment.estimated_hours}h estimated</span>
+                  <span className="hidden sm:inline">•</span>
+                  <span>{assignment.estimated_hours}h est.</span>
                 </>
               )}
               {assignment.grade_received && (
                 <>
-                  <span>•</span>
+                  <span className="hidden sm:inline">•</span>
                   <span className="text-success font-medium">Grade: {assignment.grade_received}</span>
                 </>
               )}
             </div>
             
             {assignment.description && (
-              <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+              <p className="text-xs sm:text-sm text-muted-foreground mt-1 line-clamp-2">
                 {assignment.description}
               </p>
             )}
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        {/* Actions - row on mobile, always visible */}
+        <div className="flex items-center gap-1 mt-3 sm:mt-0 ml-9 sm:ml-0">
           {!assignment.is_completed && (
             <AIInsightButton
               type="assignment"
@@ -215,7 +221,7 @@ export function AssignmentRow({ assignment, onUpdate, onToggleComplete }: Assign
             variant="ghost"
             size="sm"
             onClick={() => setShowGradeDialog(true)}
-            className="text-blue-600 hover:text-blue-700"
+            className="text-blue-600 hover:text-blue-700 h-10 w-10 sm:h-9 sm:w-9 p-0"
           >
             <Award className="w-4 h-4" />
           </Button>
@@ -223,7 +229,7 @@ export function AssignmentRow({ assignment, onUpdate, onToggleComplete }: Assign
             variant="ghost"
             size="sm"
             onClick={() => setIsEditing(true)}
-            className="ml-2"
+            className="h-10 w-10 sm:h-9 sm:w-9 p-0"
           >
             <Edit2 className="w-4 h-4" />
           </Button>
