@@ -55,7 +55,7 @@ export default function Analytics() {
         description:
           "Monitor where your focus hours go, which courses need attention, and how assignments trend.",
         content: (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 w-full min-w-0">
             <StudyHoursDistribution studySessions={studySessions} courses={courses} />
             <AssignmentsOverview assignments={assignments} courses={courses} />
           </div>
@@ -68,7 +68,7 @@ export default function Analytics() {
         description:
           "Track grades and compare course outcomes so you can act before exams or project deadlines.",
         content: (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 w-full min-w-0">
             <GradeTrendAnalysis assignments={assignments} exams={exams} courses={courses} />
             <CoursePerformanceComparison
               courses={courses}
@@ -103,7 +103,7 @@ export default function Analytics() {
         description:
           "Visualize your daily cadence and streaks to keep habits intact even during busy weeks.",
         content: (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 w-full min-w-0">
             <DailyStudyTimeChart studySessions={studySessions} />
             <StudyStreakProgress studySessions={studySessions} loading={loading} />
           </div>
@@ -116,7 +116,7 @@ export default function Analytics() {
         description:
           "Balance upcoming tasks with realistic workload distribution before conflicts surface.",
         content: (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 w-full min-w-0">
             <StudyScheduleOptimization
               studySessions={studySessions}
               assignments={assignments}
@@ -138,7 +138,7 @@ export default function Analytics() {
         description:
           "Stay ahead of due dates and reduce penalties from late submissions or missed checkpoints.",
         content: (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 w-full min-w-0">
             <UpcomingTasks assignments={assignments} exams={exams} courses={courses} />
             <LateSubmissionsChart assignments={assignments} />
           </div>
@@ -151,7 +151,7 @@ export default function Analytics() {
   const [activeSegment, setActiveSegment] = useState(analyticsSegments[0]?.id ?? "");
 
   return (
-    <div className="flex flex-col h-full min-h-0 p-3 sm:p-4 lg:p-6 animate-fade-in">
+    <div className="flex flex-col h-full min-h-0 w-full max-w-full overflow-x-hidden p-3 sm:p-4 lg:p-6 animate-fade-in">
       {/* Header */}
       <div className="flex items-center justify-between gap-4 flex-shrink-0 mb-4 sm:mb-6">
         <div className="space-y-1 min-w-0 flex-1">
@@ -166,10 +166,10 @@ export default function Analytics() {
       </div>
 
       {/* Segmented analytics content - fills remaining space */}
-      <div className="flex-1 min-h-0 rounded-2xl sm:rounded-3xl border border-border/60 bg-card/70 p-3 sm:p-4 lg:p-6 shadow-lg shadow-black/10 overflow-hidden flex flex-col">
-        <Tabs value={activeSegment} onValueChange={setActiveSegment} className="flex flex-col h-full min-h-0">
-          <div className="overflow-x-auto flex-shrink-0 -mx-1 px-1 pb-2">
-            <TabsList className="inline-flex w-max min-w-full gap-1 sm:gap-2 rounded-xl bg-muted/30 p-1 sm:p-1.5">
+      <div className="flex-1 min-h-0 min-w-0 w-full max-w-full rounded-2xl sm:rounded-3xl border border-border/60 bg-card/70 p-3 sm:p-4 lg:p-6 shadow-lg shadow-black/10 overflow-hidden flex flex-col">
+        <Tabs value={activeSegment} onValueChange={setActiveSegment} className="flex flex-col h-full min-h-0 min-w-0">
+          <div className="overflow-x-auto flex-shrink-0 pb-2 max-w-full">
+            <TabsList className="inline-flex gap-1 sm:gap-2 rounded-xl bg-muted/30 p-1 sm:p-1.5">
               {analyticsSegments.map((segment) => {
                 const Icon = segment.icon;
                 return (
@@ -187,7 +187,7 @@ export default function Analytics() {
           </div>
 
           {analyticsSegments.map((segment) => (
-            <TabsContent key={segment.id} value={segment.id} className="flex-1 min-h-0 overflow-y-auto mt-2">
+            <TabsContent key={segment.id} value={segment.id} className="flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden mt-2">
               <section
                 className="h-full space-y-4 border border-border/60 rounded-xl sm:rounded-2xl p-3 sm:p-5 lg:p-6 bg-background shadow-md"
                 aria-labelledby={`${segment.id}-title`}
@@ -204,7 +204,7 @@ export default function Analytics() {
                   </div>
                   <p className="text-muted-foreground text-xs sm:text-sm pl-3">{segment.description}</p>
                 </header>
-                <div className="w-full">{segment.content}</div>
+                <div className="w-full min-w-0">{segment.content}</div>
               </section>
             </TabsContent>
           ))}
