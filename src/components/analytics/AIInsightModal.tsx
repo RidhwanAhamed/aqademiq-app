@@ -16,6 +16,17 @@ import {
   Loader2
 } from "lucide-react";
 
+// Helper function to safely extract string content from potentially nested objects
+const getItemText = (item: any): string => {
+  if (typeof item === 'string') return item;
+  if (typeof item === 'object' && item !== null) {
+    return item.recommendation || item.tip || item.text || 
+           item.description || item.value || item.content ||
+           item.suggestion || item.focus || JSON.stringify(item);
+  }
+  return String(item);
+};
+
 interface AIInsightModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -193,10 +204,10 @@ export function AIInsightModal({
                         <h4 className="font-medium">Suggested Study Sessions</h4>
                       </div>
                       <div className="space-y-2">
-                        {insights.suggestedSessions.map((session: string, index: number) => (
+                        {insights.suggestedSessions.map((session: any, index: number) => (
                           <div key={index} className="flex items-start gap-2 text-sm">
                             <ArrowRight className="w-3 h-3 mt-0.5 text-primary" />
-                            <span>{session}</span>
+                            <span>{getItemText(session)}</span>
                           </div>
                         ))}
                       </div>
@@ -212,10 +223,10 @@ export function AIInsightModal({
                         <h4 className="font-medium">Productivity Tips</h4>
                       </div>
                       <div className="space-y-2">
-                        {insights.productivityTips.map((tip: string, index: number) => (
+                        {insights.productivityTips.map((tip: any, index: number) => (
                           <div key={index} className="flex items-start gap-2 text-sm">
                             <ArrowRight className="w-3 h-3 mt-0.5 text-primary" />
-                            <span>{tip}</span>
+                            <span>{getItemText(tip)}</span>
                           </div>
                         ))}
                       </div>
@@ -231,10 +242,10 @@ export function AIInsightModal({
                         <h4 className="font-medium">Planning Recommendations</h4>
                       </div>
                       <div className="space-y-2">
-                        {insights.planningRecommendations.map((rec: string, index: number) => (
+                        {insights.planningRecommendations.map((rec: any, index: number) => (
                           <div key={index} className="flex items-start gap-2 text-sm">
                             <ArrowRight className="w-3 h-3 mt-0.5 text-primary" />
-                            <span>{rec}</span>
+                            <span>{getItemText(rec)}</span>
                           </div>
                         ))}
                       </div>

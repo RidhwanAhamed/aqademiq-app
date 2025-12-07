@@ -31,6 +31,17 @@ interface AIInsightResponse {
   planningRecommendations: string[];
 }
 
+// Helper function to safely extract string content from potentially nested objects
+const getItemText = (item: any): string => {
+  if (typeof item === 'string') return item;
+  if (typeof item === 'object' && item !== null) {
+    return item.recommendation || item.tip || item.text || 
+           item.description || item.value || item.content ||
+           item.suggestion || item.focus || JSON.stringify(item);
+  }
+  return String(item);
+};
+
 export function AIInsightButton({ 
   type, 
   title, 
@@ -193,7 +204,7 @@ export function AIInsightButton({
                     {(insights.productivityTips || []).map((tip, index) => (
                       <li key={index} className="flex items-start gap-2">
                         <div className="w-2 h-2 rounded-full bg-yellow-500 mt-2 flex-shrink-0" />
-                        <span className="text-sm">{tip}</span>
+                        <span className="text-sm">{getItemText(tip)}</span>
                       </li>
                     ))}
                   </ul>
@@ -213,7 +224,7 @@ export function AIInsightButton({
                     {(insights.planningRecommendations || []).map((rec, index) => (
                       <li key={index} className="flex items-start gap-2">
                         <div className="w-2 h-2 rounded-full bg-green-500 mt-2 flex-shrink-0" />
-                        <span className="text-sm">{rec}</span>
+                        <span className="text-sm">{getItemText(rec)}</span>
                       </li>
                     ))}
                   </ul>
