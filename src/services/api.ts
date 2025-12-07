@@ -1,11 +1,133 @@
 /**
- * API abstraction layer for calendar and scheduling operations.
- * Purpose: Isolate all calendar mutations for easy backend swap.
+ * API abstraction layer for calendar, scheduling, and gamification operations.
+ * Purpose: Isolate all mutations for easy backend swap.
  * Backend integration point: Replace mock implementations with actual API calls.
- * TODO: API -> /api/calendar/events, /api/calendar/conflicts
+ * TODO: API -> /api/calendar/events, /api/calendar/conflicts, /api/achievements
  */
 
 import { supabase } from '@/integrations/supabase/client';
+import badgesData from '@/data/badges.json';
+
+// ============================================================================
+// Achievement Badge Types & Service
+// ============================================================================
+
+export interface Badge {
+  id: string;
+  title: string;
+  description: string;
+  unlock_toast: string;
+  icon: string;
+  category: 'focus' | 'streak' | 'completion';
+  criteria: {
+    type: 'first_pomodoro' | 'streak_days' | 'assignments_completed';
+    threshold: number;
+  };
+}
+
+export interface UserBadge {
+  badge_id: string;
+  unlocked_at: string;
+}
+
+/**
+ * Fetches all available badges from mock data.
+ * TODO: API -> GET /api/achievements/badges
+ */
+export const getBadges = (): Promise<Badge[]> => {
+  return Promise.resolve(badgesData.badges as Badge[]);
+};
+
+/**
+ * Fetches user's unlocked badges.
+ * TODO: API -> GET /api/achievements/user/:userId
+ */
+export const getUserBadges = async (userId: string): Promise<UserBadge[]> => {
+  // TODO: API -> GET /api/achievements/user/:userId
+  // For now, using localStorage as mock storage until backend is ready
+  const storedBadges = localStorage.getItem(`aqademiq_badges_${userId}`);
+  if (storedBadges) {
+    return Promise.resolve(JSON.parse(storedBadges));
+  }
+  return Promise.resolve([]);
+};
+
+/**
+ * Awards a badge to the user.
+ * TODO: API -> POST /api/achievements/award
+ */
+export const awardBadge = async (
+  userId: string, 
+  badgeId: string
+): Promise<{ success: boolean; badge: Badge | null }> => {
+  // TODO: API -> POST /api/achievements/award { userId, badgeId }
+  const badges = await getBadges();
+  const badge = badges.find(b => b.id === badgeId);
+  
+  if (!badge) {
+    return { success: false, badge: null };
+  }
+
+  // Check if already awarded
+  const userBadges = await getUserBadges(userId);
+  if (userBadges.some(ub => ub.badge_id === badgeId)) {
+    return { success: false, badge: null };
+  }
+
+  // Award badge (using localStorage until backend integration)
+  const newUserBadge: UserBadge = {
+    badge_id: badgeId,
+    unlocked_at: new Date().toISOString()
+  };
+  
+  const updatedBadges = [...userBadges, newUserBadge];
+  localStorage.setItem(`aqademiq_badges_${userId}`, JSON.stringify(updatedBadges));
+
+  return { success: true, badge };
+};
+
+/**
+ * Checks if user qualifies for any new badges based on current stats.
+ * TODO: API -> POST /api/achievements/check
+ */
+export const checkBadgeEligibility = async (
+  userId: string,
+  stats: {
+    totalPomodoroSessions: number;
+    currentStreak: number;
+    assignmentsCompleted: number;
+  }
+): Promise<Badge[]> => {
+  const badges = await getBadges();
+  const userBadges = await getUserBadges(userId);
+  const unlockedIds = new Set(userBadges.map(ub => ub.badge_id));
+  
+  const eligibleBadges: Badge[] = [];
+  
+  for (const badge of badges) {
+    if (unlockedIds.has(badge.id)) continue;
+    
+    let qualifies = false;
+    
+    switch (badge.criteria.type) {
+      case 'first_pomodoro':
+        qualifies = stats.totalPomodoroSessions >= badge.criteria.threshold;
+        break;
+      case 'streak_days':
+        qualifies = stats.currentStreak >= badge.criteria.threshold;
+        break;
+      case 'assignments_completed':
+        qualifies = stats.assignmentsCompleted >= badge.criteria.threshold;
+        break;
+    }
+    
+    if (qualifies) {
+      eligibleBadges.push(badge);
+    }
+  }
+  
+  return eligibleBadges;
+};
 
 export interface ScheduleBlockPayload {
   title: string;

@@ -1,0 +1,41 @@
+{
+  "badges": [
+    {
+      "id": "laser_focus_first_pomodoro",
+      "title": "Laser Focus",
+      "description": "Complete your first Pomodoro focus session.",
+      "unlock_toast": "First focus session complete. You're building real momentum.",
+      "icon": "/assets/badges/laser-focus.png",
+      "category": "focus",
+      "criteria": {
+        "type": "first_pomodoro",
+        "threshold": 1
+      }
+    },
+    {
+      "id": "study_streaker_7_days",
+      "title": "Study Streaker",
+      "description": "Maintain a 7-day study streak.",
+      "unlock_toast": "One week strong. Consistency is your superpower.",
+      "icon": "/assets/badges/study-streaker-7.png",
+      "category": "streak",
+      "criteria": {
+        "type": "streak_days",
+        "threshold": 7
+      }
+    },
+    {
+      "id": "study_streaker_30_days",
+      "title": "Study Streaker",
+      "description": "Maintain a 30-day study streak.",
+      "unlock_toast": "30 days of discipline. That's a habit that sticks.",
+      "icon": "/assets/badges/study-streaker-30.png",
+      "category": "streak",
+      "criteria": {
+        "type": "streak_days",
+        "threshold": 30
+      }
+    }
+  ]
+}
+

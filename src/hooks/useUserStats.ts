@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { checkBadgeEligibility, awardBadge, Badge } from '@/services/api';
+import { useToast } from '@/hooks/use-toast';
 
 export interface UserStats {
   id: string;
@@ -36,6 +38,34 @@ export function useUserStats() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
+  const { toast } = useToast();
+
+  // Check and award streak badges
+  const checkStreakBadges = useCallback(async (currentStreak: number) => {
+    if (!user) return;
+    
+    try {
+      const eligibleBadges = await checkBadgeEligibility(user.id, {
+        totalPomodoroSessions: 0,
+        currentStreak,
+        assignmentsCompleted: 0
+      });
+      
+      for (const badge of eligibleBadges) {
+        const result = await awardBadge(user.id, badge.id);
+        
+        if (result.success && result.badge) {
+          toast({
+            title: `🏆 ${result.badge.title}`,
+            description: result.badge.unlock_toast,
+            duration: 5000,
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Error checking streak badges:', err);
+    }
+  }, [user, toast]);
 
   const fetchUserStats = async () => {
     if (!user) return;
@@ -248,6 +278,10 @@ export function useUserStats() {
         .eq('user_id', user.id);
 
       if (error) throw error;
+      
+      // Check for streak badges (7-day, 30-day)
+      await checkStreakBadges(newStreak);
+      
       await fetchUserStats();
     } catch (error) {
       console.error('Error updating study streak:', error);

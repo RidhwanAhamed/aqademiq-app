@@ -1,9 +1,9 @@
-import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
-import { ScheduleBlock, Exam } from '@/hooks/useSchedule';
-import { Assignment } from '@/hooks/useAssignments';
 import { useToast } from '@/hooks/use-toast';
+import { Assignment } from '@/hooks/useAssignments';
+import { useAuth } from '@/hooks/useAuth';
+import { Exam, ScheduleBlock } from '@/hooks/useSchedule';
+import { supabase } from '@/integrations/supabase/client';
+import { useCallback, useEffect, useState } from 'react';
 
 export interface CalendarEvent {
   id: string;

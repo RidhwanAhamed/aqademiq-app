@@ -1,11 +1,11 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useAuth } from '@/hooks/useAuth';
-import { ScheduleBlock, Exam } from '@/hooks/useSchedule';
-import { Assignment } from '@/hooks/useAssignments';
 import { useToast } from '@/hooks/use-toast';
+import { Assignment } from '@/hooks/useAssignments';
+import { useAuth } from '@/hooks/useAuth';
+import { Exam, ScheduleBlock } from '@/hooks/useSchedule';
 import { supabase } from '@/integrations/supabase/client';
 import { logger } from '@/utils/logger';
 import { debounce } from 'lodash-es';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 export interface CalendarEvent {
   id: string;
