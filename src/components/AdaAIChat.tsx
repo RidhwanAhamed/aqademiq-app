@@ -19,6 +19,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { EnhancedFileUpload } from '@/components/EnhancedFileUpload';
 import { ConflictResolutionPanel } from '@/components/ConflictResolutionPanel';
+import { FileAttachmentChip } from '@/components/FileAttachmentChip';
 import { useAdvancedConflictDetection } from '@/hooks/useAdvancedConflictDetection';
 import { useSpeechToText } from '@/hooks/useSpeechToText';
 import { createScheduleBlock, detectScheduleConflicts, deleteScheduleBlock } from '@/services/api';
@@ -143,6 +144,10 @@ export function AdaAIChat({
   const [pendingActions, setPendingActions] = useState<PendingAction[]>([]);
   const [lastCreatedBlockId, setLastCreatedBlockId] = useState<string | null>(null);
   const [hasVoiceDraft, setHasVoiceDraft] = useState(false);
+  
+  // ChatGPT-style pending file attachment
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [pendingFileStatus, setPendingFileStatus] = useState<string>('');
   
   // Enhanced conflict detection
   const { 
@@ -360,8 +365,125 @@ export function AdaAIChat({
     
     const files = Array.from(e.dataTransfer.files);
     if (files.length > 0) {
-      handleFileUpload(files[0]);
+      // ChatGPT-style: attach file, don't process immediately
+      setPendingFile(files[0]);
+      setPendingFileStatus('');
     }
+  };
+
+  // Handle file input change - ChatGPT style (attach, don't process)
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setPendingFile(file);
+      setPendingFileStatus('');
+    }
+    // Reset input so same file can be selected again
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  // Remove pending file attachment
+  const handleRemovePendingFile = () => {
+    setPendingFile(null);
+    setPendingFileStatus('');
+  };
+
+  // Upload and index file for RAG (without auto schedule parsing)
+  const uploadAndIndexFile = async (file: File, userPrompt?: string): Promise<{ fileId: string; ocrText?: string } | null> => {
+    if (!user) return null;
+
+    try {
+      setPendingFileStatus('Uploading...');
+      
+      // Upload file to Supabase Storage
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+      
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('study-files')
+        .upload(fileName, file);
+
+      if (uploadError) throw uploadError;
+
+      // Create file upload record
+      const { data: fileRecord, error: fileError } = await supabase
+        .from('file_uploads')
+        .insert([{
+          user_id: user.id,
+          file_name: file.name,
+          file_url: uploadData.path,
+          file_type: file.type,
+          status: 'uploaded'
+        }])
+        .select()
+        .single();
+
+      if (fileError) throw fileError;
+
+      // Step 1: OCR if needed
+      let ocrText = '';
+      if (file.type.startsWith('image/') || file.type === 'application/pdf') {
+        setPendingFileStatus('Extracting text...');
+        
+        const { data: ocrResult, error: ocrError } = await supabase.functions.invoke('enhanced-ocr-parser', {
+          body: { file_id: fileRecord.id, use_fallback: false }
+        });
+
+        if (ocrError || !ocrResult?.success) {
+          // Fallback to basic OCR
+          const { data: basicOcrResult } = await supabase.functions.invoke('ocr-parser', {
+            body: { file_id: fileRecord.id }
+          });
+          ocrText = basicOcrResult?.text || '';
+        } else {
+          ocrText = ocrResult?.text || '';
+        }
+        
+        console.log(`OCR completed: ${ocrText.length} characters extracted`);
+      }
+
+      // Step 2: Generate embeddings for RAG
+      if (ocrText.length > 50) {
+        setPendingFileStatus('Indexing for AI...');
+        
+        try {
+          await supabase.functions.invoke('generate-embeddings', {
+            body: { 
+              file_upload_id: fileRecord.id,
+              source_type: 'upload',
+              metadata: { 
+                file_name: file.name,
+                file_type: file.type,
+                indexed_at: new Date().toISOString()
+              }
+            }
+          });
+          console.log('✅ Document indexed for RAG search');
+        } catch (embError) {
+          console.log('Embedding error (non-blocking):', embError);
+        }
+      }
+
+      setPendingFileStatus('Ready!');
+      return { fileId: fileRecord.id, ocrText };
+
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      throw error;
+    }
+  };
+
+  // Check if user wants schedule parsing based on their message
+  const wantsScheduleParsing = (message: string): boolean => {
+    const scheduleKeywords = [
+      'timetable', 'schedule', 'add to calendar', 'import', 
+      'parse schedule', 'class schedule', 'classes', 'add classes',
+      'import schedule', 'extract schedule', 'calendar'
+    ];
+    const lowerMessage = message.toLowerCase();
+    return scheduleKeywords.some(keyword => lowerMessage.includes(keyword));
   };
 
   const handleEnhancedFileUpload = async (file: File) => {
@@ -413,7 +535,7 @@ export function AdaAIChat({
         playNotificationSound();
       }
 
-      // Process file with enhanced AI pipeline
+      // Process file with enhanced AI pipeline (legacy flow with schedule parsing)
       await processFileWithEnhancedAI(fileRecord.id, file);
 
     } catch (error) {
@@ -436,7 +558,7 @@ export function AdaAIChat({
     await handleEnhancedFileUpload(targetFile);
   };
 
-  const processFileWithEnhancedAI = async (fileId: string, file: File) => {
+  const processFileWithEnhancedAI = async (fileId: string, file: File, userPrompt?: string) => {
     try {
       // Show progress: Uploading → OCR → Parsing
       const progressMessage = await saveChatMessage(
@@ -806,7 +928,7 @@ export function AdaAIChat({
   }, [user, toast]);
 
   const handleSendMessage = async () => {
-    if (!inputMessage.trim() || !user || isProcessing) return;
+    if ((!inputMessage.trim() && !pendingFile) || !user || isProcessing) return;
 
     // Check message limit
     if (messageCount >= MESSAGE_LIMIT) {
@@ -815,22 +937,56 @@ export function AdaAIChat({
     }
 
     const userMessage = inputMessage.trim();
+    const attachedFile = pendingFile;
+    
     setInputMessage('');
+    setPendingFile(null);
     setIsProcessing(true);
 
     try {
-      // Save user message
-      const savedUserMessage = await saveChatMessage(userMessage, true);
+      let fileId: string | undefined;
+      let fileContext = '';
+      
+      // If there's an attached file, upload and index it first
+      if (attachedFile) {
+        const uploadResult = await uploadAndIndexFile(attachedFile, userMessage);
+        if (uploadResult) {
+          fileId = uploadResult.fileId;
+          fileContext = `[Attached file: ${attachedFile.name}]`;
+          
+          // Check if user wants schedule parsing
+          if (wantsScheduleParsing(userMessage)) {
+            // Run schedule parser for timetable imports
+            await processFileWithEnhancedAI(fileId, attachedFile, userMessage);
+            setPendingFileStatus('');
+            return; // processFileWithEnhancedAI handles the full flow
+          }
+        }
+      }
+
+      // Save user message (with file context if applicable)
+      const displayMessage = fileContext 
+        ? `${fileContext}\n\n${userMessage || 'What can you tell me about this file?'}` 
+        : userMessage;
+      
+      const savedUserMessage = await saveChatMessage(
+        displayMessage, 
+        true, 
+        fileId,
+        fileId ? { file_name: attachedFile?.name } : undefined
+      );
+      
       if (savedUserMessage) {
         setMessages(prev => [...prev, savedUserMessage]);
         setMessageCount(prev => prev + 1);
       }
 
-      // Get AI response with conversation context
+      // Get AI response with conversation context and file info
       const { data: aiResponse, error } = await supabase.functions.invoke('ai-chat', {
         body: { 
-          message: userMessage,
-          conversation_id: conversationId
+          message: userMessage || 'What can you tell me about this file?',
+          conversation_id: conversationId,
+          just_indexed_file_id: fileId // Pass file ID to boost its relevance in RAG
         }
       });
 
@@ -840,7 +996,7 @@ export function AdaAIChat({
       const aiMessage = await saveChatMessage(
         aiResponse.response,
         false,
-        undefined,
+        fileId,
         aiResponse.metadata
       );
 
@@ -874,6 +1030,7 @@ export function AdaAIChat({
       });
     } finally {
       setIsProcessing(false);
+      setPendingFileStatus('');
     }
   };
 
@@ -1565,6 +1722,18 @@ export function AdaAIChat({
 
         {/* Enhanced Input Area */}
         <div className="border-t bg-background/95 backdrop-blur-sm p-4 sm:p-6">
+          {/* Pending File Attachment Chip */}
+          {pendingFile && (
+            <div className="mb-3">
+              <FileAttachmentChip
+                file={pendingFile}
+                onRemove={handleRemovePendingFile}
+                isProcessing={isProcessing && !!pendingFileStatus}
+                processingStatus={pendingFileStatus}
+              />
+            </div>
+          )}
+
           {(isVoiceListening || hasVoiceDraft) && (
             <div className="mb-3 flex items-center justify-between rounded-lg border border-dashed border-primary/40 bg-primary/5 px-3 py-2 text-xs text-foreground">
               <div className="flex items-center gap-2">
@@ -1608,7 +1777,10 @@ export function AdaAIChat({
                 value={inputMessage}
                 onChange={(e) => setInputMessage(e.target.value)}
                 onKeyDown={handleKeyPress}
-                placeholder="Ask Ada anything about your schedule, assignments, or academic planning..."
+                placeholder={pendingFile 
+                  ? "What would you like to know about this file?" 
+                  : "Ask Ada anything about your schedule, assignments, or academic planning..."
+                }
                 className="min-h-[60px] max-h-32 resize-none pr-32 sm:pr-40 bg-background/50 border-border/50 focus:bg-background focus:border-primary/50 transition-all duration-200"
                 disabled={isProcessing}
                 rows={2}
@@ -1675,7 +1847,7 @@ export function AdaAIChat({
             
             <Button
               onClick={handleSendMessage}
-              disabled={!inputMessage.trim() || isProcessing}
+              disabled={(!inputMessage.trim() && !pendingFile) || isProcessing}
               className="bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-white shadow-lg transition-all duration-200 h-[60px] px-6"
               aria-label="Send message"
             >
@@ -1688,12 +1860,12 @@ export function AdaAIChat({
             </Button>
           </div>
           
-          {/* File input */}
+          {/* File input - uses handleFileSelect for ChatGPT-style attach */}
           <input
             ref={fileInputRef}
             type="file"
             accept=".pdf,.jpg,.jpeg,.png,.txt,.doc,.docx"
-            onChange={(e) => handleFileUpload()}
+            onChange={handleFileSelect}
             className="hidden"
             aria-label="File upload input"
           />
