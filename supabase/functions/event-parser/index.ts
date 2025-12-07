@@ -55,6 +55,7 @@ serve(async (req) => {
     const { 
       user_id, 
       text_input,
+      file_id,
       auto_add_to_calendar = true,
       detect_conflicts = true
     } = await req.json();
@@ -66,20 +67,38 @@ serve(async (req) => {
       );
     }
 
-    if (!text_input || text_input.trim().length === 0) {
+    // Get text from file_id if provided
+    let eventText = text_input;
+    if (file_id && !eventText) {
+      const { data: fileRecord, error: fileError } = await supabase
+        .from('file_uploads')
+        .select('ocr_text')
+        .eq('id', file_id)
+        .single();
+
+      if (fileError || !fileRecord?.ocr_text) {
+        return new Response(
+          JSON.stringify({ error: 'Could not retrieve OCR text for file' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      eventText = fileRecord.ocr_text;
+    }
+
+    if (!eventText || eventText.trim().length === 0) {
       return new Response(
-        JSON.stringify({ error: 'Text input is required' }),
+        JSON.stringify({ error: 'Text input or file_id is required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log('Event parsing request:', { user_id, text_length: text_input.length });
+    console.log('Event parsing request:', { user_id, text_length: eventText.length, has_file_id: !!file_id });
 
     // Get user context for smart parsing
     const userContext = await getUserContext(supabase, user_id);
 
     // Parse events using AI
-    const parsedResult = await parseEventsWithAI(text_input, userContext);
+    const parsedResult = await parseEventsWithAI(eventText, userContext);
 
     // Detect conflicts if requested
     let conflicts: any[] = [];

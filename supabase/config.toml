@@ -379,6 +379,9 @@ verify_jwt = false
 [functions.event-parser]
 verify_jwt = false
 
+[functions.document-classifier]
+verify_jwt = false
+
 [functions.generate-recurring-assignments]
 verify_jwt = false
 
