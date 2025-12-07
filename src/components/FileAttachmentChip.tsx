@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, FileText, Image, File, Loader2, CalendarPlus } from 'lucide-react';
+import { X, FileText, Image, File, Loader2, CalendarPlus, CalendarDays } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -7,6 +7,7 @@ interface FileAttachmentChipProps {
   file: File;
   onRemove: () => void;
   onImportAsSchedule?: () => void;
+  onImportAsEvents?: () => void;
   isProcessing?: boolean;
   processingStatus?: string;
   className?: string;
@@ -16,6 +17,7 @@ export function FileAttachmentChip({
   file,
   onRemove,
   onImportAsSchedule,
+  onImportAsEvents,
   isProcessing = false,
   processingStatus,
   className
@@ -84,7 +86,20 @@ export function FileAttachmentChip({
               title="Import this file as a schedule/timetable"
             >
               <CalendarPlus className="w-3.5 h-3.5 mr-1" />
-              <span className="hidden sm:inline">Import Schedule</span>
+              <span className="hidden sm:inline">Schedule</span>
+            </Button>
+          )}
+          {onImportAsEvents && (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={onImportAsEvents}
+              className="h-6 px-2 text-xs hover:bg-accent/80 hover:text-accent-foreground"
+              aria-label="Import as events"
+              title="Import this file as calendar events"
+            >
+              <CalendarDays className="w-3.5 h-3.5 mr-1" />
+              <span className="hidden sm:inline">Events</span>
             </Button>
           )}
           <Button

@@ -413,12 +413,48 @@ export function AdaAIChat({
       }
 
       // Use the full enhanced upload flow with schedule parsing
-      await handleEnhancedFileUpload(file);
+      await handleEnhancedFileUpload(file, 'schedule_parser');
     } catch (error: any) {
       console.error('Schedule import error:', error);
       toast({
         title: 'Import Failed',
         description: error.message || 'Failed to import file as schedule',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  // Explicit "Import as Events" handler for pending file
+  const handleImportPendingFileAsEvents = async () => {
+    if (!pendingFile || !user || isProcessing) return;
+
+    setIsProcessing(true);
+    const file = pendingFile;
+    setPendingFile(null);
+    setPendingFileStatus('');
+
+    try {
+      // Add user message indicating events import intent
+      const userMessage = await saveChatMessage(
+        `📆 Import events from this file: **${file.name}**`,
+        true,
+        undefined,
+        { intent: 'event_import', file_name: file.name }
+      );
+      if (userMessage) {
+        setMessages(prev => [...prev, userMessage]);
+        setMessageCount(prev => prev + 1);
+      }
+
+      // Use the enhanced upload flow with event parsing
+      await handleEnhancedFileUpload(file, 'event_parser');
+    } catch (error: any) {
+      console.error('Event import error:', error);
+      toast({
+        title: 'Import Failed',
+        description: error.message || 'Failed to import file as events',
         variant: 'destructive'
       });
     } finally {
@@ -522,7 +558,8 @@ export function AdaAIChat({
     return scheduleKeywords.some(keyword => lowerMessage.includes(keyword));
   };
 
-  const handleEnhancedFileUpload = async (file: File) => {
+  // Agentic file upload with smart routing via document classifier
+  const handleEnhancedFileUpload = async (file: File, forceAction?: 'schedule_parser' | 'event_parser' | 'rag_only') => {
     if (!user) return;
 
     setIsProcessing(true);
@@ -571,8 +608,8 @@ export function AdaAIChat({
         playNotificationSound();
       }
 
-      // Process file with enhanced AI pipeline (legacy flow with schedule parsing)
-      await processFileWithEnhancedAI(fileRecord.id, file);
+      // Process file with agentic AI pipeline
+      await processFileWithAgenticAI(fileRecord.id, file, forceAction);
 
     } catch (error) {
       console.error('Error uploading file:', error);
@@ -594,9 +631,14 @@ export function AdaAIChat({
     await handleEnhancedFileUpload(targetFile);
   };
 
-  const processFileWithEnhancedAI = async (fileId: string, file: File, userPrompt?: string) => {
+  // AGENTIC AI: Smart file processing with document classification and routing
+  const processFileWithAgenticAI = async (
+    fileId: string, 
+    file: File, 
+    forceAction?: 'schedule_parser' | 'event_parser' | 'rag_only'
+  ) => {
     try {
-      // Show progress: Uploading → OCR → Parsing
+      // Show initial progress message
       const progressMessage = await saveChatMessage(
         '⏳ Processing your file...\n\n📤 **Phase 1:** Uploading ✓\n🔍 **Phase 2:** Extracting text (OCR)...',
         false,
@@ -608,127 +650,154 @@ export function AdaAIChat({
         setMessages(prev => [...prev, progressMessage]);
       }
 
-      // Step 1: Enhanced OCR with fallback system (no base64, use file_id)
+      // Helper to update progress
+      const updateProgress = async (message: string, phase: string) => {
+        if (progressMessage) {
+          await supabase
+            .from('chat_messages')
+            .update({ message, metadata: { processing: true, phase } })
+            .eq('id', progressMessage.id);
+          
+          setMessages(prev => prev.map(m => 
+            m.id === progressMessage.id ? { ...m, message } : m
+          ));
+        }
+      };
+
+      // Step 1: Enhanced OCR with fallback
       let ocrResult;
-      
       if (file.type.startsWith('image/') || file.type === 'application/pdf') {
-        // Try enhanced OCR parser first (pass file_id, not base64)
         const { data: enhancedOcrResult, error: enhancedOcrError } = await supabase.functions.invoke('enhanced-ocr-parser', {
-          body: { 
-            file_id: fileId,
-            use_fallback: false 
-          }
+          body: { file_id: fileId, use_fallback: false }
         });
 
         if (enhancedOcrError || !enhancedOcrResult?.success) {
           console.log('Enhanced OCR failed, trying basic OCR...');
-          // Fallback to basic OCR
           const { data: basicOcrResult, error: basicOcrError } = await supabase.functions.invoke('ocr-parser', {
-            body: { 
-              file_id: fileId
-            }
+            body: { file_id: fileId }
           });
-          
           if (basicOcrError) throw basicOcrError;
           ocrResult = basicOcrResult;
         } else {
           ocrResult = enhancedOcrResult;
         }
-
         console.log(`OCR completed: ${ocrResult?.text?.length || 0} characters extracted`);
       }
 
-      // Step 2: Index document for RAG (generate embeddings)
+      // Step 2: Always index for RAG
       if (ocrResult?.text && ocrResult.text.length > 50) {
-        // Update progress message
-        if (progressMessage) {
-          await supabase
-            .from('chat_messages')
-            .update({
-              message: '⏳ Processing your file...\n\n📤 **Phase 1:** Uploading ✓\n🔍 **Phase 2:** Extracting text (OCR) ✓\n🧠 **Phase 2.5:** Indexing for AI search...',
-              metadata: { processing: true, phase: 'indexing' }
-            })
-            .eq('id', progressMessage.id);
-          
-          setMessages(prev => prev.map(m => 
-            m.id === progressMessage.id 
-              ? { ...m, message: '⏳ Processing your file...\n\n📤 **Phase 1:** Uploading ✓\n🔍 **Phase 2:** Extracting text (OCR) ✓\n🧠 **Phase 2.5:** Indexing for AI search...' }
-              : m
-          ));
-        }
+        await updateProgress(
+          '⏳ Processing your file...\n\n📤 **Phase 1:** Uploading ✓\n🔍 **Phase 2:** Extracting text (OCR) ✓\n🧠 **Phase 2.5:** Indexing for AI search...',
+          'indexing'
+        );
 
         try {
-          const { error: embeddingError } = await supabase.functions.invoke('generate-embeddings', {
+          await supabase.functions.invoke('generate-embeddings', {
             body: { 
               file_upload_id: fileId,
-              source_type: 'timetable',
-              metadata: { 
-                file_name: file.name,
-                file_type: file.type,
-                indexed_at: new Date().toISOString()
-              }
+              source_type: 'upload',
+              metadata: { file_name: file.name, file_type: file.type, indexed_at: new Date().toISOString() }
             }
           });
-          
-          if (embeddingError) {
-            console.log('Embedding generation failed (non-blocking):', embeddingError);
-          } else {
-            console.log('✅ Document indexed for RAG search');
-          }
+          console.log('✅ Document indexed for RAG search');
         } catch (embError) {
           console.log('Embedding error (non-blocking):', embError);
         }
       }
 
-      // Update progress: OCR complete, now parsing
-      if (progressMessage) {
-        await supabase
-          .from('chat_messages')
-          .update({
-            message: '⏳ Processing your file...\n\n📤 **Phase 1:** Uploading ✓\n🔍 **Phase 2:** Extracting text (OCR) ✓\n🧠 **Phase 3:** AI parsing...',
-            metadata: { processing: true, phase: 'parsing' }
-          })
-          .eq('id', progressMessage.id);
-        
-        setMessages(prev => prev.map(m => 
-          m.id === progressMessage.id 
-            ? { ...m, message: '⏳ Processing your file...\n\n📤 **Phase 1:** Uploading ✓\n🔍 **Phase 2:** Extracting text (OCR) ✓\n🧠 **Phase 3:** AI parsing...' }
-            : m
-        ));
-      }
+      // Step 3: Determine action - use forced action or classify document
+      let recommendedAction: 'schedule_parser' | 'event_parser' | 'rag_only' = forceAction || 'rag_only';
+      let classification = null;
 
-      // Step 2: Advanced schedule parsing with conflict detection
-      const { data: parseResult, error: parseError } = await supabase.functions.invoke('advanced-schedule-parser', {
-        body: { 
-          file_id: fileId,
-          user_id: user.id,
-          auto_add_to_calendar: true,
-          sync_to_google: false,
-          enable_conflict_detection: true,
-          enable_workload_balancing: true
+      if (!forceAction && ocrResult?.text) {
+        await updateProgress(
+          '⏳ Processing your file...\n\n📤 **Phase 1:** Uploading ✓\n🔍 **Phase 2:** Extracting text (OCR) ✓\n🧠 **Phase 2.5:** Indexing ✓\n🤖 **Phase 3:** Analyzing document type...',
+          'classifying'
+        );
+
+        try {
+          const { data: classifyResult, error: classifyError } = await supabase.functions.invoke('document-classifier', {
+            body: { file_id: fileId, text_content: ocrResult.text }
+          });
+
+          if (!classifyError && classifyResult?.success) {
+            classification = classifyResult.classification;
+            recommendedAction = classification.recommended_action;
+            console.log('🤖 Document classified:', classification);
+          }
+        } catch (classifyErr) {
+          console.log('Classification error (using fallback):', classifyErr);
         }
-      });
-
-      if (parseError) {
-        console.error('Advanced parsing error:', parseError);
-        throw parseError;
       }
 
-      console.log('Parsing complete:', {
-        courses: parseResult.schedule_data?.courses?.length || 0,
-        classes: parseResult.schedule_data?.classes?.length || 0,
-        assignments: parseResult.schedule_data?.assignments?.length || 0,
-        exams: parseResult.schedule_data?.exams?.length || 0,
-        conflicts: parseResult.conflicts?.length || 0
-      });
+      // Step 4: Route to appropriate worker agent
+      let parseResult;
+      
+      if (recommendedAction === 'schedule_parser') {
+        await updateProgress(
+          `⏳ Processing your file...\n\n📤 **Phase 1:** Uploading ✓\n🔍 **Phase 2:** Extracting text (OCR) ✓\n🧠 **Phase 2.5:** Indexing ✓\n🤖 **Phase 3:** ${classification ? `Detected: ${classification.document_type} ✓` : 'Manual import ✓'}\n🎓 **Phase 4:** Parsing academic schedule...`,
+          'schedule_parsing'
+        );
 
-      // Step 3: Real-time conflict detection
-      if (parseResult.schedule_data) {
-        const detectedConflicts = await detectConflicts(parseResult.schedule_data);
-        parseResult.conflicts = [...(parseResult.conflicts || []), ...detectedConflicts];
+        const { data, error } = await supabase.functions.invoke('advanced-schedule-parser', {
+          body: { 
+            file_id: fileId,
+            user_id: user.id,
+            auto_add_to_calendar: true,
+            sync_to_google: false,
+            enable_conflict_detection: true,
+            enable_workload_balancing: true
+          }
+        });
+
+        if (error) throw error;
+        parseResult = data;
+
+        // Enhanced conflict detection
+        if (parseResult.schedule_data) {
+          const detectedConflicts = await detectConflicts(parseResult.schedule_data);
+          parseResult.conflicts = [...(parseResult.conflicts || []), ...detectedConflicts];
+        }
+
+      } else if (recommendedAction === 'event_parser') {
+        await updateProgress(
+          `⏳ Processing your file...\n\n📤 **Phase 1:** Uploading ✓\n🔍 **Phase 2:** Extracting text (OCR) ✓\n🧠 **Phase 2.5:** Indexing ✓\n🤖 **Phase 3:** ${classification ? `Detected: ${classification.document_type} ✓` : 'Manual import ✓'}\n📆 **Phase 4:** Parsing calendar events...`,
+          'event_parsing'
+        );
+
+        const { data, error } = await supabase.functions.invoke('event-parser', {
+          body: { 
+            file_id: fileId,
+            user_id: user.id,
+            auto_add_to_calendar: true,
+            detect_conflicts: true
+          }
+        });
+
+        if (error) throw error;
+        parseResult = data;
+
+      } else {
+        // RAG-only: Just generate a helpful response about the document
+        await updateProgress(
+          '⏳ Processing your file...\n\n📤 **Phase 1:** Uploading ✓\n🔍 **Phase 2:** Extracting text (OCR) ✓\n🧠 **Phase 2.5:** Indexing ✓\n📚 **Phase 3:** Ready for Q&A!',
+          'rag_complete'
+        );
+
+        const entities = classification?.detected_entities || {};
+        const entityList = Object.entries(entities)
+          .filter(([_, v]) => (v as number) > 0)
+          .map(([k, v]) => `${v} ${k}`)
+          .join(', ');
+
+        parseResult = {
+          response: `📚 **Document Indexed Successfully!**\n\n✅ Your file **"${file.name}"** has been processed and indexed.\n\n**What I found:**\n• ${ocrResult?.text?.length || 0} characters of text extracted\n${classification ? `• Document type: ${classification.document_type}\n• Detected: ${entityList || 'General content'}` : ''}\n\n💡 **You can now ask me questions about this document!** For example:\n• "What are the main topics covered?"\n• "Summarize this document"\n• "What assignments are mentioned?"\n\nOr if this contains schedule data, use the **Import Schedule** or **Import Events** buttons.`,
+          document_type: 'general_document',
+          rag_indexed: true
+        };
       }
 
-      // Remove progress message and save final AI response with enhanced metadata
+      // Remove progress message and save final response
       if (progressMessage) {
         setMessages(prev => prev.filter(m => m.id !== progressMessage.id));
         await supabase.from('chat_messages').delete().eq('id', progressMessage.id);
@@ -739,19 +808,15 @@ export function AdaAIChat({
         false,
         fileId,
         { 
-          parsed_data: parseResult.schedule_data, 
-          conflicts: parseResult.conflicts, 
-          suggestions: parseResult.suggestions,
-          workload_analysis: parseResult.workload_analysis,
-          can_add_to_calendar: !parseResult.calendar_results,
-          can_sync_to_google: !parseResult.google_sync_results,
-          calendar_results: parseResult.calendar_results,
-          google_sync_results: parseResult.google_sync_results,
+          parsed_data: parseResult.schedule_data || parseResult.parsed_events, 
+          conflicts: parseResult.conflicts,
+          classification,
+          recommended_action: recommendedAction,
+          calendar_results: parseResult.calendar_results || parseResult.created_events,
           processing_stats: {
             ocr_confidence: ocrResult?.confidence || 0,
-            document_type: parseResult.document_type,
-            processing_time: parseResult.processing_time,
-            phases_completed: ['upload', 'ocr', 'parsing']
+            document_type: classification?.document_type || parseResult.document_type,
+            action_taken: recommendedAction
           }
         }
       );
@@ -760,25 +825,20 @@ export function AdaAIChat({
         setMessages(prev => [...prev, aiMessage]);
         playNotificationSound();
         
-        // Update conflicts state for resolution panel
-        if (parseResult.conflicts && parseResult.conflicts.length > 0) {
+        if (parseResult.conflicts?.length > 0) {
           setConflicts(parseResult.conflicts);
         }
       }
 
-      console.log('✅ File processing complete');
+      console.log('✅ Agentic file processing complete:', { action: recommendedAction });
 
-    } catch (error) {
-      console.error('❌ Error processing file with enhanced AI:', error);
+    } catch (error: any) {
+      console.error('❌ Error in agentic file processing:', error);
       const errorMessage = await saveChatMessage(
         `I encountered an error processing your file: **${error.message || 'Unknown error'}**\n\nPlease try uploading it again. If the issue persists, the file format may not be supported or the document quality may need improvement.`,
         false,
         fileId,
-        { 
-          error: error.message, 
-          timestamp: new Date().toISOString(),
-          processing_failed: true 
-        }
+        { error: error.message, timestamp: new Date().toISOString(), processing_failed: true }
       );
       
       if (errorMessage) {
@@ -791,6 +851,11 @@ export function AdaAIChat({
         variant: 'destructive'
       });
     }
+  };
+
+  // Legacy: kept for backward compatibility  
+  const processFileWithEnhancedAI = async (fileId: string, file: File, userPrompt?: string) => {
+    await processFileWithAgenticAI(fileId, file, 'schedule_parser');
   };
 
   // Legacy method for backward compatibility
@@ -1765,6 +1830,7 @@ export function AdaAIChat({
                 file={pendingFile}
                 onRemove={handleRemovePendingFile}
                 onImportAsSchedule={handleImportPendingFileAsSchedule}
+                onImportAsEvents={handleImportPendingFileAsEvents}
                 isProcessing={isProcessing && !!pendingFileStatus}
                 processingStatus={pendingFileStatus}
               />
