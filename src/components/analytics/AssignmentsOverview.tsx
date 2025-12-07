@@ -110,12 +110,12 @@ export function AssignmentsOverview({ assignments, courses }: AssignmentsOvervie
         </div>
         
         {/* Filters */}
-        <div className="flex gap-3 items-center flex-wrap">
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 items-start sm:items-center">
           {/* Course Filter */}
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">Course:</span>
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <span className="text-xs sm:text-sm text-muted-foreground whitespace-nowrap">Course:</span>
             <Select value={selectedCourse} onValueChange={setSelectedCourse}>
-              <SelectTrigger className="w-40">
+              <SelectTrigger className="w-full sm:w-40 h-8 text-xs sm:text-sm">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -129,14 +129,14 @@ export function AssignmentsOverview({ assignments, courses }: AssignmentsOvervie
           </div>
 
           {/* Date Range Presets */}
-          <div className="flex gap-1">
+          <div className="flex gap-1 flex-wrap w-full sm:w-auto">
             {presets.map((preset) => (
               <Button
                 key={preset.label}
                 variant={range.preset === preset.label ? "default" : "outline"}
                 size="sm"
                 onClick={() => handlePresetChange(preset)}
-                className="text-xs"
+                className="text-[10px] sm:text-xs px-2 sm:px-3 h-7 sm:h-8"
               >
                 {preset.label}
               </Button>
@@ -146,7 +146,7 @@ export function AssignmentsOverview({ assignments, courses }: AssignmentsOvervie
       </CardHeader>
       
       <CardContent>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
           {/* Total Assignments */}
           <div className="text-center space-y-2">
             <div className="flex items-center justify-center gap-2">
