@@ -1,11 +1,12 @@
 import React from 'react';
-import { X, FileText, Image, File, Loader2 } from 'lucide-react';
+import { X, FileText, Image, File, Loader2, CalendarPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 interface FileAttachmentChipProps {
   file: File;
   onRemove: () => void;
+  onImportAsSchedule?: () => void;
   isProcessing?: boolean;
   processingStatus?: string;
   className?: string;
@@ -14,6 +15,7 @@ interface FileAttachmentChipProps {
 export function FileAttachmentChip({
   file,
   onRemove,
+  onImportAsSchedule,
   isProcessing = false,
   processingStatus,
   className
@@ -71,15 +73,30 @@ export function FileAttachmentChip({
       </div>
 
       {!isProcessing && (
-        <Button
-          size="icon"
-          variant="ghost"
-          onClick={onRemove}
-          className="h-6 w-6 rounded-full hover:bg-destructive/10 hover:text-destructive"
-          aria-label="Remove attachment"
-        >
-          <X className="w-3.5 h-3.5" />
-        </Button>
+        <div className="flex items-center gap-1">
+          {onImportAsSchedule && (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={onImportAsSchedule}
+              className="h-6 px-2 text-xs hover:bg-primary/10 hover:text-primary"
+              aria-label="Import as schedule"
+              title="Import this file as a schedule/timetable"
+            >
+              <CalendarPlus className="w-3.5 h-3.5 mr-1" />
+              <span className="hidden sm:inline">Import Schedule</span>
+            </Button>
+          )}
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={onRemove}
+            className="h-6 w-6 rounded-full hover:bg-destructive/10 hover:text-destructive"
+            aria-label="Remove attachment"
+          >
+            <X className="w-3.5 h-3.5" />
+          </Button>
+        </div>
       )}
     </div>
   );
