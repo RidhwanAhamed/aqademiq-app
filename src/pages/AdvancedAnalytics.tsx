@@ -151,9 +151,9 @@ export default function Analytics() {
   const [activeSegment, setActiveSegment] = useState(analyticsSegments[0]?.id ?? "");
 
   return (
-    <div className="p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6 animate-fade-in w-full max-w-full overflow-x-hidden">
+    <div className="flex flex-col h-full min-h-0 p-3 sm:p-4 lg:p-6 animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex items-center justify-between gap-4 flex-shrink-0 mb-4 sm:mb-6">
         <div className="space-y-1 min-w-0 flex-1">
           <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground">
             Analytics
@@ -165,10 +165,10 @@ export default function Analytics() {
         <BarChart3 className="w-6 h-6 sm:w-8 sm:h-8 text-primary flex-shrink-0" />
       </div>
 
-      {/* Segmented analytics content */}
-      <div className="rounded-2xl sm:rounded-3xl border border-border/60 bg-card/70 p-3 sm:p-4 lg:p-6 shadow-lg shadow-black/10 w-full">
-        <Tabs value={activeSegment} onValueChange={setActiveSegment} className="space-y-4 sm:space-y-6 w-full">
-          <div className="overflow-x-auto -mx-1 px-1">
+      {/* Segmented analytics content - fills remaining space */}
+      <div className="flex-1 min-h-0 rounded-2xl sm:rounded-3xl border border-border/60 bg-card/70 p-3 sm:p-4 lg:p-6 shadow-lg shadow-black/10 overflow-hidden flex flex-col">
+        <Tabs value={activeSegment} onValueChange={setActiveSegment} className="flex flex-col h-full min-h-0">
+          <div className="overflow-x-auto flex-shrink-0 -mx-1 px-1 pb-2">
             <TabsList className="inline-flex w-max min-w-full gap-1 sm:gap-2 rounded-xl bg-muted/30 p-1 sm:p-1.5">
               {analyticsSegments.map((segment) => {
                 const Icon = segment.icon;
@@ -187,9 +187,9 @@ export default function Analytics() {
           </div>
 
           {analyticsSegments.map((segment) => (
-            <TabsContent key={segment.id} value={segment.id} className="mt-4 space-y-4">
+            <TabsContent key={segment.id} value={segment.id} className="flex-1 min-h-0 overflow-y-auto mt-2">
               <section
-                className="space-y-4 border border-border/60 rounded-xl sm:rounded-2xl p-3 sm:p-5 lg:p-6 bg-background shadow-md"
+                className="h-full space-y-4 border border-border/60 rounded-xl sm:rounded-2xl p-3 sm:p-5 lg:p-6 bg-background shadow-md"
                 aria-labelledby={`${segment.id}-title`}
               >
                 <header className="space-y-1 sm:space-y-2">
