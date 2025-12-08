@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/select';
 import { Volume2, VolumeX, Play, Square } from 'lucide-react';
 import { toast } from 'sonner';
+import { playTimerSound, stopSound, getSoundTypeFromFile } from '@/utils/timerSounds';
 
 interface SoundSettings {
   enabled: boolean;
@@ -35,11 +36,11 @@ interface TimerSettingsDialogProps {
 }
 
 const SOUND_OPTIONS = [
-  { value: 'bell.mp3', label: 'Bell Alarm' },
-  { value: 'chime.mp3', label: 'Chime Alarm' },
-  { value: 'digital.mp3', label: 'Digital Alarm' },
-  { value: 'gentle.mp3', label: 'Gentle Alarm' },
-  { value: 'success.mp3', label: 'Success' },
+  { value: 'bell.mp3', label: 'Bell Alarm', description: 'Classic ringing bell' },
+  { value: 'chime.mp3', label: 'Chime Alarm', description: 'Musical ascending tones' },
+  { value: 'digital.mp3', label: 'Digital Alarm', description: 'Electronic beep pattern' },
+  { value: 'gentle.mp3', label: 'Gentle Alarm', description: 'Soft pulsing tone' },
+  { value: 'success.mp3', label: 'Success', description: 'Triumphant fanfare' },
 ];
 
 const DEFAULT_SETTINGS: SoundSettings = {
@@ -57,63 +58,45 @@ export function TimerSettingsDialog({
 }: TimerSettingsDialogProps) {
   const [localSettings, setLocalSettings] = useState(soundSettings);
   const [playingSound, setPlayingSound] = useState<string | null>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Sync local settings when props change
+  useEffect(() => {
+    setLocalSettings(soundSettings);
+  }, [soundSettings]);
 
   const handleToggleSound = (soundFile: string) => {
     // If this sound is currently playing, stop it
-    if (playingSound === soundFile && audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
-      audioRef.current = null;
+    if (playingSound === soundFile) {
+      stopSound();
       setPlayingSound(null);
       return;
     }
 
     // Stop any currently playing sound
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
-      audioRef.current = null;
-    }
+    stopSound();
+    setPlayingSound(null);
 
     // Play the new sound
-    try {
-      const audio = new Audio(`/sounds/timer/${soundFile}`);
-      audio.volume = Math.max(0, Math.min(1, localSettings.volume / 100));
-      audioRef.current = audio;
-      
-      audio.onended = () => {
+    const soundType = getSoundTypeFromFile(soundFile);
+    const success = playTimerSound(soundType, localSettings.volume);
+    
+    if (success) {
+      setPlayingSound(soundFile);
+      // Auto-stop after sound duration (3 seconds for alarms, 1.5 for success)
+      const duration = soundType === 'success' ? 1500 : 3000;
+      setTimeout(() => {
         setPlayingSound(null);
-        audioRef.current = null;
-      };
-
-      audio.onerror = () => {
-        setPlayingSound(null);
-        audioRef.current = null;
-        toast.error('Failed to play sound', {
-          description: 'Check your browser audio settings or try a different sound.',
-        });
-      };
-
-      audio.play()
-        .then(() => setPlayingSound(soundFile))
-        .catch(() => {
-          setPlayingSound(null);
-          toast.error('Failed to play sound');
-        });
-    } catch (error) {
-      setPlayingSound(null);
-      toast.error('Audio playback error');
+      }, duration);
+    } else {
+      toast.error('Failed to play sound', {
+        description: 'Check your browser audio settings.',
+      });
     }
   };
 
   const handleSave = () => {
-    // Stop any playing sound before closing
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current = null;
-      setPlayingSound(null);
-    }
+    stopSound();
+    setPlayingSound(null);
     onSoundSettingsChange(localSettings);
     toast.success('Settings saved');
     onOpenChange(false);
@@ -126,10 +109,8 @@ export function TimerSettingsDialog({
   };
 
   const handleDialogChange = (isOpen: boolean) => {
-    // Stop any playing sound when dialog closes
-    if (!isOpen && audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current = null;
+    if (!isOpen) {
+      stopSound();
       setPlayingSound(null);
     }
     onOpenChange(isOpen);
@@ -141,7 +122,7 @@ export function TimerSettingsDialog({
         <DialogHeader>
           <DialogTitle>Timer Settings</DialogTitle>
           <DialogDescription>
-            Customize your Pomodoro timer sound notifications
+            Customize your Pomodoro timer alarm sounds
           </DialogDescription>
         </DialogHeader>
 
@@ -158,7 +139,7 @@ export function TimerSettingsDialog({
                 Sound Notifications
               </Label>
               <p className="text-sm text-muted-foreground">
-                Play sound when timer completes
+                Play alarm when timer completes
               </p>
             </div>
             <Switch
@@ -186,7 +167,9 @@ export function TimerSettingsDialog({
                 <SelectContent>
                   {SOUND_OPTIONS.map((option) => (
                     <SelectItem key={option.value} value={option.value}>
-                      {option.label}
+                      <div className="flex flex-col">
+                        <span>{option.label}</span>
+                      </div>
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -196,6 +179,7 @@ export function TimerSettingsDialog({
                 size="icon"
                 onClick={() => handleToggleSound(localSettings.focusCompleteSound)}
                 disabled={!localSettings.enabled}
+                className={playingSound === localSettings.focusCompleteSound ? 'bg-primary/10' : ''}
               >
                 {playingSound === localSettings.focusCompleteSound ? (
                   <Square className="h-4 w-4 fill-current" />
@@ -223,7 +207,9 @@ export function TimerSettingsDialog({
                 <SelectContent>
                   {SOUND_OPTIONS.map((option) => (
                     <SelectItem key={option.value} value={option.value}>
-                      {option.label}
+                      <div className="flex flex-col">
+                        <span>{option.label}</span>
+                      </div>
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -233,6 +219,7 @@ export function TimerSettingsDialog({
                 size="icon"
                 onClick={() => handleToggleSound(localSettings.breakCompleteSound)}
                 disabled={!localSettings.enabled}
+                className={playingSound === localSettings.breakCompleteSound ? 'bg-primary/10' : ''}
               >
                 {playingSound === localSettings.breakCompleteSound ? (
                   <Square className="h-4 w-4 fill-current" />
