@@ -2,7 +2,8 @@ import React, { useState, useCallback, useRef } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { CalendarIcon, Grid3x3, List, Loader2, Undo2, Settings } from 'lucide-react';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
+import { CalendarIcon, Grid3x3, List, Loader2, AlertTriangle, Clock, MapPin } from 'lucide-react';
 import { useRealtimeCalendar, CalendarEvent } from '@/hooks/useRealtimeCalendar';
 import { useConflictDetection } from '@/hooks/useConflictDetection';
 import { EnhancedWeekView } from './EnhancedWeekView';
@@ -34,7 +35,7 @@ export function NativeCalendarView({ selectedDate, onDateChange }: NativeCalenda
     x: number; 
     y: number; 
   } | null>(null);
-  const [showSettings, setShowSettings] = useState(false);
+  const [showConflictPanel, setShowConflictPanel] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const { toast } = useToast();
@@ -242,9 +243,15 @@ export function NativeCalendarView({ selectedDate, onDateChange }: NativeCalenda
             <CalendarIcon className="h-5 w-5 text-primary" />
             <h2 className="text-base sm:text-lg font-semibold">Academic Calendar</h2>
             {conflicts.length > 0 && (
-              <div className="text-[10px] sm:text-xs text-destructive bg-destructive/10 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowConflictPanel(true)}
+                className="text-[10px] sm:text-xs text-destructive bg-destructive/10 hover:bg-destructive/20 px-1.5 sm:px-2 py-0.5 sm:py-1 h-auto rounded-md"
+              >
+                <AlertTriangle className="h-3 w-3 mr-1" />
                 {conflicts.length} conflict{conflicts.length > 1 ? 's' : ''}
-              </div>
+              </Button>
             )}
           </div>
           
@@ -328,7 +335,106 @@ export function NativeCalendarView({ selectedDate, onDateChange }: NativeCalenda
         </div>
       </Card>
 
-      {/* Context Menu - Implementation would go here */}
+      {/* Conflict Resolution Sheet */}
+      <Sheet open={showConflictPanel} onOpenChange={setShowConflictPanel}>
+        <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              Schedule Conflicts
+            </SheetTitle>
+            <SheetDescription>
+              {conflicts.length} conflicting event{conflicts.length > 1 ? 's' : ''} detected
+            </SheetDescription>
+          </SheetHeader>
+          
+          <div className="mt-6 space-y-4">
+            {conflicts.map((conflict) => {
+              const conflictingEvents = events.filter(e => 
+                e.id === conflict.eventId || conflict.conflictingEventIds.includes(e.id)
+              );
+              
+              return (
+                <Card key={conflict.eventId} className="p-4 border-destructive/30">
+                  <div className="flex items-start gap-3">
+                    <div className={`p-2 rounded-full ${
+                      conflict.severity === 'major' 
+                        ? 'bg-destructive/20 text-destructive' 
+                        : 'bg-warning/20 text-warning'
+                    }`}>
+                      <AlertTriangle className="h-4 w-4" />
+                    </div>
+                    <div className="flex-1 space-y-2">
+                      <p className="text-sm font-medium">{conflict.message}</p>
+                      
+                      {conflictingEvents.map((evt) => (
+                        <div key={evt.id} className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
+                          <p className="font-medium text-foreground">{evt.title}</p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <Clock className="h-3 w-3" />
+                            <span>
+                              {evt.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - 
+                              {evt.end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </div>
+                          {evt.location && (
+                            <div className="flex items-center gap-2 mt-1">
+                              <MapPin className="h-3 w-3" />
+                              <span>{evt.location}</span>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                      
+                      <div className="flex gap-2 mt-3">
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          className="text-xs h-8"
+                          onClick={() => {
+                            const eventToReschedule = conflictingEvents[0];
+                            if (eventToReschedule) {
+                              handleEventReschedule(eventToReschedule);
+                              setShowConflictPanel(false);
+                            }
+                          }}
+                        >
+                          Reschedule
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="ghost"
+                          className="text-xs h-8 text-muted-foreground"
+                          onClick={() => {
+                            // Remove from conflicts list (ignore)
+                            const eventId = conflict.eventId;
+                            if (eventId) {
+                              // Call resolveConflict from the hook
+                              toast({
+                                title: "Conflict Ignored",
+                                description: "You can manually resolve this later.",
+                              });
+                            }
+                          }}
+                        >
+                          Ignore
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              );
+            })}
+            
+            {conflicts.length === 0 && (
+              <div className="text-center py-8 text-muted-foreground">
+                <CalendarIcon className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                <p>No conflicts detected</p>
+              </div>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
     </>
   );
 }
