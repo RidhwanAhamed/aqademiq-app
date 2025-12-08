@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -17,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Volume2, VolumeX, Play, Loader2 } from 'lucide-react';
+import { Volume2, VolumeX, Play, Square } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface SoundSettings {
@@ -32,15 +32,13 @@ interface TimerSettingsDialogProps {
   onOpenChange: (open: boolean) => void;
   soundSettings: SoundSettings;
   onSoundSettingsChange: (settings: Partial<SoundSettings>) => void;
-  onTestSound: (soundFile: string, volume: number) => Promise<boolean>;
 }
 
 const SOUND_OPTIONS = [
-  { value: 'bell.mp3', label: 'Bell' },
-  { value: 'chime.mp3', label: 'Chime' },
-  { value: 'digital.mp3', label: 'Digital' },
-  { value: 'gentle.mp3', label: 'Gentle' },
-  { value: 'nature.mp3', label: 'Nature' },
+  { value: 'bell.mp3', label: 'Bell Alarm' },
+  { value: 'chime.mp3', label: 'Chime Alarm' },
+  { value: 'digital.mp3', label: 'Digital Alarm' },
+  { value: 'gentle.mp3', label: 'Gentle Alarm' },
   { value: 'success.mp3', label: 'Success' },
 ];
 
@@ -56,24 +54,66 @@ export function TimerSettingsDialog({
   onOpenChange,
   soundSettings,
   onSoundSettingsChange,
-  onTestSound,
 }: TimerSettingsDialogProps) {
   const [localSettings, setLocalSettings] = useState(soundSettings);
-  const [isTestingSound, setIsTestingSound] = useState<string | null>(null);
+  const [playingSound, setPlayingSound] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  const handleTestSound = async (soundFile: string) => {
-    setIsTestingSound(soundFile);
-    const success = await onTestSound(soundFile, localSettings.volume);
-    setIsTestingSound(null);
-    
-    if (!success) {
-      toast.error('Failed to play sound', {
-        description: 'Check your browser audio settings or try a different sound.',
-      });
+  const handleToggleSound = (soundFile: string) => {
+    // If this sound is currently playing, stop it
+    if (playingSound === soundFile && audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      audioRef.current = null;
+      setPlayingSound(null);
+      return;
+    }
+
+    // Stop any currently playing sound
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      audioRef.current = null;
+    }
+
+    // Play the new sound
+    try {
+      const audio = new Audio(`/sounds/timer/${soundFile}`);
+      audio.volume = Math.max(0, Math.min(1, localSettings.volume / 100));
+      audioRef.current = audio;
+      
+      audio.onended = () => {
+        setPlayingSound(null);
+        audioRef.current = null;
+      };
+
+      audio.onerror = () => {
+        setPlayingSound(null);
+        audioRef.current = null;
+        toast.error('Failed to play sound', {
+          description: 'Check your browser audio settings or try a different sound.',
+        });
+      };
+
+      audio.play()
+        .then(() => setPlayingSound(soundFile))
+        .catch(() => {
+          setPlayingSound(null);
+          toast.error('Failed to play sound');
+        });
+    } catch (error) {
+      setPlayingSound(null);
+      toast.error('Audio playback error');
     }
   };
 
   const handleSave = () => {
+    // Stop any playing sound before closing
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+      setPlayingSound(null);
+    }
     onSoundSettingsChange(localSettings);
     toast.success('Settings saved');
     onOpenChange(false);
@@ -85,8 +125,18 @@ export function TimerSettingsDialog({
     toast.info('Settings reset to defaults');
   };
 
+  const handleDialogChange = (isOpen: boolean) => {
+    // Stop any playing sound when dialog closes
+    if (!isOpen && audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+      setPlayingSound(null);
+    }
+    onOpenChange(isOpen);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleDialogChange}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>Timer Settings</DialogTitle>
@@ -144,11 +194,11 @@ export function TimerSettingsDialog({
               <Button
                 variant="outline"
                 size="icon"
-                onClick={() => handleTestSound(localSettings.focusCompleteSound)}
-                disabled={!localSettings.enabled || isTestingSound !== null}
+                onClick={() => handleToggleSound(localSettings.focusCompleteSound)}
+                disabled={!localSettings.enabled}
               >
-                {isTestingSound === localSettings.focusCompleteSound ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                {playingSound === localSettings.focusCompleteSound ? (
+                  <Square className="h-4 w-4 fill-current" />
                 ) : (
                   <Play className="h-4 w-4" />
                 )}
@@ -181,11 +231,11 @@ export function TimerSettingsDialog({
               <Button
                 variant="outline"
                 size="icon"
-                onClick={() => handleTestSound(localSettings.breakCompleteSound)}
-                disabled={!localSettings.enabled || isTestingSound !== null}
+                onClick={() => handleToggleSound(localSettings.breakCompleteSound)}
+                disabled={!localSettings.enabled}
               >
-                {isTestingSound === localSettings.breakCompleteSound ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                {playingSound === localSettings.breakCompleteSound ? (
+                  <Square className="h-4 w-4 fill-current" />
                 ) : (
                   <Play className="h-4 w-4" />
                 )}
