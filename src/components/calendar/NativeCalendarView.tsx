@@ -3,7 +3,10 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
-import { CalendarIcon, Grid3x3, List, Loader2, AlertTriangle, Clock, MapPin } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { CalendarIcon, Grid3x3, List, Loader2, AlertTriangle, Clock, MapPin, ArrowLeft, Check } from 'lucide-react';
 import { useRealtimeCalendar, CalendarEvent } from '@/hooks/useRealtimeCalendar';
 import { useConflictDetection } from '@/hooks/useConflictDetection';
 import { EnhancedWeekView } from './EnhancedWeekView';
@@ -36,6 +39,9 @@ export function NativeCalendarView({ selectedDate, onDateChange }: NativeCalenda
     y: number; 
   } | null>(null);
   const [showConflictPanel, setShowConflictPanel] = useState(false);
+  const [rescheduleEvent, setRescheduleEvent] = useState<CalendarEvent | null>(null);
+  const [newStartTime, setNewStartTime] = useState('');
+  const [newEndTime, setNewEndTime] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
 
   const { toast } = useToast();
@@ -336,103 +342,225 @@ export function NativeCalendarView({ selectedDate, onDateChange }: NativeCalenda
       </Card>
 
       {/* Conflict Resolution Sheet */}
-      <Sheet open={showConflictPanel} onOpenChange={setShowConflictPanel}>
+      <Sheet open={showConflictPanel} onOpenChange={(open) => {
+        setShowConflictPanel(open);
+        if (!open) {
+          setRescheduleEvent(null);
+          setNewStartTime('');
+          setNewEndTime('');
+        }
+      }}>
         <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
           <SheetHeader>
-            <SheetTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-destructive" />
-              Schedule Conflicts
-            </SheetTitle>
-            <SheetDescription>
-              {conflicts.length} conflicting event{conflicts.length > 1 ? 's' : ''} detected
-            </SheetDescription>
+            {rescheduleEvent ? (
+              <>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="w-fit -ml-2 mb-2"
+                  onClick={() => {
+                    setRescheduleEvent(null);
+                    setNewStartTime('');
+                    setNewEndTime('');
+                  }}
+                >
+                  <ArrowLeft className="h-4 w-4 mr-1" />
+                  Back to conflicts
+                </Button>
+                <SheetTitle className="flex items-center gap-2">
+                  <Clock className="h-5 w-5 text-primary" />
+                  Reschedule Event
+                </SheetTitle>
+                <SheetDescription>
+                  Set a new time for "{rescheduleEvent.title}"
+                </SheetDescription>
+              </>
+            ) : (
+              <>
+                <SheetTitle className="flex items-center gap-2">
+                  <AlertTriangle className="h-5 w-5 text-destructive" />
+                  Schedule Conflicts
+                </SheetTitle>
+                <SheetDescription>
+                  {conflicts.length} conflicting event{conflicts.length > 1 ? 's' : ''} detected
+                </SheetDescription>
+              </>
+            )}
           </SheetHeader>
           
-          <div className="mt-6 space-y-4">
-            {conflicts.map((conflict) => {
-              const conflictingEvents = events.filter(e => 
-                e.id === conflict.eventId || conflict.conflictingEventIds.includes(e.id)
-              );
+          {rescheduleEvent ? (
+            /* Reschedule Form */
+            <div className="mt-6 space-y-6">
+              {/* Current Time Display */}
+              <div className="bg-muted/50 p-4 rounded-lg space-y-2">
+                <p className="text-sm font-medium text-muted-foreground">Current Time</p>
+                <div className="flex items-center gap-2 text-sm">
+                  <Clock className="h-4 w-4 text-muted-foreground" />
+                  <span>
+                    {format(rescheduleEvent.start, 'MMM d, yyyy')} • {format(rescheduleEvent.start, 'HH:mm')} - {format(rescheduleEvent.end, 'HH:mm')}
+                  </span>
+                </div>
+              </div>
               
-              return (
-                <Card key={conflict.eventId} className="p-4 border-destructive/30">
-                  <div className="flex items-start gap-3">
-                    <div className={`p-2 rounded-full ${
-                      conflict.severity === 'major' 
-                        ? 'bg-destructive/20 text-destructive' 
-                        : 'bg-warning/20 text-warning'
-                    }`}>
-                      <AlertTriangle className="h-4 w-4" />
-                    </div>
-                    <div className="flex-1 space-y-2">
-                      <p className="text-sm font-medium">{conflict.message}</p>
-                      
-                      {conflictingEvents.map((evt) => (
-                        <div key={evt.id} className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
-                          <p className="font-medium text-foreground">{evt.title}</p>
-                          <div className="flex items-center gap-2 mt-1">
-                            <Clock className="h-3 w-3" />
-                            <span>
-                              {evt.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - 
-                              {evt.end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            </span>
-                          </div>
-                          {evt.location && (
-                            <div className="flex items-center gap-2 mt-1">
-                              <MapPin className="h-3 w-3" />
-                              <span>{evt.location}</span>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                      
-                      <div className="flex gap-2 mt-3">
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          className="text-xs h-8"
-                          onClick={() => {
-                            const eventToReschedule = conflictingEvents[0];
-                            if (eventToReschedule) {
-                              handleEventReschedule(eventToReschedule);
-                              setShowConflictPanel(false);
+              {/* New Time Input */}
+              <div className="space-y-4">
+                <p className="text-sm font-medium">New Time</p>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="start-time" className="text-xs text-muted-foreground">Start Time</Label>
+                    <Input
+                      id="start-time"
+                      type="time"
+                      value={newStartTime}
+                      onChange={(e) => setNewStartTime(e.target.value)}
+                      className="h-12 sm:h-10"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="end-time" className="text-xs text-muted-foreground">End Time</Label>
+                    <Input
+                      id="end-time"
+                      type="time"
+                      value={newEndTime}
+                      onChange={(e) => setNewEndTime(e.target.value)}
+                      className="h-12 sm:h-10"
+                    />
+                  </div>
+                </div>
+              </div>
+              
+              {/* Action Buttons */}
+              <div className="flex gap-3 pt-4">
+                <Button
+                  className="flex-1"
+                  disabled={!newStartTime || !newEndTime}
+                  onClick={async () => {
+                    if (!newStartTime || !newEndTime) return;
+                    
+                    // Create new Date objects with updated times
+                    const [startHour, startMin] = newStartTime.split(':').map(Number);
+                    const [endHour, endMin] = newEndTime.split(':').map(Number);
+                    
+                    const newStart = new Date(rescheduleEvent.start);
+                    newStart.setHours(startHour, startMin, 0, 0);
+                    
+                    const newEnd = new Date(rescheduleEvent.end);
+                    newEnd.setHours(endHour, endMin, 0, 0);
+                    
+                    await handleEventUpdate(rescheduleEvent, {
+                      start: newStart,
+                      end: newEnd
+                    });
+                    
+                    setRescheduleEvent(null);
+                    setNewStartTime('');
+                    setNewEndTime('');
+                    setShowConflictPanel(false);
+                  }}
+                >
+                  <Check className="h-4 w-4 mr-2" />
+                  Save New Time
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setRescheduleEvent(null);
+                    setNewStartTime('');
+                    setNewEndTime('');
+                  }}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          ) : (
+            /* Conflict List */
+            <div className="mt-6 space-y-4">
+              {conflicts.map((conflict) => {
+                const conflictingEvents = events.filter(e => 
+                  e.id === conflict.eventId || conflict.conflictingEventIds.includes(e.id)
+                );
+                
+                return (
+                  <Card key={conflict.eventId} className="p-4 border-destructive/30">
+                    <div className="flex items-start gap-3">
+                      <div className={`p-2 rounded-full flex-shrink-0 ${
+                        conflict.severity === 'major' 
+                          ? 'bg-destructive/20 text-destructive' 
+                          : 'bg-warning/20 text-warning'
+                      }`}>
+                        <AlertTriangle className="h-4 w-4" />
+                      </div>
+                      <div className="flex-1 space-y-3">
+                        <p className="text-sm font-medium">{conflict.message}</p>
+                        
+                        {/* Event Selection */}
+                        <RadioGroup 
+                          className="space-y-2"
+                          onValueChange={(eventId) => {
+                            const selected = conflictingEvents.find(e => e.id === eventId);
+                            if (selected) {
+                              setRescheduleEvent(selected);
+                              setNewStartTime(format(selected.start, 'HH:mm'));
+                              setNewEndTime(format(selected.end, 'HH:mm'));
                             }
                           }}
                         >
-                          Reschedule
-                        </Button>
-                        <Button 
-                          size="sm" 
-                          variant="ghost"
-                          className="text-xs h-8 text-muted-foreground"
-                          onClick={() => {
-                            // Remove from conflicts list (ignore)
-                            const eventId = conflict.eventId;
-                            if (eventId) {
-                              // Call resolveConflict from the hook
+                          {conflictingEvents.map((evt) => (
+                            <div 
+                              key={evt.id} 
+                              className="flex items-start gap-3 text-xs bg-muted/50 p-3 rounded-lg cursor-pointer hover:bg-muted/80 transition-colors"
+                            >
+                              <RadioGroupItem value={evt.id} id={evt.id} className="mt-0.5" />
+                              <label htmlFor={evt.id} className="flex-1 cursor-pointer">
+                                <p className="font-medium text-foreground">{evt.title}</p>
+                                <div className="flex items-center gap-2 mt-1 text-muted-foreground">
+                                  <Clock className="h-3 w-3" />
+                                  <span>
+                                    {format(evt.start, 'hh:mm a')} - {format(evt.end, 'hh:mm a')}
+                                  </span>
+                                </div>
+                                {evt.location && (
+                                  <div className="flex items-center gap-2 mt-1 text-muted-foreground">
+                                    <MapPin className="h-3 w-3" />
+                                    <span>{evt.location}</span>
+                                  </div>
+                                )}
+                              </label>
+                            </div>
+                          ))}
+                        </RadioGroup>
+                        
+                        <div className="flex gap-2">
+                          <Button 
+                            size="sm" 
+                            variant="ghost"
+                            className="text-xs h-8 text-muted-foreground"
+                            onClick={() => {
                               toast({
                                 title: "Conflict Ignored",
                                 description: "You can manually resolve this later.",
                               });
-                            }
-                          }}
-                        >
-                          Ignore
-                        </Button>
+                            }}
+                          >
+                            Ignore All
+                          </Button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </Card>
-              );
-            })}
-            
-            {conflicts.length === 0 && (
-              <div className="text-center py-8 text-muted-foreground">
-                <CalendarIcon className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                <p>No conflicts detected</p>
-              </div>
-            )}
-          </div>
+                  </Card>
+                );
+              })}
+              
+              {conflicts.length === 0 && (
+                <div className="text-center py-8 text-muted-foreground">
+                  <CalendarIcon className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                  <p>No conflicts detected</p>
+                </div>
+              )}
+            </div>
+          )}
         </SheetContent>
       </Sheet>
     </>
