@@ -17,7 +17,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Volume2, VolumeX, Music } from 'lucide-react';
+import { Volume2, VolumeX, Music, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface SoundSettings {
   enabled: boolean;
@@ -31,7 +32,7 @@ interface TimerSettingsDialogProps {
   onOpenChange: (open: boolean) => void;
   soundSettings: SoundSettings;
   onSoundSettingsChange: (settings: Partial<SoundSettings>) => void;
-  onTestSound: (soundFile: string, volume: number) => void;
+  onTestSound: (soundFile: string, volume: number) => Promise<boolean>;
 }
 
 const SOUND_OPTIONS = [
@@ -58,15 +59,30 @@ export function TimerSettingsDialog({
   onTestSound,
 }: TimerSettingsDialogProps) {
   const [localSettings, setLocalSettings] = useState(soundSettings);
+  const [isTestingSound, setIsTestingSound] = useState<string | null>(null);
+
+  const handleTestSound = async (soundFile: string) => {
+    setIsTestingSound(soundFile);
+    const success = await onTestSound(soundFile, localSettings.volume);
+    setIsTestingSound(null);
+    
+    if (!success) {
+      toast.error('Failed to play sound', {
+        description: 'Check your browser audio settings or try a different sound.',
+      });
+    }
+  };
 
   const handleSave = () => {
     onSoundSettingsChange(localSettings);
+    toast.success('Settings saved');
     onOpenChange(false);
   };
 
   const handleReset = () => {
     setLocalSettings(DEFAULT_SETTINGS);
     onSoundSettingsChange(DEFAULT_SETTINGS);
+    toast.info('Settings reset to defaults');
   };
 
   return (
@@ -128,12 +144,14 @@ export function TimerSettingsDialog({
               <Button
                 variant="outline"
                 size="icon"
-                onClick={() =>
-                  onTestSound(localSettings.focusCompleteSound, localSettings.volume)
-                }
-                disabled={!localSettings.enabled}
+                onClick={() => handleTestSound(localSettings.focusCompleteSound)}
+                disabled={!localSettings.enabled || isTestingSound !== null}
               >
-                <Music className="h-4 w-4" />
+                {isTestingSound === localSettings.focusCompleteSound ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Music className="h-4 w-4" />
+                )}
               </Button>
             </div>
           </div>
@@ -163,12 +181,14 @@ export function TimerSettingsDialog({
               <Button
                 variant="outline"
                 size="icon"
-                onClick={() =>
-                  onTestSound(localSettings.breakCompleteSound, localSettings.volume)
-                }
-                disabled={!localSettings.enabled}
+                onClick={() => handleTestSound(localSettings.breakCompleteSound)}
+                disabled={!localSettings.enabled || isTestingSound !== null}
               >
-                <Music className="h-4 w-4" />
+                {isTestingSound === localSettings.breakCompleteSound ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Music className="h-4 w-4" />
+                )}
               </Button>
             </div>
           </div>
