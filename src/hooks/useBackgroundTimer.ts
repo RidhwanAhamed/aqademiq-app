@@ -141,8 +141,26 @@ export const useBackgroundTimer = () => {
     
     try {
       const audio = new Audio(`/sounds/timer/${soundFile}`);
-      audio.volume = volume / 100;
-      audio.play().catch(err => console.error('Failed to play sound:', err));
+      audio.volume = Math.max(0, Math.min(1, volume / 100));
+      
+      // Preload the audio before playing
+      audio.load();
+      
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(err => {
+          console.error('Failed to play sound:', err);
+          // Try using AudioContext as fallback for browsers that block autoplay
+          try {
+            const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+            if (audioContext.state === 'suspended') {
+              audioContext.resume();
+            }
+          } catch (e) {
+            console.error('AudioContext fallback failed:', e);
+          }
+        });
+      }
     } catch (error) {
       console.error('Audio playback error:', error);
     }
@@ -307,14 +325,35 @@ export const useBackgroundTimer = () => {
     }));
   }, []);
 
-  const testSound = useCallback((soundFile: string, volume: number) => {
-    try {
-      const audio = new Audio(`/sounds/timer/${soundFile}`);
-      audio.volume = volume / 100;
-      audio.play().catch(err => console.error('Failed to play test sound:', err));
-    } catch (error) {
-      console.error('Audio test playback error:', error);
-    }
+  const testSound = useCallback((soundFile: string, volume: number): Promise<boolean> => {
+    return new Promise((resolve) => {
+      try {
+        const audio = new Audio(`/sounds/timer/${soundFile}`);
+        audio.volume = Math.max(0, Math.min(1, volume / 100));
+        
+        audio.oncanplaythrough = () => {
+          audio.play()
+            .then(() => resolve(true))
+            .catch(err => {
+              console.error('Failed to play test sound:', err);
+              resolve(false);
+            });
+        };
+        
+        audio.onerror = () => {
+          console.error('Failed to load sound file:', soundFile);
+          resolve(false);
+        };
+        
+        audio.load();
+        
+        // Timeout after 3 seconds
+        setTimeout(() => resolve(false), 3000);
+      } catch (error) {
+        console.error('Audio test playback error:', error);
+        resolve(false);
+      }
+    });
   }, []);
 
   return {
