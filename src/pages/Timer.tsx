@@ -347,7 +347,6 @@ export default function Timer() {
         onOpenChange={setSettingsOpen}
         soundSettings={soundSettings}
         onSoundSettingsChange={updateSoundSettings}
-        onTestSound={testSound}
       />
 
       <AchievementUnlockModal
