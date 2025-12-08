@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useBackgroundTimer, type TimerMode } from "@/hooks/useBackgroundTimer";
 import { useAchievements } from "@/hooks/useAchievements";
+import { useUserStats } from "@/hooks/useUserStats";
 import { supabase } from "@/integrations/supabase/client";
 import { Clock, Coffee, Maximize2, Minimize2, Pause, Play, Plus, RotateCcw, Settings, Target, Volume2, VolumeX, Trophy } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -42,6 +43,7 @@ export default function Timer() {
   const { toast } = useToast();
   const { user } = useAuth();
   const { checkAndAwardBadges, userBadges } = useAchievements();
+  const { stats, updateStudyStreak, refetch: refetchStats } = useUserStats();
 
   // Track timer completion for database logging
   useEffect(() => {
@@ -93,11 +95,21 @@ export default function Timer() {
             console.error('Error updating study stats:', err);
           }
 
+          // Update study streak (this handles streak badges internally)
+          await updateStudyStreak();
+          
+          // Refetch stats to get updated streak value
+          refetchStats();
+          
+          // Check for Pomodoro badge (Laser Focus) with actual stats
           const totalSessions = sessionsCompleted + 1;
+          const currentStreak = stats?.current_streak || 0;
+          const assignmentsCompleted = stats?.total_assignments_completed || 0;
+          
           const awardedBadges = await checkAndAwardBadges({
             totalPomodoroSessions: totalSessions,
-            currentStreak: 0,
-            assignmentsCompleted: 0
+            currentStreak: currentStreak,
+            assignmentsCompleted: assignmentsCompleted
           });
 
           if (awardedBadges.length > 0) {
