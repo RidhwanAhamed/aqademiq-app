@@ -17,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Volume2, VolumeX, Music, Loader2 } from 'lucide-react';
+import { Volume2, VolumeX, Play, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface SoundSettings {
@@ -150,7 +150,7 @@ export function TimerSettingsDialog({
                 {isTestingSound === localSettings.focusCompleteSound ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
-                  <Music className="h-4 w-4" />
+                  <Play className="h-4 w-4" />
                 )}
               </Button>
             </div>
@@ -187,7 +187,7 @@ export function TimerSettingsDialog({
                 {isTestingSound === localSettings.breakCompleteSound ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
-                  <Music className="h-4 w-4" />
+                  <Play className="h-4 w-4" />
                 )}
               </Button>
             </div>
