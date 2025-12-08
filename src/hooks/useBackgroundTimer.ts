@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-
+import { playTimerSound, getSoundTypeFromFile } from '@/utils/timerSounds';
 export type TimerMode = 'focus' | 'short-break' | 'long-break';
 
 interface SoundSettings {
@@ -135,35 +135,12 @@ export const useBackgroundTimer = () => {
     };
   }, [state.isRunning, state.timeLeft, state.mode]);
 
-  // Play sound notification
+  // Play sound notification using Web Audio API
   const playSound = useCallback((soundFile: string, volume: number) => {
     if (!state.soundSettings.enabled) return;
     
-    try {
-      const audio = new Audio(`/sounds/timer/${soundFile}`);
-      audio.volume = Math.max(0, Math.min(1, volume / 100));
-      
-      // Preload the audio before playing
-      audio.load();
-      
-      const playPromise = audio.play();
-      if (playPromise !== undefined) {
-        playPromise.catch(err => {
-          console.error('Failed to play sound:', err);
-          // Try using AudioContext as fallback for browsers that block autoplay
-          try {
-            const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-            if (audioContext.state === 'suspended') {
-              audioContext.resume();
-            }
-          } catch (e) {
-            console.error('AudioContext fallback failed:', e);
-          }
-        });
-      }
-    } catch (error) {
-      console.error('Audio playback error:', error);
-    }
+    const soundType = getSoundTypeFromFile(soundFile);
+    playTimerSound(soundType, volume);
   }, [state.soundSettings.enabled]);
 
   // Show notification when timer completes
@@ -325,35 +302,9 @@ export const useBackgroundTimer = () => {
     }));
   }, []);
 
-  const testSound = useCallback((soundFile: string, volume: number): Promise<boolean> => {
-    return new Promise((resolve) => {
-      try {
-        const audio = new Audio(`/sounds/timer/${soundFile}`);
-        audio.volume = Math.max(0, Math.min(1, volume / 100));
-        
-        audio.oncanplaythrough = () => {
-          audio.play()
-            .then(() => resolve(true))
-            .catch(err => {
-              console.error('Failed to play test sound:', err);
-              resolve(false);
-            });
-        };
-        
-        audio.onerror = () => {
-          console.error('Failed to load sound file:', soundFile);
-          resolve(false);
-        };
-        
-        audio.load();
-        
-        // Timeout after 3 seconds
-        setTimeout(() => resolve(false), 3000);
-      } catch (error) {
-        console.error('Audio test playback error:', error);
-        resolve(false);
-      }
-    });
+  const testSound = useCallback((soundFile: string, volume: number): boolean => {
+    const soundType = getSoundTypeFromFile(soundFile);
+    return playTimerSound(soundType, volume);
   }, []);
 
   return {
