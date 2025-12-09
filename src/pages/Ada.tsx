@@ -1,7 +1,8 @@
 /* README — src/pages/Ada.tsx
-This page orchestrates the Ada AI assistant workspace. Backend must expose GET /api/chat/conversations?userId=<string> returning {conversations:[{id,messagePreview,messageCount,createdAt}]}, and POST /api/chat/messages with body {conversationId?:string,userId:string,message:string} returning {conversationId, messageId, streamed:boolean}. Responses should include timestamps so the UI can refresh conversation history after each interaction.
+This page orchestrates the Ada AI assistant workspace with premium mobile-first design.
+Backend must expose GET /api/chat/conversations?userId=<string> returning {conversations:[{id,messagePreview,messageCount,createdAt}]}, 
+and POST /api/chat/messages with body {conversationId?:string,userId:string,message:string} returning {conversationId, messageId, streamed:boolean}.
 */
-// Purpose: Hosts Ada AI chat layout with responsive history toggle. TODO: API -> /api/chat/conversations & /api/chat/messages.
 import { AdaAIChat } from "@/components/AdaAIChat";
 import { ConversationSidebar } from "@/components/ConversationSidebar";
 import { useAuth } from "@/hooks/useAuth";
@@ -109,7 +110,7 @@ const Ada = () => {
   return (
     <div
       ref={adaContainerRef}
-      className="relative flex h-screen w-full flex-col bg-background lg:flex-row"
+      className="relative flex h-[100dvh] w-full flex-col bg-background lg:flex-row"
     >
       {/* Desktop: Conversation Sidebar */}
       {!isFullscreen && (
@@ -124,15 +125,22 @@ const Ada = () => {
         </div>
       )}
 
-      {/* Center: Chat Interface */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Top Header with About Button */}
-        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-          <div className="flex items-center gap-3">
+      {/* Center: Chat Interface - Full height with CSS Grid */}
+      <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+        {/* Mobile-optimized compact header */}
+        <header className={cn(
+          "flex items-center justify-between gap-2 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60",
+          "px-3 py-2 sm:px-4 sm:py-3", // Tighter padding on mobile
+          "h-12 sm:h-14 flex-shrink-0" // Fixed compact height
+        )}>
+          <div className="flex items-center gap-2">
             <Button
-              variant="outline"
+              variant="ghost"
               size="icon"
-              className={isFullscreen ? "" : "lg:hidden"}
+              className={cn(
+                "h-9 w-9 touch-target",
+                isFullscreen ? "" : "lg:hidden"
+              )}
               onClick={handleToggleHistory}
               aria-expanded={isHistoryOpen}
               aria-controls="ada-chat-history"
@@ -140,12 +148,13 @@ const Ada = () => {
             >
               <History className="h-4 w-4" />
             </Button>
-            <h1 className="text-lg font-semibold">Ada AI</h1>
+            <h1 className="text-base sm:text-lg font-semibold">Ada AI</h1>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             <Button
               variant="ghost"
               size="icon"
+              className="h-9 w-9 touch-target hidden sm:flex"
               onClick={handleToggleFullscreen}
               aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
             >
@@ -158,22 +167,23 @@ const Ada = () => {
             <Button
               variant="ghost"
               size="icon"
+              className="h-9 w-9 touch-target"
               onClick={() => navigate('/about-ada-ai')}
               aria-label="About Ada AI"
             >
               <Info className="h-4 w-4" />
             </Button>
           </div>
-        </div>
+        </header>
 
-        {/* Chat Area */}
-        <div className="flex-1 overflow-hidden">
+        {/* Chat Area - Takes remaining space */}
+        <main className="flex-1 min-h-0 overflow-hidden">
           <AdaAIChat 
             key={refreshKey} 
             selectedConversationId={currentConversationId}
             onConversationChange={setCurrentConversationId}
           />
-        </div>
+        </main>
       </div>
 
       {/* Mobile Overlay Sidebar */}
@@ -188,7 +198,11 @@ const Ada = () => {
         >
           <div
             id="ada-chat-history"
-            className={`h-full w-80 max-w-[85%] border-r bg-background shadow-2xl transform transition-transform duration-300 ease-out ${isHistoryOpen ? 'translate-x-0' : '-translate-x-full'}`}
+            className={cn(
+              "h-full w-80 max-w-[85%] border-r bg-background shadow-2xl",
+              "transform transition-transform duration-300 ease-out",
+              isHistoryOpen ? 'translate-x-0' : '-translate-x-full'
+            )}
           >
             <ConversationSidebar
               user={user}
@@ -201,7 +215,10 @@ const Ada = () => {
             />
           </div>
           <button
-            className={`flex-1 bg-black/40 backdrop-blur-sm transition-opacity duration-300 ${isHistoryOpen ? 'opacity-100' : 'opacity-0'}`}
+            className={cn(
+              "flex-1 bg-black/40 backdrop-blur-sm transition-opacity duration-300",
+              isHistoryOpen ? 'opacity-100' : 'opacity-0'
+            )}
             aria-label="Close chat history overlay"
             onClick={closeHistory}
           />
