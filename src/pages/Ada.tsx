@@ -106,8 +106,12 @@ const Ada = () => {
   return (
     <div
       ref={adaContainerRef}
-      className="relative flex w-full bg-background lg:flex-row"
-      style={{ height: '100dvh' }}
+      className="relative flex w-full bg-background lg:flex-row overflow-hidden"
+      style={{ 
+        height: '100dvh',
+        maxHeight: '100dvh',
+        minHeight: 0
+      }}
     >
       {/* Desktop: Conversation Sidebar */}
       {!isFullscreen && (
@@ -122,8 +126,8 @@ const Ada = () => {
         </div>
       )}
 
-      {/* Center: Chat Interface - Takes full height, no separate header on mobile */}
-      <div className="flex-1 flex flex-col h-full overflow-hidden">
+      {/* Center: Chat Interface - Takes full height with strict containment */}
+      <div className="flex-1 flex flex-col min-h-0 min-w-0 overflow-hidden">
         <AdaAIChat 
           key={refreshKey} 
           selectedConversationId={currentConversationId}
