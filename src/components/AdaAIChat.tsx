@@ -61,13 +61,17 @@ interface AdaAIChatProps {
   onFullScreenToggle?: () => void;
   selectedConversationId?: string | null;
   onConversationChange?: (id: string) => void;
+  onHistoryToggle?: () => void;
+  isHistoryOpen?: boolean;
 }
 
 export function AdaAIChat({ 
   isFullScreen = false, 
   onFullScreenToggle,
   selectedConversationId,
-  onConversationChange 
+  onConversationChange,
+  onHistoryToggle,
+  isHistoryOpen
 }: AdaAIChatProps = {}) {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -1017,7 +1021,7 @@ export function AdaAIChat({
           overflow: 'hidden'
         }}
       >
-        {/* Header - fixed height */}
+        {/* Header - ChatGPT style minimal */}
         <AdaChatHeader
           messageCount={messageCount}
           messageLimit={MESSAGE_LIMIT}
@@ -1027,6 +1031,8 @@ export function AdaAIChat({
           onFullScreenToggle={onFullScreenToggle}
           onAccessibilityToggle={() => setShowAccessibility(!showAccessibility)}
           onAccessibilityChange={setAccessibilitySettings}
+          onHistoryToggle={onHistoryToggle}
+          isHistoryOpen={isHistoryOpen}
         />
 
         {/* Messages area - fills remaining space */}
