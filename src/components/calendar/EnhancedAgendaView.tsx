@@ -5,9 +5,10 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { CalendarEvent } from '@/hooks/useRealtimeCalendar';
 import { cn } from '@/lib/utils';
-import { ChevronLeft, ChevronRight, Calendar, Clock, MapPin, AlertCircle, CheckCircle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronDown, Calendar, Clock, MapPin, AlertCircle, CheckCircle } from 'lucide-react';
 
 interface EnhancedAgendaViewProps {
   selectedDate: Date;
@@ -24,6 +25,7 @@ export function EnhancedAgendaView({
   onEventClick,
   conflicts = []
 }: EnhancedAgendaViewProps) {
+  const [conflictsOpen, setConflictsOpen] = useState(false);
   const currentWeek = useMemo(() => 
     startOfWeek(selectedDate, { weekStartsOn: 1 }), 
     [selectedDate]
@@ -208,24 +210,40 @@ export function EnhancedAgendaView({
         <div className="lg:col-span-2 space-y-4">
           {/* Conflicts alert */}
           {conflictEvents.length > 0 && (
-            <Card className="border-destructive/20 bg-destructive/5">
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2 text-destructive">
-                  <AlertCircle className="w-5 h-5" />
-                  Schedule Conflicts
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {conflictEvents.map(event => (
-                  <div key={event.id} className="text-sm">
-                    <span className="font-medium">{event.title}</span>
-                    <span className="text-muted-foreground ml-2">
-                      {format(event.start, 'MMM d, HH:mm')}
-                    </span>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
+            <Collapsible open={conflictsOpen} onOpenChange={setConflictsOpen}>
+              <Card className="border-destructive/20 bg-destructive/5">
+                <CollapsibleTrigger asChild>
+                  <CardHeader className="pb-3 cursor-pointer hover:bg-destructive/10 transition-colors rounded-t-lg">
+                    <CardTitle className="flex items-center justify-between text-destructive">
+                      <div className="flex items-center gap-2">
+                        <AlertCircle className="w-5 h-5" />
+                        Schedule Conflicts ({conflictEvents.length})
+                      </div>
+                      <ChevronDown className={cn(
+                        "w-5 h-5 transition-transform duration-200",
+                        conflictsOpen && "rotate-180"
+                      )} />
+                    </CardTitle>
+                  </CardHeader>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <CardContent className="space-y-2 pt-0">
+                    {conflictEvents.map(event => (
+                      <div 
+                        key={event.id} 
+                        className="text-sm p-2 rounded-md hover:bg-destructive/10 cursor-pointer transition-colors"
+                        onClick={() => onEventClick(event)}
+                      >
+                        <span className="font-medium">{event.title}</span>
+                        <span className="text-muted-foreground ml-2">
+                          {format(event.start, 'MMM d, HH:mm')}
+                        </span>
+                      </div>
+                    ))}
+                  </CardContent>
+                </CollapsibleContent>
+              </Card>
+            </Collapsible>
           )}
 
           {/* Daily agenda */}
