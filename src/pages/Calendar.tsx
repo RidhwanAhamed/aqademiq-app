@@ -13,7 +13,8 @@ import { useAssignments } from '@/hooks/useAssignments';
 import { useExams } from '@/hooks/useExams';
 import { useHolidays } from '@/hooks/useHolidays';
 import { useOptimizedRealtimeCalendar } from '@/hooks/useOptimizedRealtimeCalendar';
-import { format, isToday, isWithinInterval, parseISO } from 'date-fns';
+import { format, isWithinInterval, parseISO } from 'date-fns';
+import { getTodayDayOfWeek, isSameDayInTimezone, getUserTimezone } from '@/utils/timezone';
 import { CalendarErrorBoundaryWrapper } from '@/components/calendar/ErrorBoundary';
 import { MemoizedQuickStats } from '@/components/MemoizedQuickStats';
 
@@ -33,20 +34,23 @@ export default function Calendar() {
 
   const loading = scheduleLoading || assignmentsLoading || examsLoading;
 
-  // Memoized calculations for better performance
+  // Memoized calculations for better performance with timezone awareness
+  const userTimezone = getUserTimezone();
+  const todayDayOfWeek = getTodayDayOfWeek(userTimezone);
+  const now = new Date();
+  
   const todayClasses = useMemo(() => {
     return scheduleBlocks.filter(block => {
       if (!block.is_recurring) return false;
-      const today = new Date();
-      return block.day_of_week === today.getDay();
+      return block.day_of_week === todayDayOfWeek;
     }).length;
-  }, [scheduleBlocks]);
+  }, [scheduleBlocks, todayDayOfWeek]);
 
   const todayAssignments = useMemo(() => {
     return assignments.filter(assignment => 
-      isToday(new Date(assignment.due_date))
+      isSameDayInTimezone(new Date(assignment.due_date), now, userTimezone)
     ).length;
-  }, [assignments]);
+  }, [assignments, now, userTimezone]);
 
   const weeklyStudyHours = useMemo(() => {
     return scheduleBlocks.reduce((total, block) => {
