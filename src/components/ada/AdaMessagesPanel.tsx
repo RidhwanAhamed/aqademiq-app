@@ -214,22 +214,22 @@ export const AdaMessagesPanel = memo(function AdaMessagesPanel({
 
   return (
     <div 
-      className="absolute inset-0"
+      className="absolute inset-0 overflow-hidden"
       style={{ 
-        contain: 'strict',
-        willChange: 'scroll-position'
+        contain: 'strict'
       }}
     >
       <ScrollArea className="h-full w-full" viewportRef={scrollViewportRef}>
         <div 
-          className="flex flex-col min-h-full p-3 sm:p-6" 
+          className="p-3 sm:p-6" 
           role="log" 
           aria-live="polite" 
           aria-label="Chat messages"
+          style={{ minHeight: '100%', display: 'flex', flexDirection: 'column' }}
         >
           {messages.length === 0 ? (
             /* ChatGPT-style centered welcome - fills available space */
-            <div className="flex-1 flex flex-col items-center justify-center py-8 px-4">
+            <div className="flex-1 flex flex-col items-center justify-center py-12 px-4">
               <h2 className="text-xl sm:text-2xl font-semibold text-foreground mb-8">
                 What can I help with?
               </h2>
