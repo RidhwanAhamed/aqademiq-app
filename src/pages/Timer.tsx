@@ -1,7 +1,9 @@
 import { AddStudySessionDialog } from "@/components/AddStudySessionDialog";
 import { TimerSettingsDialog } from "@/components/TimerSettingsDialog";
 import { AchievementUnlockModal } from "@/components/AchievementUnlockModal";
+import { StudyContextSelector, type StudyContext } from "@/components/StudyContextSelector";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -10,8 +12,11 @@ import { useAuth } from "@/hooks/useAuth";
 import { useBackgroundTimer, type TimerMode } from "@/hooks/useBackgroundTimer";
 import { useAchievements } from "@/hooks/useAchievements";
 import { useUserStats } from "@/hooks/useUserStats";
+import { useCourses } from "@/hooks/useCourses";
+import { useAssignments } from "@/hooks/useAssignments";
+import { useExams } from "@/hooks/useExams";
 import { supabase } from "@/integrations/supabase/client";
-import { Clock, Coffee, Maximize2, Minimize2, Pause, Play, Plus, RotateCcw, Settings, Target, Volume2, VolumeX, Trophy } from "lucide-react";
+import { BookOpen, Clock, Coffee, FileText, GraduationCap, Maximize2, Minimize2, Pause, Play, Plus, RotateCcw, Settings, Sparkles, Target, Volume2, VolumeX } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Badge as BadgeType } from "@/services/api";
 
@@ -22,6 +27,11 @@ export default function Timer() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [unlockedBadge, setUnlockedBadge] = useState<BadgeType | null>(null);
   const [showBadgeModal, setShowBadgeModal] = useState(false);
+  const [contextCollapsed, setContextCollapsed] = useState(false);
+  const [studyContext, setStudyContext] = useState<StudyContext>({
+    type: 'general',
+    label: 'General Study'
+  });
   const timerContainerRef = useRef<HTMLDivElement>(null);
   
   const { 
@@ -44,6 +54,9 @@ export default function Timer() {
   const { user } = useAuth();
   const { checkAndAwardBadges, userBadges } = useAchievements();
   const { stats, updateStudyStreak, refetch: refetchStats } = useUserStats();
+  const { courses } = useCourses();
+  const { assignments } = useAssignments();
+  const { exams } = useExams();
 
   // Track timer completion for database logging
   useEffect(() => {
@@ -68,15 +81,45 @@ export default function Timer() {
       
       if (user) {
         const endTime = new Date();
-        const { error } = await supabase.from('study_sessions').insert({
+        
+        // Build session data with context
+        const sessionData: {
+          user_id: string;
+          title: string;
+          scheduled_start: string;
+          scheduled_end: string;
+          actual_start: string;
+          actual_end: string;
+          status: string;
+          course_id?: string;
+          assignment_id?: string;
+          exam_id?: string;
+        } = {
           user_id: user.id,
-          title: 'Pomodoro Focus Session',
+          title: studyContext.label || 'Pomodoro Focus Session',
           scheduled_start: currentSessionStart.toISOString(),
           scheduled_end: endTime.toISOString(),
           actual_start: currentSessionStart.toISOString(),
           actual_end: endTime.toISOString(),
           status: 'completed'
-        });
+        };
+        
+        // Add context associations
+        if (studyContext.type === 'course' && studyContext.courseId) {
+          sessionData.course_id = studyContext.courseId;
+        } else if (studyContext.type === 'assignment' && studyContext.assignmentId) {
+          sessionData.assignment_id = studyContext.assignmentId;
+          // Also set course_id from assignment for analytics
+          const assignment = assignments.find(a => a.id === studyContext.assignmentId);
+          if (assignment) sessionData.course_id = assignment.course_id;
+        } else if (studyContext.type === 'exam' && studyContext.examId) {
+          sessionData.exam_id = studyContext.examId;
+          // Also set course_id from exam for analytics
+          const exam = exams.find(e => e.id === studyContext.examId);
+          if (exam) sessionData.course_id = exam.course_id;
+        }
+        
+        const { error } = await supabase.from('study_sessions').insert(sessionData);
         
         if (!error) {
           const durationHours = sessionDuration / 60;
@@ -213,6 +256,20 @@ export default function Timer() {
         </div>
       </div>
 
+      {/* Study Context Selector - Hidden in fullscreen */}
+      {!isFullscreen && (
+        <StudyContextSelector
+          studyContext={studyContext}
+          onContextChange={setStudyContext}
+          courses={courses}
+          assignments={assignments}
+          exams={exams}
+          disabled={isRunning}
+          isCollapsed={contextCollapsed}
+          onCollapsedChange={setContextCollapsed}
+        />
+      )}
+
       <div className={`grid ${isFullscreen ? 'grid-cols-1 max-w-4xl mx-auto' : 'grid-cols-1 lg:grid-cols-2'} gap-4 sm:gap-6`}>
         {/* Timer */}
         <Card className="bg-gradient-card">
@@ -221,6 +278,17 @@ export default function Timer() {
               {getModeIcon()}
               Pomodoro Timer
             </CardTitle>
+            {/* Show current study context */}
+            {studyContext.label && studyContext.type !== 'general' && (
+              <div className="flex justify-center mt-2">
+                <Badge variant="secondary" className="text-xs gap-1">
+                  {studyContext.type === 'course' && <BookOpen className="w-3 h-3" />}
+                  {studyContext.type === 'assignment' && <FileText className="w-3 h-3" />}
+                  {studyContext.type === 'exam' && <GraduationCap className="w-3 h-3" />}
+                  {studyContext.label}
+                </Badge>
+              </div>
+            )}
           </CardHeader>
           <CardContent className="text-center space-y-4 sm:space-y-6 pb-6">
             <div className="space-y-4">
@@ -336,8 +404,13 @@ export default function Timer() {
                         <div className="flex items-center gap-2">
                           <Target className="w-4 h-4 text-success" />
                           <span className="text-sm sm:text-base">Focus Session {sessionsCompleted - i}</span>
+                          {studyContext.label && studyContext.type !== 'general' && i === 0 && (
+                            <Badge variant="outline" className="text-xs">
+                              {studyContext.label}
+                            </Badge>
+                          )}
                         </div>
-                        <span className="text-xs sm:text-sm text-muted-foreground">25 min</span>
+                        <span className="text-xs sm:text-sm text-muted-foreground">{Math.floor(presets.focus / 60)} min</span>
                       </div>
                     ))}
                   </div>
@@ -349,8 +422,13 @@ export default function Timer() {
                       <div className="flex items-center gap-2">
                         <Target className="w-4 h-4 text-success" />
                         <span className="text-sm sm:text-base">Focus Session {sessionsCompleted - i}</span>
+                        {studyContext.label && studyContext.type !== 'general' && i === 0 && (
+                          <Badge variant="outline" className="text-xs">
+                            {studyContext.label}
+                          </Badge>
+                        )}
                       </div>
-                      <span className="text-xs sm:text-sm text-muted-foreground">25 min</span>
+                      <span className="text-xs sm:text-sm text-muted-foreground">{Math.floor(presets.focus / 60)} min</span>
                     </div>
                   ))}
                 </div>
