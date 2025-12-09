@@ -278,13 +278,18 @@ export function AdaAIChat({
     loadConversationHistory();
   }, [user, selectedConversationId]);
 
-  // Track typing state to prevent scroll during active input
-  const [isTyping, setIsTyping] = useState(false);
-  const typingTimeoutRef = useRef<NodeJS.Timeout>();
+  // Refs for scroll and input - using refs to avoid re-renders during typing
   const prevMessagesLengthRef = useRef(messages.length);
   const scrollViewportRef = useRef<HTMLDivElement>(null);
+  const inputValueRef = useRef(inputMessage); // Track input without causing re-renders
+  const inputSyncTimeoutRef = useRef<NodeJS.Timeout>();
 
-  // Stabilized scroll - use viewport scrollTop instead of scrollIntoView to prevent layout fighting
+  // Keep ref in sync with state (one-way: state -> ref)
+  useEffect(() => {
+    inputValueRef.current = inputMessage;
+  }, [inputMessage]);
+
+  // Stabilized scroll - use viewport scrollTop instead of scrollIntoView
   const scrollToBottom = useCallback((smooth = false) => {
     const viewport = scrollViewportRef.current;
     if (viewport) {
@@ -296,45 +301,72 @@ export function AdaAIChat({
     }
   }, []);
 
-  // Only scroll when new messages are added and user is not typing
+  // Only scroll when new messages are added - no dependencies on typing state
   useEffect(() => {
     if (messages.length > prevMessagesLengthRef.current) {
-      // New message added - use instant scroll to avoid animation conflicts
-      scrollToBottom(false);
+      // Use requestAnimationFrame to batch with browser paint
+      requestAnimationFrame(() => {
+        scrollToBottom(false);
+      });
     }
     prevMessagesLengthRef.current = messages.length;
   }, [messages.length, scrollToBottom]);
 
-  // Handle typing state for scroll debounce
-  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setInputMessage(e.target.value);
-    setIsTyping(true);
-    
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current);
+  // Use ref to track voice draft state - check on blur/send instead of every keystroke
+  const hasVoiceDraftRef = useRef(false);
+
+  // Helper to set input value - syncs ref, state, and textarea
+  const setInputValue = useCallback((value: string) => {
+    inputValueRef.current = value;
+    setInputMessage(value);
+    if (textareaRef.current) {
+      textareaRef.current.value = value;
     }
-    typingTimeoutRef.current = setTimeout(() => {
-      setIsTyping(false);
-    }, 500);
   }, []);
 
+  // Debounced input handler - updates ref immediately, state after delay
+  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value;
+    inputValueRef.current = value;
+    
+    // Clear existing timeout
+    if (inputSyncTimeoutRef.current) {
+      clearTimeout(inputSyncTimeoutRef.current);
+    }
+    
+    // Debounce state update to 150ms - reduces re-renders during fast typing
+    inputSyncTimeoutRef.current = setTimeout(() => {
+      setInputMessage(value);
+    }, 150);
+  }, []);
+
+  // Voice transcript effect - use setInputValue for proper sync
   useEffect(() => {
     if (!voiceFinalChunk) return;
-    setInputMessage(prev => mergeTranscriptWithInput(prev, voiceFinalChunk.text));
+    const newValue = mergeTranscriptWithInput(inputValueRef.current, voiceFinalChunk.text);
+    setInputValue(newValue);
     setHasVoiceDraft(true);
+    hasVoiceDraftRef.current = true;
     acknowledgeFinalChunk();
-  }, [voiceFinalChunk, acknowledgeFinalChunk]);
+  }, [voiceFinalChunk, acknowledgeFinalChunk, setInputValue]);
 
-  // Use ref to track voice draft state to prevent re-renders on every keystroke
-  const hasVoiceDraftRef = useRef(false);
-  
+  // Cleanup timeout on unmount
   useEffect(() => {
-    const isEmpty = inputMessage.trim().length === 0;
+    return () => {
+      if (inputSyncTimeoutRef.current) {
+        clearTimeout(inputSyncTimeoutRef.current);
+      }
+    };
+  }, []);
+  
+  // Only clear voice draft when input is explicitly cleared (not on every keystroke)
+  const checkAndClearVoiceDraft = useCallback(() => {
+    const isEmpty = inputValueRef.current.trim().length === 0;
     if (isEmpty && hasVoiceDraft) {
       setHasVoiceDraft(false);
       hasVoiceDraftRef.current = false;
     }
-  }, [inputMessage, hasVoiceDraft]);
+  }, [hasVoiceDraft]);
 
   useEffect(() => {
     if (!speechError) return;
@@ -1064,7 +1096,9 @@ export function AdaAIChat({
   }, [user, toast]);
 
   const handleSendMessage = async () => {
-    if ((!inputMessage.trim() && !pendingFile) || !user || isProcessing) return;
+    // Use ref value for immediate access (state may be debounced)
+    const currentInput = inputValueRef.current;
+    if ((!currentInput.trim() && !pendingFile) || !user || isProcessing) return;
 
     // Check message limit
     if (messageCount >= MESSAGE_LIMIT) {
@@ -1072,12 +1106,19 @@ export function AdaAIChat({
       return;
     }
 
-    const userMessage = inputMessage.trim();
+    const userMessage = currentInput.trim();
     const attachedFile = pendingFile;
     
+    // Clear input immediately - both ref and state
+    inputValueRef.current = '';
     setInputMessage('');
+    // Clear the textarea value directly for instant feedback
+    if (textareaRef.current) {
+      textareaRef.current.value = '';
+    }
     setPendingFile(null);
     setIsProcessing(true);
+    checkAndClearVoiceDraft();
 
     try {
       let fileId: string | undefined;
@@ -1653,9 +1694,14 @@ export function AdaAIChat({
           </div>
         )}
 
-          {/* Enhanced Messages Area with Integrated File Upload */}
+          {/* Enhanced Messages Area with Integrated File Upload - CSS layer isolation */}
         <div 
           className="flex-1 overflow-hidden relative min-h-0"
+          style={{ 
+            willChange: 'transform',
+            transform: 'translateZ(0)',
+            isolation: 'isolate'
+          }}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
@@ -1705,7 +1751,17 @@ export function AdaAIChat({
           )}
           
           <ScrollArea className="h-full" viewportRef={scrollViewportRef}>
-            <div ref={chatContainerRef} className="p-4 sm:p-6 space-y-4" role="log" aria-live="polite" aria-label="Chat messages">
+            <div 
+              ref={chatContainerRef} 
+              className="p-4 sm:p-6 space-y-4" 
+              role="log" 
+              aria-live="polite" 
+              aria-label="Chat messages"
+              style={{ 
+                willChange: 'scroll-position',
+                contain: 'layout style'
+              }}
+            >
               {messages.length === 0 ? (
                 <div className="text-center py-12 space-y-4">
                   <div className="w-16 h-16 mx-auto rounded-full bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center">
@@ -1722,7 +1778,7 @@ export function AdaAIChat({
                     <Button 
                       size="sm" 
                       variant="outline" 
-                      onClick={() => setInputMessage("Help me organize my schedule")}
+                      onClick={() => setInputValue("Help me organize my schedule")}
                       className="text-xs"
                     >
                       Organize Schedule
@@ -1730,7 +1786,7 @@ export function AdaAIChat({
                     <Button 
                       size="sm" 
                       variant="outline" 
-                      onClick={() => setInputMessage("Create a study plan")}
+                      onClick={() => setInputValue("Create a study plan")}
                       className="text-xs"
                     >
                       Study Planning
@@ -1921,14 +1977,16 @@ export function AdaAIChat({
             <div className="flex-1 relative">
               <Textarea
                 ref={textareaRef}
-                value={inputMessage}
+                defaultValue={inputMessage}
                 onChange={handleInputChange}
                 onKeyDown={handleKeyPress}
+                onBlur={checkAndClearVoiceDraft}
                 placeholder={pendingFile 
                   ? "What would you like to know about this file?" 
                   : "Ask Ada anything about your schedule, assignments, or academic planning..."
                 }
                 className="h-[60px] resize-none pr-32 sm:pr-40 bg-background/50 border-border/50 focus:bg-background focus:border-primary/50 transition-colors duration-200"
+                style={{ willChange: 'contents' }}
                 disabled={isProcessing}
                 rows={2}
                 aria-label="Message input"
