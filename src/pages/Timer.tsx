@@ -328,17 +328,33 @@ export default function Timer() {
           </CardHeader>
           <CardContent>
             {sessionsCompleted > 0 ? (
-              <div className="space-y-2">
-                {Array.from({ length: Math.min(sessionsCompleted, 5) }, (_, i) => (
-                  <div key={i} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                    <div className="flex items-center gap-2">
-                      <Target className="w-4 h-4 text-success" />
-                      <span className="text-sm sm:text-base">Focus Session {sessionsCompleted - i}</span>
-                    </div>
-                    <span className="text-xs sm:text-sm text-muted-foreground">25 min</span>
+              sessionsCompleted > 8 ? (
+                <div className="max-h-[400px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-muted-foreground/20 scrollbar-track-transparent">
+                  <div className="space-y-2">
+                    {Array.from({ length: sessionsCompleted }, (_, i) => (
+                      <div key={i} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <Target className="w-4 h-4 text-success" />
+                          <span className="text-sm sm:text-base">Focus Session {sessionsCompleted - i}</span>
+                        </div>
+                        <span className="text-xs sm:text-sm text-muted-foreground">25 min</span>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {Array.from({ length: sessionsCompleted }, (_, i) => (
+                    <div key={i} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <Target className="w-4 h-4 text-success" />
+                        <span className="text-sm sm:text-base">Focus Session {sessionsCompleted - i}</span>
+                      </div>
+                      <span className="text-xs sm:text-sm text-muted-foreground">25 min</span>
+                    </div>
+                  ))}
+                </div>
+              )
             ) : (
               <div className="text-center py-8 sm:py-12 text-muted-foreground">
                 <Clock className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-3 sm:mb-4 opacity-50" />

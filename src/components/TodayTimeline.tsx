@@ -194,40 +194,79 @@ export function TodayTimeline() {
     );
   }
 
+  const MAX_VISIBLE_SESSIONS = 4;
+  const hasMoreSessions = todaySessions.length > MAX_VISIBLE_SESSIONS;
+
   return (
     <>
       <div className="space-y-4">
-        {todaySessions.map((session) => {
-          const colorClass = courseColorMap[session.color as keyof typeof courseColorMap] || "border-l-primary";
-          const statusClass = statusStyles[session.status as keyof typeof statusStyles] || statusStyles.upcoming;
-          
-          return (
-            <div 
-              key={session.id}
-              onClick={() => handleSessionClick(session)}
-              className={`flex items-center gap-4 p-4 rounded-lg border-l-4 ${colorClass} bg-card hover:shadow-card transition-all duration-200 cursor-pointer active:scale-[0.98]`}
-            >
-              <div className="flex items-center gap-3 flex-1">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground min-w-0">
-                  <Clock className="w-4 h-4 flex-shrink-0" />
-                  <span className="font-medium">{session.time}</span>
+        {hasMoreSessions ? (
+          <div className="max-h-[320px] overflow-y-auto pr-2 space-y-4 scrollbar-thin scrollbar-thumb-muted-foreground/20 scrollbar-track-transparent">
+            {todaySessions.map((session) => {
+              const colorClass = courseColorMap[session.color as keyof typeof courseColorMap] || "border-l-primary";
+              const statusClass = statusStyles[session.status as keyof typeof statusStyles] || statusStyles.upcoming;
+              
+              return (
+                <div 
+                  key={session.id}
+                  onClick={() => handleSessionClick(session)}
+                  className={`flex items-center gap-4 p-4 rounded-lg border-l-4 ${colorClass} bg-card hover:shadow-card transition-all duration-200 cursor-pointer active:scale-[0.98]`}
+                >
+                  <div className="flex items-center gap-3 flex-1">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground min-w-0">
+                      <Clock className="w-4 h-4 flex-shrink-0" />
+                      <span className="font-medium">{session.time}</span>
+                    </div>
+                    
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-medium text-sm truncate">{session.title}</h4>
+                      <p className="text-xs text-muted-foreground">{session.course}</p>
+                    </div>
+                    
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <span className="text-xs text-muted-foreground">{session.duration}</span>
+                      <Badge className={`text-xs ${statusClass}`}>
+                        {session.status}
+                      </Badge>
+                    </div>
+                  </div>
                 </div>
-                
-                <div className="flex-1 min-w-0">
-                  <h4 className="font-medium text-sm truncate">{session.title}</h4>
-                  <p className="text-xs text-muted-foreground">{session.course}</p>
-                </div>
-                
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <span className="text-xs text-muted-foreground">{session.duration}</span>
-                  <Badge className={`text-xs ${statusClass}`}>
-                    {session.status}
-                  </Badge>
+              );
+            })}
+          </div>
+        ) : (
+          todaySessions.map((session) => {
+            const colorClass = courseColorMap[session.color as keyof typeof courseColorMap] || "border-l-primary";
+            const statusClass = statusStyles[session.status as keyof typeof statusStyles] || statusStyles.upcoming;
+            
+            return (
+              <div 
+                key={session.id}
+                onClick={() => handleSessionClick(session)}
+                className={`flex items-center gap-4 p-4 rounded-lg border-l-4 ${colorClass} bg-card hover:shadow-card transition-all duration-200 cursor-pointer active:scale-[0.98]`}
+              >
+                <div className="flex items-center gap-3 flex-1">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground min-w-0">
+                    <Clock className="w-4 h-4 flex-shrink-0" />
+                    <span className="font-medium">{session.time}</span>
+                  </div>
+                  
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-medium text-sm truncate">{session.title}</h4>
+                    <p className="text-xs text-muted-foreground">{session.course}</p>
+                  </div>
+                  
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <span className="text-xs text-muted-foreground">{session.duration}</span>
+                    <Badge className={`text-xs ${statusClass}`}>
+                      {session.status}
+                    </Badge>
+                  </div>
                 </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })
+        )}
         
         {todaySessions.length > 0 && (
           <div className="mt-6 pt-4 border-t">
