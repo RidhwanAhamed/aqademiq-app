@@ -164,33 +164,91 @@ export default function Assignments() {
         </Card>
       </div>
 
-      {/* Assignments List */}
-      <Card className="bg-gradient-card">
-        <CardHeader className="p-4 sm:p-6">
-          <CardTitle className="text-lg sm:text-xl">Recent Assignments</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0 sm:p-6 sm:pt-0">
-          {loading ? (
+      {/* Assignments List - Separated by completion status */}
+      {loading ? (
+        <Card className="bg-gradient-card">
+          <CardContent className="p-4 sm:p-6">
             <div className="text-center py-8 sm:py-12 text-muted-foreground">Loading assignments...</div>
-          ) : assignments.length === 0 ? (
+          </CardContent>
+        </Card>
+      ) : assignments.length === 0 ? (
+        <Card className="bg-gradient-card">
+          <CardHeader className="p-4 sm:p-6">
+            <CardTitle className="text-lg sm:text-xl">Recent Assignments</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0 sm:p-6 sm:pt-0">
             <div className="text-center py-8 sm:py-12 text-muted-foreground px-4">
               <Target className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-3 sm:mb-4 opacity-50" />
               <p className="text-sm sm:text-base">No assignments yet. Click "Add Assignment".</p>
             </div>
-          ) : (
-            <div className="divide-y divide-border">
-              {assignments.slice(0, 8).map((a) => (
-                <AssignmentRow 
-                  key={a.id} 
-                  assignment={a} 
-                  onUpdate={updateAssignment}
-                  onToggleComplete={toggleComplete}
-                />
-              ))}
-            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-4 sm:space-y-6">
+          {/* Not Completed Assignments */}
+          {assignments.filter(a => !a.is_completed).length > 0 && (
+            <Card className="bg-gradient-card">
+              <CardHeader className="p-4 sm:p-6">
+                <CardTitle className="text-lg sm:text-xl flex items-center gap-2">
+                  <Target className="w-5 h-5 text-primary" />
+                  In Progress
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0 sm:p-6 sm:pt-0">
+                <div className="divide-y divide-border">
+                  {assignments.filter(a => !a.is_completed).map((a) => (
+                    <AssignmentRow 
+                      key={a.id} 
+                      assignment={a} 
+                      onUpdate={updateAssignment}
+                      onToggleComplete={toggleComplete}
+                    />
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
           )}
-        </CardContent>
-      </Card>
+          
+          {/* Completed Assignments - with scroll after 5 */}
+          {assignments.filter(a => a.is_completed).length > 0 && (
+            <Card className="bg-gradient-card">
+              <CardHeader className="p-4 sm:p-6">
+                <CardTitle className="text-lg sm:text-xl flex items-center gap-2">
+                  <CheckCircle className="w-5 h-5 text-success" />
+                  Completed
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0 sm:p-6 sm:pt-0">
+                {assignments.filter(a => a.is_completed).length > 5 ? (
+                  <div className="max-h-[400px] overflow-y-auto scrollbar-thin scrollbar-thumb-muted-foreground/20 scrollbar-track-transparent">
+                    <div className="divide-y divide-border">
+                      {assignments.filter(a => a.is_completed).map((a) => (
+                        <AssignmentRow 
+                          key={a.id} 
+                          assignment={a} 
+                          onUpdate={updateAssignment}
+                          onToggleComplete={toggleComplete}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-border">
+                    {assignments.filter(a => a.is_completed).map((a) => (
+                      <AssignmentRow 
+                        key={a.id} 
+                        assignment={a} 
+                        onUpdate={updateAssignment}
+                        onToggleComplete={toggleComplete}
+                      />
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
       <AddAssignmentDialog open={open} onOpenChange={setOpen} onCreated={() => refetch()} />
     </div>
   );
