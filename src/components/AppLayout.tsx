@@ -11,8 +11,6 @@ import { cn } from "@/lib/utils";
 export function AppLayout() {
   const { signOut, user, loading } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
-  const isAdaPage = location.pathname === '/ada';
 
   // Redirect to auth if not authenticated
   useEffect(() => {
@@ -42,11 +40,8 @@ export function AppLayout() {
         <AppSidebar />
         
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-          {/* Mobile Header - Hidden on Ada page for full-screen immersive experience */}
-          <header className={cn(
-            "lg:hidden h-14 border-b bg-card/95 backdrop-blur-lg flex items-center justify-between px-4 sticky top-0 z-40",
-            isAdaPage && "hidden"
-          )}>
+          {/* Mobile Header */}
+          <header className="lg:hidden h-14 border-b bg-card/95 backdrop-blur-lg flex items-center justify-between px-4 sticky top-0 z-40">
             <div className="flex items-center space-x-2">
               <SidebarTrigger className="h-9 w-9">
                 <Menu className="h-4 w-4" />
@@ -65,11 +60,8 @@ export function AppLayout() {
             </Button>
           </header>
 
-          {/* Main Content - No padding on Ada page for full-screen experience */}
-          <main className={cn(
-            "flex-1 overflow-x-hidden min-w-0",
-            isAdaPage ? "overflow-hidden" : "overflow-y-auto pb-20 lg:pb-0"
-          )}>
+          {/* Main Content - With bottom padding on mobile for nav */}
+          <main className="flex-1 overflow-y-auto overflow-x-hidden pb-20 lg:pb-0 min-w-0">
             <Outlet />
           </main>
 
