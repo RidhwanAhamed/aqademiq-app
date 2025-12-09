@@ -762,11 +762,12 @@ export function AdaAIChat({
       const startTime = startDate.toTimeString().slice(0, 5);
       const endTime = endDate.toTimeString().slice(0, 5);
 
-      const conflictResult = await detectScheduleConflicts(
-        user.id,
-        startDate.toISOString(),
-        endDate.toISOString()
-      );
+      const conflictResult = await detectScheduleConflicts({
+        user_id: user.id,
+        start_time: startTime,
+        end_time: endTime,
+        specific_date: specificDate
+      });
 
       const detectedConflicts = conflictResult?.conflicts || [];
       if (detectedConflicts.length > 0) {
