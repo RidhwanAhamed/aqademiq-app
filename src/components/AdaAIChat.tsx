@@ -278,9 +278,16 @@ export function AdaAIChat({
     loadConversationHistory();
   }, [user, selectedConversationId]);
 
+  // Typing state to prevent scroll during active input
+  const [isUserTyping, setIsUserTyping] = useState(false);
+  const typingTimeoutRef = useRef<number | null>(null);
+
   useEffect(() => {
-    scrollToBottom();
-  }, [messages, isProcessing]);
+    // Only scroll when not actively typing
+    if (!isUserTyping) {
+      scrollToBottom();
+    }
+  }, [messages, isProcessing, isUserTyping]);
 
   useEffect(() => {
     if (!voiceFinalChunk) return;
@@ -289,11 +296,14 @@ export function AdaAIChat({
     acknowledgeFinalChunk();
   }, [voiceFinalChunk, acknowledgeFinalChunk]);
 
+  // Cleanup typing timeout on unmount
   useEffect(() => {
-    if (inputMessage.trim().length === 0) {
-      setHasVoiceDraft(false);
-    }
-  }, [inputMessage]);
+    return () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!speechError) return;
@@ -322,11 +332,26 @@ export function AdaAIChat({
     document.documentElement.classList.toggle('focus-outlines', accessibilitySettings.focusOutlines);
   }, [accessibilitySettings]);
 
-  const scrollToBottom = () => {
-    setTimeout(() => {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-    }, 100);
-  };
+  const scrollToBottom = useCallback(() => {
+    // Use 'auto' behavior for instant scroll (prevents jitter from smooth animation)
+    messagesEndRef.current?.scrollIntoView({ behavior: 'auto', block: 'end' });
+  }, []);
+
+  // Handle input changes with typing state management
+  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setInputMessage(e.target.value);
+    setIsUserTyping(true);
+    
+    // Clear existing timeout
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+    
+    // Set new timeout to mark typing as finished
+    typingTimeoutRef.current = window.setTimeout(() => {
+      setIsUserTyping(false);
+    }, 500);
+  }, []);
 
   const playNotificationSound = () => {
     if (accessibilitySettings.soundEnabled) {
@@ -1821,11 +1846,16 @@ export function AdaAIChat({
           </ScrollArea>
         </div>
 
-        {/* Enhanced Input Area */}
-        <div className="border-t bg-background/95 backdrop-blur-sm p-4 sm:p-6">
-          {/* Pending File Attachment Chip */}
-          {pendingFile && (
-            <div className="mb-3">
+        {/* Enhanced Input Area - stable height container prevents layout jumps */}
+        <div className="border-t bg-background/95 backdrop-blur-sm p-4 sm:p-6 flex-shrink-0">
+          {/* Pending File Attachment Chip - uses transitions for smooth appearance */}
+          <div 
+            className={cn(
+              "transition-all duration-200 ease-in-out overflow-hidden",
+              pendingFile ? "mb-3 max-h-24 opacity-100" : "mb-0 max-h-0 opacity-0"
+            )}
+          >
+            {pendingFile && (
               <FileAttachmentChip
                 file={pendingFile}
                 onRemove={handleRemovePendingFile}
@@ -1834,57 +1864,63 @@ export function AdaAIChat({
                 isProcessing={isProcessing && !!pendingFileStatus}
                 processingStatus={pendingFileStatus}
               />
-            </div>
-          )}
+            )}
+          </div>
 
-          {(isVoiceListening || hasVoiceDraft) && (
-            <div className="mb-3 flex items-center justify-between rounded-lg border border-dashed border-primary/40 bg-primary/5 px-3 py-2 text-xs text-foreground">
-              <div className="flex items-center gap-2">
-                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/20 text-primary">
-                  {isVoiceListening ? <Mic className="h-3.5 w-3.5" /> : <Bot className="h-3.5 w-3.5" />}
-                </div>
-                <span className="font-medium">
-                  {isVoiceListening
-                    ? voiceInterimTranscript || 'Listening for your instructions…'
-                    : 'Transcript ready. Review and send when you are ready.'}
-                </span>
+          {/* Voice Banner - uses transitions instead of conditional rendering to prevent layout jumps */}
+          <div 
+            className={cn(
+              "flex items-center justify-between rounded-lg border border-dashed border-primary/40 bg-primary/5 px-3 py-2 text-xs text-foreground transition-all duration-200 ease-in-out",
+              (isVoiceListening || hasVoiceDraft) 
+                ? "opacity-100 mb-3 max-h-16" 
+                : "opacity-0 mb-0 max-h-0 overflow-hidden py-0 border-0"
+            )}
+          >
+            <div className="flex items-center gap-2">
+              <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/20 text-primary">
+                {isVoiceListening ? <Mic className="h-3.5 w-3.5" /> : <Bot className="h-3.5 w-3.5" />}
               </div>
-              <div className="flex items-center gap-2">
-                {hasVoiceDraft && !isVoiceListening && (
-                  <Button
-                    size="xs"
-                    variant="secondary"
-                    className="h-7 px-3 text-[11px]"
-                    onClick={handleVoiceQuickSend}
-                    disabled={!inputMessage.trim() || isProcessing}
-                  >
-                    Send transcript
-                  </Button>
-                )}
+              <span className="font-medium">
+                {isVoiceListening
+                  ? voiceInterimTranscript || 'Listening for your instructions…'
+                  : 'Transcript ready. Review and send when you are ready.'}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              {hasVoiceDraft && !isVoiceListening && (
                 <Button
                   size="xs"
-                  variant="ghost"
+                  variant="secondary"
                   className="h-7 px-3 text-[11px]"
-                  onClick={isVoiceListening ? stopListening : handleVoiceDraftCleared}
-                  disabled={isProcessing}
+                  onClick={handleVoiceQuickSend}
+                  disabled={!inputMessage.trim() || isProcessing}
                 >
-                  {isVoiceListening ? 'Stop' : 'Clear'}
+                  Send transcript
                 </Button>
-              </div>
+              )}
+              <Button
+                size="xs"
+                variant="ghost"
+                className="h-7 px-3 text-[11px]"
+                onClick={isVoiceListening ? stopListening : handleVoiceDraftCleared}
+                disabled={isProcessing}
+              >
+                {isVoiceListening ? 'Stop' : 'Clear'}
+              </Button>
             </div>
-          )}
+          </div>
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="flex-1 relative">
               <Textarea
                 ref={textareaRef}
                 value={inputMessage}
-                onChange={(e) => setInputMessage(e.target.value)}
+                onChange={handleInputChange}
                 onKeyDown={handleKeyPress}
                 placeholder={pendingFile 
                   ? "What would you like to know about this file?" 
                   : "Ask Ada anything about your schedule, assignments, or academic planning..."
                 }
-                className="min-h-[60px] max-h-32 resize-none pr-32 sm:pr-40 bg-background/50 border-border/50 focus:bg-background focus:border-primary/50 transition-all duration-200"
+                className="min-h-[60px] max-h-32 resize-none pr-32 sm:pr-40 bg-background/50 border-border/50 focus:bg-background focus:border-primary/50 transition-colors duration-200"
                 disabled={isProcessing}
                 rows={2}
                 aria-label="Message input"
