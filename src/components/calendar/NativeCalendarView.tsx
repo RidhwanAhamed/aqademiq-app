@@ -335,6 +335,7 @@ export function NativeCalendarView({ selectedDate, onDateChange }: NativeCalenda
                 events={events}
                 onEventClick={handleEventClick}
                 conflicts={conflictIds}
+                onOpenConflictPanel={() => setShowConflictPanel(true)}
               />
             </TabsContent>
           </Tabs>

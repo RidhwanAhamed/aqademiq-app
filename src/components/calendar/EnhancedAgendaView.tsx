@@ -15,6 +15,7 @@ interface EnhancedAgendaViewProps {
   events: CalendarEvent[];
   onEventClick: (event: CalendarEvent) => void;
   conflicts?: string[];
+  onOpenConflictPanel?: () => void;
 }
 
 export function EnhancedAgendaView({
@@ -22,7 +23,8 @@ export function EnhancedAgendaView({
   onDateChange,
   events,
   onEventClick,
-  conflicts = []
+  conflicts = [],
+  onOpenConflictPanel
 }: EnhancedAgendaViewProps) {
   const currentWeek = useMemo(() => 
     startOfWeek(selectedDate, { weekStartsOn: 1 }), 
@@ -208,7 +210,10 @@ export function EnhancedAgendaView({
         <div className="lg:col-span-2 space-y-4">
           {/* Conflicts alert */}
           {conflictEvents.length > 0 && (
-            <Card className="border-destructive/20 bg-destructive/5">
+            <Card 
+              className="border-destructive/20 bg-destructive/5 cursor-pointer transition-all hover:shadow-md hover:bg-destructive/10"
+              onClick={onOpenConflictPanel}
+            >
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2 text-destructive">
                   <AlertCircle className="w-5 h-5" />
