@@ -39,8 +39,6 @@ export function ConversationSidebar({
   const [loading, setLoading] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Load conversations only on mount and when user changes - NOT on currentConversationId changes
-  // This prevents layout shifts when switching conversations
   useEffect(() => {
     if (!user) return;
     
@@ -87,7 +85,7 @@ export function ConversationSidebar({
     };
 
     loadConversations();
-  }, [user?.id]); // Only depend on user.id, not currentConversationId
+  }, [user, currentConversationId]);
 
   // Auto-scroll to newest conversation when list updates
   useEffect(() => {
