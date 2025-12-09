@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { logger } from '@/utils/logger';
 import { debounce } from 'lodash-es';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { getTodayDayOfWeek, getTodayInTimezone, getUserTimezone } from '@/utils/timezone';
 
 export interface CalendarEvent {
   id: string;
@@ -56,10 +57,12 @@ export function useOptimizedRealtimeCalendar() {
         // Use the specific date directly for non-recurring events
         startDate = new Date(block.specific_date + 'T00:00:00');
       } else if (block.day_of_week !== undefined && block.day_of_week !== null) {
-        // Calculate next occurrence for recurring events based on day_of_week
-        const today = new Date();
-        startDate = new Date(today);
-        startDate.setDate(today.getDate() + (block.day_of_week - today.getDay() + 7) % 7);
+        // Calculate next occurrence for recurring events using timezone-aware day calculation
+        const userTimezone = getUserTimezone();
+        const zonedToday = getTodayInTimezone(userTimezone);
+        const todayDayOfWeek = getTodayDayOfWeek(userTimezone);
+        startDate = new Date(zonedToday);
+        startDate.setDate(zonedToday.getDate() + (block.day_of_week - todayDayOfWeek + 7) % 7);
       } else {
         // Fallback: skip blocks with no valid date info
         console.warn('Schedule block has no valid date information:', block.id);

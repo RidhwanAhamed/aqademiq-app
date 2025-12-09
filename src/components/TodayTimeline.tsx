@@ -2,7 +2,8 @@ import { Clock, BookOpen } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useSchedule } from "@/hooks/useSchedule";
 import { useAssignments } from "@/hooks/useAssignments";
-import { format, isToday, isBefore, addHours } from "date-fns";
+import { format, isBefore } from "date-fns";
+import { getTodayDayOfWeek, isSameDayInTimezone, getUserTimezone } from "@/utils/timezone";
 
 
 const statusStyles = {
@@ -24,16 +25,19 @@ export function TodayTimeline() {
   const { scheduleBlocks } = useSchedule();
   const { assignments } = useAssignments();
   
-  // Get today's schedule blocks
+  // Get user's timezone for consistent date handling
+  const userTimezone = getUserTimezone();
+  const todayDayOfWeek = getTodayDayOfWeek(userTimezone);
+  const now = new Date();
+  
+  // Get today's schedule blocks using timezone-aware day calculation
   const todayBlocks = scheduleBlocks.filter(block => {
-    // Simple check for today - in real app would use the schedule function
-    const today = new Date().getDay(); // 0 = Sunday, 1 = Monday, etc.
-    return block.day_of_week === today && block.is_active;
+    return block.day_of_week === todayDayOfWeek && block.is_active;
   });
 
-  // Get assignments due today
+  // Get assignments due today using timezone-aware comparison
   const todayAssignments = assignments.filter(assignment => 
-    isToday(new Date(assignment.due_date)) && !assignment.is_completed
+    isSameDayInTimezone(new Date(assignment.due_date), now, userTimezone) && !assignment.is_completed
   );
 
   // Combine schedule blocks and assignments into sessions
