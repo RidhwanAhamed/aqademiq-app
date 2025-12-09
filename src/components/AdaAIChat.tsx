@@ -1011,14 +1011,13 @@ export function AdaAIChat({
 
   return (
     <>
-      {/* Main container using CSS Grid for strict layout isolation */}
+      {/* Main container - strict height containment for no-scroll layout */}
       <div 
-        className="flex flex-col h-full"
+        className="grid h-full w-full overflow-hidden"
         style={{ 
-          display: 'grid',
           gridTemplateRows: 'auto 1fr auto',
-          height: '100%',
-          overflow: 'hidden'
+          minHeight: 0, // Critical for nested flex/grid
+          maxHeight: '100%'
         }}
       >
         {/* Header - ChatGPT style minimal */}
