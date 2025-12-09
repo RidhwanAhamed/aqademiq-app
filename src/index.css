@@ -280,3 +280,23 @@ All colors MUST be HSL.
     user-select: none;
   }
 }
+
+/* Touch target utility */
+.touch-target {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* Ada AI Mobile Utilities */
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+/* Safe area padding for mobile */
+.pb-safe {
+  padding-bottom: max(env(safe-area-inset-bottom, 8px), 8px);
+}
