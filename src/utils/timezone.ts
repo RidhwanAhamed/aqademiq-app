@@ -156,3 +156,27 @@ export function isDaylightSavingTime(date: Date, timezone?: string): boolean {
     return false;
   }
 }
+
+/**
+ * Get the current day of week (0-6, Sunday=0) in user's timezone
+ */
+export function getTodayDayOfWeek(timezone?: string): number {
+  const userTz = timezone || getUserTimezone();
+  const zonedNow = toZonedTime(new Date(), userTz);
+  return zonedNow.getDay();
+}
+
+/**
+ * Check if a schedule block should show today (in user's timezone)
+ */
+export function isScheduleBlockToday(dayOfWeek: number, timezone?: string): boolean {
+  return dayOfWeek === getTodayDayOfWeek(timezone);
+}
+
+/**
+ * Get the current date in user's timezone
+ */
+export function getTodayInTimezone(timezone?: string): Date {
+  const userTz = timezone || getUserTimezone();
+  return toZonedTime(new Date(), userTz);
+}
