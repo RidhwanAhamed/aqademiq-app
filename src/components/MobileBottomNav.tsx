@@ -22,6 +22,10 @@ export function MobileBottomNav() {
   const location = useLocation();
   const [moreOpen, setMoreOpen] = useState(false);
 
+  // Hide bottom nav on Ada page for full-screen immersive experience
+  const isAdaPage = location.pathname === '/ada';
+  if (isAdaPage) return null;
+
   const isMoreActive = moreNavItems.some(item => 
     location.pathname === item.path || location.pathname.startsWith(item.path)
   );
