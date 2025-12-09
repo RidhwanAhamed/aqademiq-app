@@ -111,22 +111,45 @@ export function useSchedule() {
     if (!user) return null;
 
     try {
-      // Check for existing duplicate before inserting
-      const { data: existing } = await supabase
-        .from('schedule_blocks')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('title', blockData.title)
-        .eq('day_of_week', blockData.day_of_week ?? null)
-        .eq('start_time', blockData.start_time)
-        .eq('end_time', blockData.end_time)
-        .eq('is_active', true)
-        .maybeSingle();
+      // Normalize title for comparison (strip emojis and special chars)
+      const normalizedTitle = blockData.title
+        .replace(/[^a-zA-Z\s]/g, '')
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, ' ');
 
-      if (existing) {
-        console.log('Duplicate schedule block detected, skipping insert');
+      // Build duplicate check query based on event type
+      let query = supabase
+        .from('schedule_blocks')
+        .select('id, title')
+        .eq('user_id', user.id)
+        .eq('start_time', blockData.start_time)
+        .eq('is_active', true);
+
+      // For non-recurring events: check by specific_date
+      // For recurring events: check by day_of_week
+      if (blockData.is_recurring === false && blockData.specific_date) {
+        query = query.eq('specific_date', blockData.specific_date);
+      } else {
+        query = query.eq('day_of_week', blockData.day_of_week ?? null);
+      }
+
+      const { data: existingBlocks } = await query;
+
+      // Check if any existing block has similar normalized title
+      const hasDuplicate = existingBlocks?.some(block => {
+        const existingNormalized = block.title
+          .replace(/[^a-zA-Z\s]/g, '')
+          .trim()
+          .toLowerCase()
+          .replace(/\s+/g, ' ');
+        return existingNormalized === normalizedTitle;
+      });
+
+      if (hasDuplicate) {
+        console.log('Duplicate schedule block detected (normalized match), skipping insert');
         await fetchScheduleBlocks();
-        return existing;
+        return existingBlocks?.[0] || null;
       }
 
       const { data, error } = await supabase
