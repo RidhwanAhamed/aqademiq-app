@@ -106,12 +106,7 @@ const Ada = () => {
   return (
     <div
       ref={adaContainerRef}
-      className="relative flex w-full bg-background lg:flex-row overflow-hidden"
-      style={{ 
-        height: '100dvh',
-        maxHeight: '100dvh',
-        minHeight: 0
-      }}
+      className="relative flex w-full h-full bg-background lg:flex-row overflow-hidden"
     >
       {/* Desktop: Conversation Sidebar */}
       {!isFullscreen && (

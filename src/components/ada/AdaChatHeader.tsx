@@ -1,5 +1,4 @@
 import React, { memo } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Slider } from '@/components/ui/slider';
@@ -11,8 +10,7 @@ import {
   Menu,
   Settings2,
   RotateCcw,
-  X,
-  Home
+  X
 } from 'lucide-react';
 
 interface AccessibilitySettings {
@@ -48,7 +46,6 @@ export const AdaChatHeader = memo(function AdaChatHeader({
   onHistoryToggle,
   isHistoryOpen
 }: AdaChatHeaderProps) {
-  const navigate = useNavigate();
 
   return (
     <div className="flex-shrink-0">
@@ -79,16 +76,6 @@ export const AdaChatHeader = memo(function AdaChatHeader({
             </Button>
           )}
 
-          {/* Home button - mobile only, allows users to exit full-screen Ada */}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigate('/')}
-            className="h-10 w-10 rounded-full touch-target bg-muted/50 hover:bg-muted lg:hidden"
-            aria-label="Go to Dashboard"
-          >
-            <Home className="h-5 w-5" />
-          </Button>
           
           {/* Title pill like ChatGPT */}
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-muted/50">
