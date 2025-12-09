@@ -7,10 +7,9 @@ import { Label } from '@/components/ui/label';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
 import {
-  Bot,
-  Maximize2,
-  Minimize2,
+  Menu,
   Settings2,
+  RotateCcw,
   X
 } from 'lucide-react';
 
@@ -30,6 +29,9 @@ interface AdaChatHeaderProps {
   onFullScreenToggle?: () => void;
   onAccessibilityToggle: () => void;
   onAccessibilityChange: (settings: AccessibilitySettings) => void;
+  // New props for mobile integration
+  onHistoryToggle?: () => void;
+  isHistoryOpen?: boolean;
 }
 
 export const AdaChatHeader = memo(function AdaChatHeader({
@@ -40,109 +42,98 @@ export const AdaChatHeader = memo(function AdaChatHeader({
   accessibilitySettings,
   onFullScreenToggle,
   onAccessibilityToggle,
-  onAccessibilityChange
+  onAccessibilityChange,
+  onHistoryToggle,
+  isHistoryOpen
 }: AdaChatHeaderProps) {
-  // Calculate message usage dots (max 6 dots)
-  const totalDots = 6;
-  const filledDots = Math.min(Math.ceil((messageCount / messageLimit) * totalDots), totalDots);
-
   return (
     <div className="flex-shrink-0">
-      {/* Header - Compact on mobile */}
+      {/* ChatGPT-style minimal header */}
       <div className={cn(
-        "border-b bg-gradient-to-r from-primary/8 via-primary/5 to-secondary/8",
-        "px-3 py-2 sm:px-6 sm:py-3"
+        "flex items-center justify-between",
+        "px-3 py-2 sm:px-4 sm:py-3",
+        "bg-background/80 backdrop-blur-sm",
+        "border-b border-border/50"
       )}>
-        <div className="flex items-center justify-between gap-2">
-          {/* Left: Avatar + Name */}
-          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-            <div className="relative flex-shrink-0">
-              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-lg">
-                <Bot className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
-              </div>
-              <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-background animate-pulse" />
-            </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5 sm:gap-2">
-                <h3 className="font-semibold text-sm sm:text-base text-foreground truncate">Ada</h3>
-                <Badge variant="secondary" className="text-[10px] sm:text-xs px-1.5 py-0 h-4 sm:h-5">Beta</Badge>
-              </div>
-              {/* Subtitle hidden on mobile */}
-              <p className="hidden sm:block text-xs text-muted-foreground">Ready to help organize your academic life</p>
-            </div>
-          </div>
+        {/* Left: Menu + Title */}
+        <div className="flex items-center gap-2">
+          {/* History toggle - hamburger style like ChatGPT */}
+          {onHistoryToggle && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onHistoryToggle}
+              className={cn(
+                "h-10 w-10 rounded-full touch-target",
+                "bg-muted/50 hover:bg-muted",
+                isFullScreen ? "" : "lg:hidden"
+              )}
+              aria-expanded={isHistoryOpen}
+              aria-label={isHistoryOpen ? "Close sidebar" : "Open sidebar"}
+            >
+              <Menu className="h-5 w-5" />
+            </Button>
+          )}
           
-          {/* Right: Message dots + Actions */}
-          <div className="flex items-center gap-2 sm:gap-3">
-            {/* Message usage dots - mobile compact */}
-            <div className="flex items-center gap-0.5" aria-label={`${messageCount} of ${messageLimit} messages used`}>
-              {Array.from({ length: totalDots }).map((_, i) => (
-                <div
-                  key={i}
-                  className={cn(
-                    "w-1.5 h-1.5 rounded-full transition-colors",
-                    i < filledDots ? "bg-primary" : "bg-muted-foreground/30"
-                  )}
-                />
-              ))}
-              <span className="hidden sm:inline text-xs text-muted-foreground ml-1.5">
-                {messageCount}/{messageLimit}
-              </span>
-            </div>
+          {/* Title pill like ChatGPT */}
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-muted/50">
+            <span className="font-medium text-sm">Ada</span>
+            <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 bg-muted">
+              Beta
+            </Badge>
+          </div>
+        </div>
+        
+        {/* Right: Settings + New chat */}
+        <div className="flex items-center gap-1">
+          {/* New chat button */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => window.location.reload()}
+            className="h-10 w-10 rounded-full touch-target bg-muted/50 hover:bg-muted"
+            aria-label="New chat"
+          >
+            <RotateCcw className="h-4 w-4" />
+          </Button>
 
-            {/* Fullscreen button - desktop only */}
-            {onFullScreenToggle && (
+          {/* Settings - Sheet on mobile */}
+          <Sheet>
+            <SheetTrigger asChild>
               <Button
-                size="icon"
                 variant="ghost"
-                onClick={onFullScreenToggle}
-                className="hidden sm:flex h-8 w-8 touch-target"
-                aria-label={isFullScreen ? "Exit full screen" : "Enter full screen"}
+                size="icon"
+                className="h-10 w-10 rounded-full touch-target bg-muted/50 hover:bg-muted"
+                aria-label="Settings"
               >
-                {isFullScreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+                <Settings2 className="h-4 w-4" />
               </Button>
-            )}
-
-            {/* Accessibility - Sheet on mobile, panel on desktop */}
-            <Sheet>
-              <SheetTrigger asChild>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="h-8 w-8 sm:h-8 sm:w-8 touch-target sm:hidden"
-                  aria-label="Accessibility settings"
-                >
-                  <Settings2 className="w-4 h-4" />
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="bottom" className="h-auto max-h-[60vh]">
-                <SheetHeader>
-                  <SheetTitle>Accessibility Settings</SheetTitle>
-                </SheetHeader>
-                <div className="py-4 space-y-6">
+            </SheetTrigger>
+            <SheetContent side="bottom" className="h-auto max-h-[70vh] rounded-t-2xl">
+              <SheetHeader className="pb-4">
+                <SheetTitle>Settings</SheetTitle>
+              </SheetHeader>
+              <div className="space-y-6 pb-6">
+                {/* Message counter */}
+                <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                  <span className="text-sm font-medium">Messages used</span>
+                  <span className="text-sm text-muted-foreground">{messageCount} / {messageLimit}</span>
+                </div>
+                
+                <div className="space-y-4">
+                  <h4 className="font-medium text-sm">Accessibility</h4>
                   <AccessibilityControls 
                     settings={accessibilitySettings} 
                     onChange={onAccessibilityChange} 
                   />
                 </div>
-              </SheetContent>
-            </Sheet>
-
-            {/* Desktop accessibility toggle */}
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={onAccessibilityToggle}
-              className="hidden sm:flex h-8 w-8"
-              aria-label="Accessibility settings"
-            >
-              <Settings2 className="w-4 h-4" />
-            </Button>
-          </div>
+              </div>
+            </SheetContent>
+          </Sheet>
         </div>
       </div>
 
-      {/* Desktop Accessibility Panel */}
+      {/* Desktop Accessibility Panel - kept for non-mobile */}
       {showAccessibility && (
         <div className="hidden sm:block px-4 sm:px-6 py-4 border-b bg-muted/30 space-y-4 animate-fade-in">
           <div className="flex items-center justify-between">
@@ -175,9 +166,9 @@ function AccessibilityControls({
   onChange: (settings: AccessibilitySettings) => void;
 }) {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+    <div className="space-y-4">
       <div className="space-y-3">
-        <Label htmlFor="font-size" className="text-xs sm:text-sm font-medium">Font Size</Label>
+        <Label htmlFor="font-size" className="text-xs sm:text-sm font-medium">Font Size: {settings.fontSize}px</Label>
         <Slider
           id="font-size"
           min={12}
@@ -189,11 +180,10 @@ function AccessibilityControls({
           }
           className="w-full"
         />
-        <span className="text-xs text-muted-foreground">{settings.fontSize}px</span>
       </div>
       
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
+      <div className="space-y-3">
+        <div className="flex items-center justify-between py-2">
           <Label htmlFor="high-contrast" className="text-xs sm:text-sm font-medium">High Contrast</Label>
           <Switch
             id="high-contrast"
@@ -204,8 +194,8 @@ function AccessibilityControls({
           />
         </div>
         
-        <div className="flex items-center justify-between">
-          <Label htmlFor="sound-enabled" className="text-xs sm:text-sm font-medium">Sound</Label>
+        <div className="flex items-center justify-between py-2">
+          <Label htmlFor="sound-enabled" className="text-xs sm:text-sm font-medium">Sound Effects</Label>
           <Switch
             id="sound-enabled"
             checked={settings.soundEnabled}
@@ -215,7 +205,7 @@ function AccessibilityControls({
           />
         </div>
         
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between py-2">
           <Label htmlFor="focus-outlines" className="text-xs sm:text-sm font-medium">Focus Outlines</Label>
           <Switch
             id="focus-outlines"

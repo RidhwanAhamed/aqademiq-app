@@ -6,7 +6,6 @@ import { Badge } from '@/components/ui/badge';
 import { AdaMessageBubble, ChatMessage } from './AdaMessageBubble';
 import { cn } from '@/lib/utils';
 import {
-  MessageCircle,
   CalendarPlus,
   Calendar,
   Clock,
@@ -223,46 +222,46 @@ export const AdaMessagesPanel = memo(function AdaMessagesPanel({
     >
       <ScrollArea className="h-full w-full" viewportRef={scrollViewportRef}>
         <div 
-          className="p-3 sm:p-6 space-y-3 sm:space-y-4" 
+          className="flex flex-col min-h-full p-3 sm:p-6" 
           role="log" 
           aria-live="polite" 
           aria-label="Chat messages"
         >
           {messages.length === 0 ? (
-            <div className="text-center py-8 sm:py-12 space-y-4 px-4">
-              <div className="w-14 h-14 sm:w-16 sm:h-16 mx-auto rounded-full bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center">
-                <MessageCircle className="w-7 h-7 sm:w-8 sm:h-8 text-primary" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-foreground mb-2 text-base sm:text-lg">Welcome to Ada! 👋</h3>
-                <p className="text-sm text-muted-foreground max-w-sm mx-auto leading-relaxed">
-                  I'm here to help organize your academic life. Upload schedules, ask questions, or plan your studies.
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2 justify-center mt-4 sm:mt-6">
+            /* ChatGPT-style centered welcome - fills available space */
+            <div className="flex-1 flex flex-col items-center justify-center py-8 px-4">
+              <h2 className="text-xl sm:text-2xl font-semibold text-foreground mb-8">
+                What can I help with?
+              </h2>
+              <div className="flex flex-wrap gap-2 justify-center max-w-sm">
                 <Button 
-                  size="sm" 
                   variant="outline" 
                   onClick={() => onQuickSuggestion("Help me organize my schedule")}
-                  className="text-xs rounded-full h-9 px-4 touch-target"
+                  className="rounded-full h-9 px-4 text-sm touch-target"
                 >
                   Organize Schedule
                 </Button>
                 <Button 
-                  size="sm" 
                   variant="outline" 
                   onClick={() => onQuickSuggestion("Create a study plan")}
-                  className="text-xs rounded-full h-9 px-4 touch-target"
+                  className="rounded-full h-9 px-4 text-sm touch-target"
                 >
                   Study Planning
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={() => onQuickSuggestion("Upload my timetable")}
+                  className="rounded-full h-9 px-4 text-sm touch-target"
+                >
+                  Upload Timetable
                 </Button>
               </div>
             </div>
           ) : (
-            <>
+            <div className="space-y-3 sm:space-y-4">
               {messageElements}
               {pendingActionsUI}
-            </>
+            </div>
           )}
         </div>
       </ScrollArea>
