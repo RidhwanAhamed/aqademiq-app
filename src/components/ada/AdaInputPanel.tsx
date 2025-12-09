@@ -7,13 +7,12 @@ import { cn } from '@/lib/utils';
 import {
   Send,
   Loader2,
-  Paperclip,
-  Upload,
+  Plus,
   Mic,
   MicOff,
   Camera,
   FileText,
-  ChevronDown
+  Upload
 } from 'lucide-react';
 
 interface AdaInputPanelProps {
@@ -40,13 +39,6 @@ export interface AdaInputPanelRef {
   getValue: () => string;
 }
 
-const QUICK_SUGGESTIONS = [
-  { label: "Today", text: "What's my schedule for today?" },
-  { label: "Deadlines", text: "Show me upcoming deadlines" },
-  { label: "Study", text: "Help me plan study time" },
-  { label: "Upload", text: "I want to upload my timetable" },
-];
-
 export const AdaInputPanel = forwardRef<AdaInputPanelRef, AdaInputPanelProps>(function AdaInputPanel({
   isProcessing,
   pendingFile,
@@ -68,7 +60,6 @@ export const AdaInputPanel = forwardRef<AdaInputPanelRef, AdaInputPanelProps>(fu
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const valueRef = useRef('');
-  const suggestionsRef = useRef<HTMLDivElement>(null);
   
   const [hasContent, setHasContent] = useState(false);
   const [attachSheetOpen, setAttachSheetOpen] = useState(false);
@@ -88,9 +79,9 @@ export const AdaInputPanel = forwardRef<AdaInputPanelRef, AdaInputPanelProps>(fu
   // Handle voice transcript updates
   useEffect(() => {
     if (voiceInterimTranscript && textareaRef.current) {
-      textareaRef.current.placeholder = voiceInterimTranscript || 'Message Ada...';
+      textareaRef.current.placeholder = voiceInterimTranscript || 'Ask Ada';
     } else if (textareaRef.current) {
-      textareaRef.current.placeholder = 'Message Ada...';
+      textareaRef.current.placeholder = 'Ask Ada';
     }
   }, [voiceInterimTranscript]);
 
@@ -142,143 +133,82 @@ export const AdaInputPanel = forwardRef<AdaInputPanelRef, AdaInputPanelProps>(fu
 
   return (
     <div 
-      className={cn(
-        "border-t bg-background",
-        // Mobile: floating style with rounded corners and shadow
-        "sm:bg-background/95 sm:backdrop-blur-sm",
-        // Safe area padding for mobile
-        "pb-safe"
-      )}
+      className="bg-background border-t border-border/50"
       style={{ 
         contain: 'layout style',
-        flexShrink: 0
+        flexShrink: 0,
+        paddingBottom: 'max(env(safe-area-inset-bottom, 8px), 8px)'
       }}
     >
-      {/* Voice listening banner - full width on mobile */}
+      {/* Voice listening indicator - ChatGPT style banner */}
       {isVoiceListening && (
         <div 
-          className={cn(
-            "flex items-center gap-3 p-3 bg-destructive/10 border-b border-destructive/20",
-            "animate-fade-in"
-          )}
+          className="flex items-center justify-center gap-3 py-3 bg-destructive/10 border-b border-destructive/20"
           onClick={onVoiceToggle}
           role="button"
-          aria-label="Tap to stop listening"
         >
-          {/* Voice waveform animation */}
-          <div className="flex items-center gap-0.5">
+          <div className="flex items-center gap-1">
             {[...Array(4)].map((_, i) => (
               <div
                 key={i}
-                className="w-1 bg-destructive rounded-full animate-pulse"
+                className="w-1 bg-destructive rounded-full"
                 style={{
-                  height: `${12 + Math.random() * 12}px`,
-                  animationDelay: `${i * 0.1}s`
+                  height: `${8 + Math.sin(Date.now() / 200 + i) * 8}px`,
+                  animation: `pulse 0.5s ease-in-out ${i * 0.1}s infinite alternate`
                 }}
               />
             ))}
           </div>
-          <div className="flex-1 min-w-0">
-            <span className="text-sm text-destructive font-medium">Listening...</span>
-            {voiceInterimTranscript && (
-              <p className="text-xs text-muted-foreground truncate mt-0.5">
-                "{voiceInterimTranscript}"
-              </p>
-            )}
-          </div>
-          <span className="text-xs text-destructive/70">Tap to stop</span>
+          <span className="text-sm text-destructive font-medium">Listening... Tap to stop</span>
         </div>
       )}
 
-      <div className="p-2 sm:p-3 space-y-2 sm:space-y-3">
-        {/* Pending file attachment - full width on mobile */}
+      <div className="p-3 space-y-2">
+        {/* Pending file attachment */}
         {pendingFile && (
-          <div className="w-full">
-            <FileAttachmentChip
-              file={pendingFile}
-              processingStatus={pendingFileStatus}
-              isProcessing={!!pendingFileStatus}
-              onRemove={onRemoveFile}
-              onImportAsSchedule={onImportAsSchedule}
-              onImportAsEvents={onImportAsEvents}
-            />
-          </div>
+          <FileAttachmentChip
+            file={pendingFile}
+            processingStatus={pendingFileStatus}
+            isProcessing={!!pendingFileStatus}
+            onRemove={onRemoveFile}
+            onImportAsSchedule={onImportAsSchedule}
+            onImportAsEvents={onImportAsEvents}
+          />
         )}
 
-        {/* Main input row - External buttons for better touch targets */}
+        {/* ChatGPT-style input row: + button | input | mic | send */}
         <div className="flex items-end gap-2">
-          {/* Voice button - large touch target on mobile */}
-          <Button
-            type="button"
-            size="icon"
-            variant={isVoiceListening ? "destructive" : "ghost"}
-            onClick={onVoiceToggle}
-            className={cn(
-              "h-11 w-11 flex-shrink-0 touch-target rounded-full",
-              isVoiceListening && "animate-pulse"
-            )}
-            disabled={isProcessing}
-            aria-pressed={isVoiceListening}
-            aria-label={isVoiceListening ? 'Stop voice capture' : 'Start voice capture'}
-          >
-            {isVoiceListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
-          </Button>
-
-          {/* Textarea - clean, no internal buttons */}
-          <div className="flex-1 relative">
-            <Textarea
-              ref={textareaRef}
-              placeholder="Message Ada..."
-              onKeyDown={handleKeyDown}
-              onChange={handleChange}
-              disabled={isProcessing}
-              className={cn(
-                "min-h-[44px] max-h-[120px] resize-none text-base",
-                "py-3 px-4 pr-12",
-                "rounded-2xl border-muted-foreground/20",
-                "focus:ring-2 focus:ring-primary/20 focus:border-primary",
-                // Mobile: larger touch-friendly input
-                "sm:min-h-[48px] sm:text-sm"
-              )}
-              aria-label="Chat message input"
-            />
-          </div>
-
-          {/* Attach button - opens sheet on mobile */}
+          {/* Plus/Attach button */}
           <Sheet open={attachSheetOpen} onOpenChange={setAttachSheetOpen}>
             <SheetTrigger asChild>
               <Button
                 type="button"
                 size="icon"
                 variant="ghost"
-                className="h-11 w-11 flex-shrink-0 touch-target rounded-full sm:hidden"
+                className="h-11 w-11 flex-shrink-0 rounded-full bg-muted/50 hover:bg-muted touch-target"
                 disabled={isProcessing}
-                aria-label="Attach file"
+                aria-label="Attach"
               >
-                <Paperclip className="w-5 h-5" />
+                <Plus className="h-5 w-5" />
               </Button>
             </SheetTrigger>
-            <SheetContent side="bottom" className="h-auto">
-              <div className="py-2 space-y-1">
+            <SheetContent side="bottom" className="h-auto rounded-t-2xl">
+              <div className="py-4 space-y-2">
                 <button
-                  onClick={() => {
-                    cameraInputRef.current?.click();
-                  }}
-                  className="w-full flex items-center gap-4 p-4 hover:bg-muted rounded-lg transition-colors touch-target"
+                  onClick={() => cameraInputRef.current?.click()}
+                  className="w-full flex items-center gap-4 p-4 hover:bg-muted rounded-xl transition-colors touch-target"
                 >
-                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                    <Camera className="w-5 h-5 text-primary" />
+                  <div className="w-11 h-11 rounded-full bg-blue-500/10 flex items-center justify-center">
+                    <Camera className="w-5 h-5 text-blue-500" />
                   </div>
                   <span className="font-medium">Take Photo</span>
                 </button>
                 <button
-                  onClick={() => {
-                    fileInputRef.current?.click();
-                  }}
-                  className="w-full flex items-center gap-4 p-4 hover:bg-muted rounded-lg transition-colors touch-target"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-full flex items-center gap-4 p-4 hover:bg-muted rounded-xl transition-colors touch-target"
                 >
-                  <div className="w-10 h-10 rounded-full bg-secondary/10 flex items-center justify-center">
-                    <FileText className="w-5 h-5 text-secondary" />
+                  <div className="w-11 h-11 rounded-full bg-green-500/10 flex items-center justify-center">
+                    <FileText className="w-5 h-5 text-green-500" />
                   </div>
                   <span className="font-medium">Choose File</span>
                 </button>
@@ -287,10 +217,10 @@ export const AdaInputPanel = forwardRef<AdaInputPanelRef, AdaInputPanelProps>(fu
                     setAttachSheetOpen(false);
                     onEnhancedUpload();
                   }}
-                  className="w-full flex items-center gap-4 p-4 hover:bg-muted rounded-lg transition-colors touch-target"
+                  className="w-full flex items-center gap-4 p-4 hover:bg-muted rounded-xl transition-colors touch-target"
                 >
-                  <div className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center">
-                    <Upload className="w-5 h-5 text-accent-foreground" />
+                  <div className="w-11 h-11 rounded-full bg-purple-500/10 flex items-center justify-center">
+                    <Upload className="w-5 h-5 text-purple-500" />
                   </div>
                   <span className="font-medium">Upload Document</span>
                 </button>
@@ -298,51 +228,59 @@ export const AdaInputPanel = forwardRef<AdaInputPanelRef, AdaInputPanelProps>(fu
             </SheetContent>
           </Sheet>
 
-          {/* Desktop attach buttons */}
-          <div className="hidden sm:flex items-center gap-1">
-            <Button
-              type="button"
-              size="icon"
-              variant="ghost"
-              onClick={() => fileInputRef.current?.click()}
-              className="h-10 w-10 rounded-full"
+          {/* Input field - clean rounded style */}
+          <div className="flex-1 relative">
+            <Textarea
+              ref={textareaRef}
+              placeholder="Ask Ada"
+              onKeyDown={handleKeyDown}
+              onChange={handleChange}
               disabled={isProcessing}
-              aria-label="Attach file"
-            >
-              <Paperclip className="w-4 h-4" />
-            </Button>
-            <Button
-              type="button"
-              size="icon"
-              variant="ghost"
-              onClick={onEnhancedUpload}
-              className="h-10 w-10 rounded-full"
-              disabled={isProcessing}
-              aria-label="Enhanced upload"
-            >
-              <Upload className="w-4 h-4" />
-            </Button>
+              className={cn(
+                "min-h-[44px] max-h-[120px] resize-none",
+                "py-3 px-4 text-base",
+                "rounded-3xl bg-muted/50 border-0",
+                "focus:ring-1 focus:ring-primary/30",
+                "placeholder:text-muted-foreground/70"
+              )}
+              aria-label="Chat message input"
+            />
           </div>
 
-          {/* Send button - prominent, larger on mobile */}
+          {/* Voice button */}
+          <Button
+            type="button"
+            size="icon"
+            variant={isVoiceListening ? "destructive" : "ghost"}
+            onClick={onVoiceToggle}
+            className={cn(
+              "h-11 w-11 flex-shrink-0 rounded-full touch-target",
+              !isVoiceListening && "bg-muted/50 hover:bg-muted"
+            )}
+            disabled={isProcessing}
+            aria-label={isVoiceListening ? 'Stop listening' : 'Voice input'}
+          >
+            {isVoiceListening ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+          </Button>
+
+          {/* Send button - prominent when has content */}
           <Button
             onClick={handleSendClick}
             disabled={!canSend || isProcessing}
             size="icon"
             className={cn(
-              "flex-shrink-0 rounded-full shadow-lg",
-              "h-12 w-12 sm:h-11 sm:w-11", // Larger on mobile
-              "bg-gradient-to-r from-primary to-secondary",
-              "hover:from-primary/90 hover:to-secondary/90",
-              "active:scale-95 transition-transform",
-              "touch-target"
+              "h-11 w-11 flex-shrink-0 rounded-full touch-target",
+              "transition-all duration-200",
+              canSend 
+                ? "bg-primary hover:bg-primary/90 text-primary-foreground shadow-md" 
+                : "bg-muted/50 text-muted-foreground"
             )}
             aria-label="Send message"
           >
             {isProcessing ? (
-              <Loader2 className="w-5 h-5 animate-spin" />
+              <Loader2 className="h-5 w-5 animate-spin" />
             ) : (
-              <Send className="w-5 h-5" />
+              <Send className="h-5 w-5" />
             )}
           </Button>
         </div>
@@ -354,7 +292,6 @@ export const AdaInputPanel = forwardRef<AdaInputPanelRef, AdaInputPanelProps>(fu
           accept=".pdf,.jpg,.jpeg,.png,.txt,.doc,.docx"
           onChange={handleFileChange}
           className="hidden"
-          aria-label="File upload input"
         />
         <input
           ref={cameraInputRef}
@@ -363,39 +300,7 @@ export const AdaInputPanel = forwardRef<AdaInputPanelRef, AdaInputPanelProps>(fu
           capture="environment"
           onChange={handleFileChange}
           className="hidden"
-          aria-label="Camera input"
         />
-        
-        {/* Quick suggestions - horizontal scroll on mobile */}
-        <div 
-          ref={suggestionsRef}
-          className={cn(
-            "flex gap-2 overflow-x-auto scrollbar-none",
-            "-mx-2 px-2 sm:mx-0 sm:px-0", // Full bleed on mobile
-            "pb-1" // Extra padding for scroll indicator
-          )}
-          style={{ WebkitOverflowScrolling: 'touch' }}
-        >
-          {QUICK_SUGGESTIONS.map((suggestion) => (
-            <Button 
-              key={suggestion.label}
-              type="button"
-              size="sm" 
-              variant="outline" 
-              onClick={() => onQuickSuggestion(suggestion.text)}
-              className={cn(
-                "flex-shrink-0 rounded-full",
-                "h-8 px-4 text-xs",
-                "border-muted-foreground/20 bg-muted/50",
-                "hover:bg-muted hover:border-muted-foreground/30",
-                "active:scale-95 transition-transform",
-                "touch-manipulation"
-              )}
-            >
-              {suggestion.label}
-            </Button>
-          ))}
-        </div>
       </div>
     </div>
   );
