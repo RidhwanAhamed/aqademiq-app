@@ -278,9 +278,20 @@ export function AdaAIChat({
     loadConversationHistory();
   }, [user, selectedConversationId]);
 
+  // Stabilized scroll - use instant scroll to prevent layout fighting
+  const scrollToBottom = useCallback((smooth = false) => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ 
+        behavior: smooth ? 'smooth' : 'instant', 
+        block: 'end' 
+      });
+    }
+  }, []);
+
+  // Only scroll on new messages, not on every render - use smooth for new messages
   useEffect(() => {
-    scrollToBottom();
-  }, [messages, isProcessing]);
+    scrollToBottom(true);
+  }, [messages.length, scrollToBottom]);
 
   useEffect(() => {
     if (!voiceFinalChunk) return;
@@ -289,11 +300,16 @@ export function AdaAIChat({
     acknowledgeFinalChunk();
   }, [voiceFinalChunk, acknowledgeFinalChunk]);
 
+  // Use ref to track voice draft state to prevent re-renders on every keystroke
+  const hasVoiceDraftRef = useRef(false);
+  
   useEffect(() => {
-    if (inputMessage.trim().length === 0) {
+    const isEmpty = inputMessage.trim().length === 0;
+    if (isEmpty && hasVoiceDraft) {
       setHasVoiceDraft(false);
+      hasVoiceDraftRef.current = false;
     }
-  }, [inputMessage]);
+  }, [inputMessage, hasVoiceDraft]);
 
   useEffect(() => {
     if (!speechError) return;
@@ -321,12 +337,6 @@ export function AdaAIChat({
     document.documentElement.classList.toggle('high-contrast', accessibilitySettings.highContrast);
     document.documentElement.classList.toggle('focus-outlines', accessibilitySettings.focusOutlines);
   }, [accessibilitySettings]);
-
-  const scrollToBottom = () => {
-    setTimeout(() => {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-    }, 100);
-  };
 
   const playNotificationSound = () => {
     if (accessibilitySettings.soundEnabled) {
@@ -1618,9 +1628,10 @@ export function AdaAIChat({
           </div>
         )}
 
-          {/* Enhanced Messages Area with Integrated File Upload */}
+          {/* Enhanced Messages Area with Integrated File Upload - CSS containment to isolate layout */}
         <div 
-          className="flex-1 overflow-hidden relative"
+          className="flex-1 overflow-hidden relative min-h-0"
+          style={{ contain: 'strict' }}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
@@ -1821,58 +1832,67 @@ export function AdaAIChat({
           </ScrollArea>
         </div>
 
-        {/* Enhanced Input Area */}
-        <div className="border-t bg-background/95 backdrop-blur-sm p-4 sm:p-6">
-          {/* Pending File Attachment Chip */}
-          {pendingFile && (
-            <div className="mb-3">
-              <FileAttachmentChip
-                file={pendingFile}
-                onRemove={handleRemovePendingFile}
-                onImportAsSchedule={handleImportPendingFileAsSchedule}
-                onImportAsEvents={handleImportPendingFileAsEvents}
-                isProcessing={isProcessing && !!pendingFileStatus}
-                processingStatus={pendingFileStatus}
-              />
+        {/* Enhanced Input Area - Fixed height container to prevent layout shifts */}
+        <div className="border-t bg-background/95 backdrop-blur-sm p-4 sm:p-6 flex-shrink-0">
+          {/* Reserved space container for conditional elements - prevents layout shifts */}
+          <div className="min-h-0">
+            {/* Pending File Attachment Chip - use visibility to reserve space */}
+            <div className={cn("mb-3 transition-opacity duration-150", !pendingFile && "hidden")}>
+              {pendingFile && (
+                <FileAttachmentChip
+                  file={pendingFile}
+                  onRemove={handleRemovePendingFile}
+                  onImportAsSchedule={handleImportPendingFileAsSchedule}
+                  onImportAsEvents={handleImportPendingFileAsEvents}
+                  isProcessing={isProcessing && !!pendingFileStatus}
+                  processingStatus={pendingFileStatus}
+                />
+              )}
             </div>
-          )}
 
-          {(isVoiceListening || hasVoiceDraft) && (
-            <div className="mb-3 flex items-center justify-between rounded-lg border border-dashed border-primary/40 bg-primary/5 px-3 py-2 text-xs text-foreground">
-              <div className="flex items-center gap-2">
-                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/20 text-primary">
-                  {isVoiceListening ? <Mic className="h-3.5 w-3.5" /> : <Bot className="h-3.5 w-3.5" />}
+            {/* Voice indicator - use visibility to prevent layout shift */}
+            <div className={cn(
+              "mb-3 transition-opacity duration-150",
+              !(isVoiceListening || hasVoiceDraft) && "hidden"
+            )}>
+              {(isVoiceListening || hasVoiceDraft) && (
+                <div className="flex items-center justify-between rounded-lg border border-dashed border-primary/40 bg-primary/5 px-3 py-2 text-xs text-foreground">
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/20 text-primary">
+                      {isVoiceListening ? <Mic className="h-3.5 w-3.5" /> : <Bot className="h-3.5 w-3.5" />}
+                    </div>
+                    <span className="font-medium">
+                      {isVoiceListening
+                        ? voiceInterimTranscript || 'Listening for your instructions…'
+                        : 'Transcript ready. Review and send when you are ready.'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {hasVoiceDraft && !isVoiceListening && (
+                      <Button
+                        size="xs"
+                        variant="secondary"
+                        className="h-7 px-3 text-[11px]"
+                        onClick={handleVoiceQuickSend}
+                        disabled={!inputMessage.trim() || isProcessing}
+                      >
+                        Send transcript
+                      </Button>
+                    )}
+                    <Button
+                      size="xs"
+                      variant="ghost"
+                      className="h-7 px-3 text-[11px]"
+                      onClick={isVoiceListening ? stopListening : handleVoiceDraftCleared}
+                      disabled={isProcessing}
+                    >
+                      {isVoiceListening ? 'Stop' : 'Clear'}
+                    </Button>
+                  </div>
                 </div>
-                <span className="font-medium">
-                  {isVoiceListening
-                    ? voiceInterimTranscript || 'Listening for your instructions…'
-                    : 'Transcript ready. Review and send when you are ready.'}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                {hasVoiceDraft && !isVoiceListening && (
-                  <Button
-                    size="xs"
-                    variant="secondary"
-                    className="h-7 px-3 text-[11px]"
-                    onClick={handleVoiceQuickSend}
-                    disabled={!inputMessage.trim() || isProcessing}
-                  >
-                    Send transcript
-                  </Button>
-                )}
-                <Button
-                  size="xs"
-                  variant="ghost"
-                  className="h-7 px-3 text-[11px]"
-                  onClick={isVoiceListening ? stopListening : handleVoiceDraftCleared}
-                  disabled={isProcessing}
-                >
-                  {isVoiceListening ? 'Stop' : 'Clear'}
-                </Button>
-              </div>
+              )}
             </div>
-          )}
+          </div>
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="flex-1 relative">
               <Textarea
@@ -1884,7 +1904,7 @@ export function AdaAIChat({
                   ? "What would you like to know about this file?" 
                   : "Ask Ada anything about your schedule, assignments, or academic planning..."
                 }
-                className="min-h-[60px] max-h-32 resize-none pr-32 sm:pr-40 bg-background/50 border-border/50 focus:bg-background focus:border-primary/50 transition-all duration-200"
+                className="h-[60px] resize-none pr-32 sm:pr-40 bg-background/50 border-border/50 focus:bg-background focus:border-primary/50 transition-colors duration-200"
                 disabled={isProcessing}
                 rows={2}
                 aria-label="Message input"
