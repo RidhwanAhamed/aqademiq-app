@@ -111,6 +111,24 @@ export function useSchedule() {
     if (!user) return null;
 
     try {
+      // Check for existing duplicate before inserting
+      const { data: existing } = await supabase
+        .from('schedule_blocks')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('title', blockData.title)
+        .eq('day_of_week', blockData.day_of_week ?? null)
+        .eq('start_time', blockData.start_time)
+        .eq('end_time', blockData.end_time)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (existing) {
+        console.log('Duplicate schedule block detected, skipping insert');
+        await fetchScheduleBlocks();
+        return existing;
+      }
+
       const { data, error } = await supabase
         .from('schedule_blocks')
         .insert([{ ...blockData, user_id: user.id }])
