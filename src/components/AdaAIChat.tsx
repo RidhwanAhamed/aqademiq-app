@@ -278,20 +278,45 @@ export function AdaAIChat({
     loadConversationHistory();
   }, [user, selectedConversationId]);
 
-  // Stabilized scroll - use instant scroll to prevent layout fighting
+  // Track typing state to prevent scroll during active input
+  const [isTyping, setIsTyping] = useState(false);
+  const typingTimeoutRef = useRef<NodeJS.Timeout>();
+  const prevMessagesLengthRef = useRef(messages.length);
+  const scrollViewportRef = useRef<HTMLDivElement>(null);
+
+  // Stabilized scroll - use viewport scrollTop instead of scrollIntoView to prevent layout fighting
   const scrollToBottom = useCallback((smooth = false) => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ 
-        behavior: smooth ? 'smooth' : 'instant', 
-        block: 'end' 
-      });
+    const viewport = scrollViewportRef.current;
+    if (viewport) {
+      if (smooth) {
+        viewport.scrollTo({ top: viewport.scrollHeight, behavior: 'smooth' });
+      } else {
+        viewport.scrollTop = viewport.scrollHeight;
+      }
     }
   }, []);
 
-  // Only scroll on new messages, not on every render - use smooth for new messages
+  // Only scroll when new messages are added and user is not typing
   useEffect(() => {
-    scrollToBottom(true);
+    if (messages.length > prevMessagesLengthRef.current) {
+      // New message added - use instant scroll to avoid animation conflicts
+      scrollToBottom(false);
+    }
+    prevMessagesLengthRef.current = messages.length;
   }, [messages.length, scrollToBottom]);
+
+  // Handle typing state for scroll debounce
+  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setInputMessage(e.target.value);
+    setIsTyping(true);
+    
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+    typingTimeoutRef.current = setTimeout(() => {
+      setIsTyping(false);
+    }, 500);
+  }, []);
 
   useEffect(() => {
     if (!voiceFinalChunk) return;
@@ -1628,10 +1653,9 @@ export function AdaAIChat({
           </div>
         )}
 
-          {/* Enhanced Messages Area with Integrated File Upload - CSS containment to isolate layout */}
+          {/* Enhanced Messages Area with Integrated File Upload */}
         <div 
           className="flex-1 overflow-hidden relative min-h-0"
-          style={{ contain: 'strict' }}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
@@ -1680,7 +1704,7 @@ export function AdaAIChat({
             </div>
           )}
           
-          <ScrollArea className="h-full">
+          <ScrollArea className="h-full" viewportRef={scrollViewportRef}>
             <div ref={chatContainerRef} className="p-4 sm:p-6 space-y-4" role="log" aria-live="polite" aria-label="Chat messages">
               {messages.length === 0 ? (
                 <div className="text-center py-12 space-y-4">
@@ -1898,7 +1922,7 @@ export function AdaAIChat({
               <Textarea
                 ref={textareaRef}
                 value={inputMessage}
-                onChange={(e) => setInputMessage(e.target.value)}
+                onChange={handleInputChange}
                 onKeyDown={handleKeyPress}
                 placeholder={pendingFile 
                   ? "What would you like to know about this file?" 
