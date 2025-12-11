@@ -4,13 +4,16 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { logger } from '@/utils/logger';
 import { Button } from '@/components/ui/button';
+import { AchievementUnlockModal } from '@/components/AchievementUnlockModal';
 import { useToast } from '@/hooks/use-toast';
 import { UpgradeToPremiumDialog } from '@/components/UpgradeToPremiumDialog';
 import { EnhancedFileUpload } from '@/components/EnhancedFileUpload';
 import { ConflictResolutionPanel } from '@/components/ConflictResolutionPanel';
 import { useAdvancedConflictDetection } from '@/hooks/useAdvancedConflictDetection';
 import { useSpeechToText } from '@/hooks/useSpeechToText';
+import { useAchievements } from '@/hooks/useAchievements';
 import { createScheduleBlock, detectScheduleConflicts, deleteScheduleBlock } from '@/services/api';
+import type { Badge } from '@/services/api';
 import { mergeTranscriptWithInput } from '@/utils/voice-cleaner';
 import {
   AdaChatHeader,
@@ -82,6 +85,8 @@ export function AdaAIChat({
   const [isProcessing, setIsProcessing] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [messageCount, setMessageCount] = useState(0);
+  const [chatBadgeUnlock, setChatBadgeUnlock] = useState<Badge | null>(null);
+  const [showChatBadgeModal, setShowChatBadgeModal] = useState(false);
   
   // UI state
   const [showUpgrade, setShowUpgrade] = useState(false);
@@ -110,6 +115,7 @@ export function AdaAIChat({
   });
 
   const { detectConflicts } = useAdvancedConflictDetection();
+  const { awardAdaApprenticeBadge, isBadgeUnlocked } = useAchievements();
 
   const {
     isSupported: isSpeechSupported,
@@ -703,7 +709,11 @@ export function AdaAIChat({
       );
       if (userMessage) {
         setMessages(prev => [...prev, userMessage]);
-        setMessageCount(prev => prev + 1);
+        setMessageCount(prev => {
+          const updated = prev + 1;
+          void handleChatBadgeUnlock(updated);
+          return updated;
+        });
       }
 
       await handleEnhancedFileUpload(file, 'schedule_parser');
@@ -716,7 +726,7 @@ export function AdaAIChat({
     } finally {
       setIsProcessing(false);
     }
-  }, [pendingFile, user, isProcessing, saveChatMessage, handleEnhancedFileUpload, toast]);
+  }, [pendingFile, user, isProcessing, saveChatMessage, handleEnhancedFileUpload, toast, handleChatBadgeUnlock]);
 
   const handleImportAsEvents = useCallback(async () => {
     if (!pendingFile || !user || isProcessing) return;
@@ -735,7 +745,11 @@ export function AdaAIChat({
       );
       if (userMessage) {
         setMessages(prev => [...prev, userMessage]);
-        setMessageCount(prev => prev + 1);
+        setMessageCount(prev => {
+          const updated = prev + 1;
+          void handleChatBadgeUnlock(updated);
+          return updated;
+        });
       }
 
       await handleEnhancedFileUpload(file, 'event_parser');
@@ -748,7 +762,7 @@ export function AdaAIChat({
     } finally {
       setIsProcessing(false);
     }
-  }, [pendingFile, user, isProcessing, saveChatMessage, handleEnhancedFileUpload, toast]);
+  }, [pendingFile, user, isProcessing, saveChatMessage, handleEnhancedFileUpload, toast, handleChatBadgeUnlock]);
 
   // Action handlers
   const handleConfirmAction = useCallback(async (actionIndex: number) => {
@@ -865,6 +879,22 @@ export function AdaAIChat({
     }
   }, [user, toast]);
 
+  // Chat badge unlock helper (TODO: API -> /api/achievements/award once backend ships)
+  const handleChatBadgeUnlock = useCallback(async (nextCount: number) => {
+    if (nextCount < MESSAGE_LIMIT) return;
+    if (isBadgeUnlocked('adas_apprentice_10_messages')) return;
+
+    const badge = await awardAdaApprenticeBadge();
+    if (badge) {
+      logger.info('Ada apprentice badge unlocked', {
+        badgeId: badge.id,
+        conversationId
+      });
+      setChatBadgeUnlock(badge);
+      setShowChatBadgeModal(true);
+    }
+  }, [MESSAGE_LIMIT, awardAdaApprenticeBadge, isBadgeUnlocked, conversationId]);
+
   // Send message
   const handleSendMessage = useCallback(async (message: string) => {
     if ((!message.trim() && !pendingFile) || !user || isProcessing) return;
@@ -910,8 +940,10 @@ export function AdaAIChat({
       );
       
       if (savedUserMessage) {
+        const nextCount = messageCount + 1;
         setMessages(prev => [...prev, savedUserMessage]);
-        setMessageCount(prev => prev + 1);
+        setMessageCount(nextCount);
+        await handleChatBadgeUnlock(nextCount);
       }
 
       const { data: aiResponse, error } = await supabase.functions.invoke('ai-chat', {
@@ -956,7 +988,7 @@ export function AdaAIChat({
       setIsProcessing(false);
       setPendingFileStatus('');
     }
-  }, [user, isProcessing, messageCount, pendingFile, conversationId, uploadAndIndexFile, wantsScheduleParsing, processFileWithAgenticAI, saveChatMessage, playNotificationSound, toast]);
+  }, [user, isProcessing, messageCount, pendingFile, conversationId, uploadAndIndexFile, wantsScheduleParsing, processFileWithAgenticAI, saveChatMessage, playNotificationSound, toast, handleChatBadgeUnlock]);
 
   // Voice toggle
   const handleVoiceToggle = useCallback(async () => {
@@ -1179,6 +1211,15 @@ export function AdaAIChat({
         open={showUpgrade} 
         onOpenChange={setShowUpgrade}
         feature="ada-ai"
+      />
+
+      <AchievementUnlockModal
+        badge={chatBadgeUnlock}
+        isOpen={showChatBadgeModal}
+        onClose={() => {
+          setShowChatBadgeModal(false);
+          setChatBadgeUnlock(null);
+        }}
       />
     </>
   );

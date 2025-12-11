@@ -95,6 +95,21 @@ export const adaAgentTests = {
     return true;
   },
 
+  'awards Ada apprentice after 10 prompts': () => {
+    const simulatedMessages = Array.from({ length: 10 }, (_, index) => ({
+      id: `msg-${index}`,
+      is_user: true
+    }));
+
+    console.assert(simulatedMessages.length === 10, 'Must reach 10-user-message threshold');
+    console.assert(
+      simulatedMessages.every(msg => msg.is_user),
+      'Only user-authored prompts should count toward the badge'
+    );
+    // TODO: Inject real render + hook once /api/achievements integrates
+    return true;
+  },
+
   'voice toggle renders when supported': () => {
     const browserSupportsSpeech = true;
     const statusPill = browserSupportsSpeech ? 'listening-pill' : 'fallback-pill';

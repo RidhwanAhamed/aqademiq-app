@@ -48,7 +48,8 @@ export function useUserStats() {
       const eligibleBadges = await checkBadgeEligibility(user.id, {
         totalPomodoroSessions: 0,
         currentStreak,
-        assignmentsCompleted: 0
+        assignmentsCompleted: 0,
+        adaChatMessages: 0
       });
       
       for (const badge of eligibleBadges) {

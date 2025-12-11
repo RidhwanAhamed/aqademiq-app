@@ -42,6 +42,9 @@ export function AchievementShowcase({ compact = false }: AchievementShowcaseProp
             {unlockedCount}/{totalCount}
           </Badge>
         </div>
+        <p className="text-xs text-muted-foreground mt-1">
+          Track focus, streak, completion, and engagement badges.
+        </p>
       </CardHeader>
       <CardContent>
         {badges.length === 0 ? (

@@ -35,6 +35,18 @@
         "type": "streak_days",
         "threshold": 30
       }
+    },
+    {
+      "id": "adas_apprentice_10_messages",
+      "title": "Ada's Apprentice",
+      "description": "Ask Ada AI 10 questions in a single conversation.",
+      "unlock_toast": "You're jamming with Ada! 10 thoughtful prompts unlocked this badge.",
+      "icon": "/assets/badges/adas-apprentice.png",
+      "category": "engagement",
+      "criteria": {
+        "type": "ada_chat_messages",
+        "threshold": 10
+      }
     }
   ]
 }

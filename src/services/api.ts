@@ -18,9 +18,9 @@ export interface Badge {
   description: string;
   unlock_toast: string;
   icon: string;
-  category: 'focus' | 'streak' | 'completion';
+  category: 'focus' | 'streak' | 'completion' | 'engagement';
   criteria: {
-    type: 'first_pomodoro' | 'streak_days' | 'assignments_completed';
+    type: 'first_pomodoro' | 'streak_days' | 'assignments_completed' | 'ada_chat_messages';
     threshold: number;
   };
 }
@@ -96,6 +96,7 @@ export const checkBadgeEligibility = async (
     totalPomodoroSessions: number;
     currentStreak: number;
     assignmentsCompleted: number;
+    adaChatMessages?: number;
   }
 ): Promise<Badge[]> => {
   const badges = await getBadges();
@@ -118,6 +119,9 @@ export const checkBadgeEligibility = async (
         break;
       case 'assignments_completed':
         qualifies = stats.assignmentsCompleted >= badge.criteria.threshold;
+        break;
+      case 'ada_chat_messages':
+        qualifies = (stats.adaChatMessages ?? 0) >= badge.criteria.threshold;
         break;
     }
     
