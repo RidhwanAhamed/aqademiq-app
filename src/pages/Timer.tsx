@@ -18,7 +18,7 @@ import { useExams } from "@/hooks/useExams";
 import { supabase } from "@/integrations/supabase/client";
 import { BookOpen, Clock, Coffee, FileText, GraduationCap, Maximize2, Minimize2, Pause, Play, Plus, RotateCcw, Settings, Sparkles, Target, Volume2, VolumeX } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { Badge as BadgeType } from "@/services/api";
+import { Badge as BadgeType } from "@/types/badges";
 
 export default function Timer() {
   const [showStudySessionDialog, setShowStudySessionDialog] = useState(false);

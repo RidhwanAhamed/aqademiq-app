@@ -4,7 +4,7 @@
  * Backend integration: Badge data comes from useAchievements hook.
  */
 
-import { Badge as BadgeType } from '@/services/api';
+import { Badge as BadgeType } from '@/types/badges';
 import { cn } from '@/lib/utils';
 import { Lock } from 'lucide-react';
 

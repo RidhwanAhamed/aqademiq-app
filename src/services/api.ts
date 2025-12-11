@@ -7,28 +7,11 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import badgesData from '@/data/badges.json';
+import type { Badge, UserBadge } from '@/types/badges';
 
 // ============================================================================
 // Achievement Badge Types & Service
 // ============================================================================
-
-export interface Badge {
-  id: string;
-  title: string;
-  description: string;
-  unlock_toast: string;
-  icon: string;
-  category: 'focus' | 'streak' | 'completion' | 'engagement';
-  criteria: {
-    type: 'first_pomodoro' | 'streak_days' | 'assignments_completed' | 'ada_chat_messages';
-    threshold: number;
-  };
-}
-
-export interface UserBadge {
-  badge_id: string;
-  unlocked_at: string;
-}
 
 /**
  * Fetches all available badges from mock data.

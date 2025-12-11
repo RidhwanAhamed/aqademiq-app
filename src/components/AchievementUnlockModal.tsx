@@ -7,7 +7,7 @@
 import { useEffect, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Badge as BadgeType } from '@/services/api';
+import { Badge as BadgeType } from '@/types/badges';
 import { cn } from '@/lib/utils';
 
 interface AchievementUnlockModalProps {

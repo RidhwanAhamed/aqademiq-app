@@ -9,13 +9,12 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { 
-  Badge, 
-  UserBadge, 
   getBadges, 
   getUserBadges, 
   awardBadge, 
   checkBadgeEligibility 
 } from '@/services/api';
+import type { Badge, UserBadge } from '@/types/badges';
 
 interface AchievementStats {
   totalPomodoroSessions: number;
