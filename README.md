@@ -58,6 +58,21 @@ export const deleteScheduleBlock = async (blockId, userId) => {
 };
 ```
 
+### Achievement Badge APIs
+
+The badge service currently reads from `src/data/badges.json` and stores unlocks in `localStorage`. When wiring up the real Node/Express backend, point the achievement helpers to REST endpoints such as:
+
+```ts
+// TODO: Replace mock services with real endpoints
+export const getBadges = () => axios.get('/api/achievements/badges').then(res => res.data);
+export const getUserBadges = (userId: string) =>
+  axios.get(`/api/achievements/user/${userId}`).then(res => res.data);
+export const awardBadge = (userId: string, badgeId: string) =>
+  axios.post('/api/achievements/award', { userId, badgeId }).then(res => res.data);
+```
+
+These three functions back `useAchievements()` and the new Ada’s Apprentice badge unlocker, so once the endpoints return `{ success: boolean; badge: Badge }` payloads the frontend will require no further changes.
+
 ### Ada AI Agentic Actions
 
 The Ada AI assistant (`supabase/functions/ai-chat/index.ts`) returns structured actions:

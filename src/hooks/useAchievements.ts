@@ -21,6 +21,7 @@ interface AchievementStats {
   totalPomodoroSessions: number;
   currentStreak: number;
   assignmentsCompleted: number;
+  adaChatMessages?: number;
 }
 
 export function useAchievements() {
@@ -90,6 +91,11 @@ export function useAchievements() {
     }
   }, [user, toast, fetchBadges]);
 
+  // Quick lookup utility to prevent duplicate awards
+  const isBadgeUnlocked = useCallback((badgeId: string) => {
+    return userBadges.some(ub => ub.badge_id === badgeId);
+  }, [userBadges]);
+
   // Award a specific badge directly
   const awardSpecificBadge = useCallback(async (badgeId: string) => {
     if (!user) return null;
@@ -117,10 +123,13 @@ export function useAchievements() {
     }
   }, [user, toast, fetchBadges]);
 
-  // Get badge unlock status
-  const isBadgeUnlocked = useCallback((badgeId: string) => {
-    return userBadges.some(ub => ub.badge_id === badgeId);
-  }, [userBadges]);
+  // Dedicated helper so chat components can request Ada badge unlocks
+  const awardAdaApprenticeBadge = useCallback(async () => {
+    if (isBadgeUnlocked('adas_apprentice_10_messages')) {
+      return null;
+    }
+    return awardSpecificBadge('adas_apprentice_10_messages');
+  }, [isBadgeUnlocked, awardSpecificBadge]);
 
   // Get unlocked badge details with unlock date
   const getUnlockedBadgeDetails = useCallback((badgeId: string) => {
@@ -147,6 +156,7 @@ export function useAchievements() {
     recentUnlock,
     checkAndAwardBadges,
     awardSpecificBadge,
+    awardAdaApprenticeBadge,
     isBadgeUnlocked,
     getUnlockedBadgeDetails,
     clearRecentUnlock,

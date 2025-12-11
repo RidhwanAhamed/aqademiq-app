@@ -152,7 +152,8 @@ export default function Timer() {
           const awardedBadges = await checkAndAwardBadges({
             totalPomodoroSessions: totalSessions,
             currentStreak: currentStreak,
-            assignmentsCompleted: assignmentsCompleted
+            assignmentsCompleted: assignmentsCompleted,
+            adaChatMessages: 0
           });
 
           if (awardedBadges.length > 0) {
