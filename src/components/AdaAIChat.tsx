@@ -691,6 +691,22 @@ export function AdaAIChat({
     }
   }, [user, saveChatMessage, playNotificationSound, detectConflicts, toast]);
 
+  // Chat badge unlock helper (TODO: API -> /api/achievements/award once backend ships)
+  const handleChatBadgeUnlock = useCallback(async (nextCount: number) => {
+    if (nextCount < MESSAGE_LIMIT) return;
+    if (isBadgeUnlocked('adas_apprentice_10_messages')) return;
+
+    const badge = await awardAdaApprenticeBadge();
+    if (badge) {
+      logger.info('Ada apprentice badge unlocked', {
+        badgeId: badge.id,
+        conversationId
+      });
+      setChatBadgeUnlock(badge);
+      setShowChatBadgeModal(true);
+    }
+  }, [MESSAGE_LIMIT, awardAdaApprenticeBadge, isBadgeUnlocked, conversationId]);
+
   // Import handlers
   const handleImportAsSchedule = useCallback(async () => {
     if (!pendingFile || !user || isProcessing) return;
@@ -878,22 +894,6 @@ export function AdaAIChat({
       });
     }
   }, [user, toast]);
-
-  // Chat badge unlock helper (TODO: API -> /api/achievements/award once backend ships)
-  const handleChatBadgeUnlock = useCallback(async (nextCount: number) => {
-    if (nextCount < MESSAGE_LIMIT) return;
-    if (isBadgeUnlocked('adas_apprentice_10_messages')) return;
-
-    const badge = await awardAdaApprenticeBadge();
-    if (badge) {
-      logger.info('Ada apprentice badge unlocked', {
-        badgeId: badge.id,
-        conversationId
-      });
-      setChatBadgeUnlock(badge);
-      setShowChatBadgeModal(true);
-    }
-  }, [MESSAGE_LIMIT, awardAdaApprenticeBadge, isBadgeUnlocked, conversationId]);
 
   // Send message
   const handleSendMessage = useCallback(async (message: string) => {
