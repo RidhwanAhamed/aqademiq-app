@@ -13,7 +13,7 @@ import { useAdvancedConflictDetection } from '@/hooks/useAdvancedConflictDetecti
 import { useSpeechToText } from '@/hooks/useSpeechToText';
 import { useAchievements } from '@/hooks/useAchievements';
 import { createScheduleBlock, detectScheduleConflicts, deleteScheduleBlock } from '@/services/api';
-import type { Badge } from '@/services/api';
+import type { Badge } from '@/types/badges';
 import { mergeTranscriptWithInput } from '@/utils/voice-cleaner';
 import {
   AdaChatHeader,
