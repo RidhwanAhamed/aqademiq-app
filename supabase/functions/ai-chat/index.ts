@@ -638,52 +638,202 @@ function checkRateLimit(identifier: string, maxRequests = 10, windowMs = 60000):
 }
 
 // =============================================================================
-// ACTION SPECIFICATION
+// ACTION SPECIFICATION - Full CRUD for all entity types
 // =============================================================================
 
 const ACTION_SPEC = `
 ## AGENTIC RESPONSE FORMAT
-When the user asks to schedule, create, or add something to their calendar, respond with structured JSON:
+When the user asks to create, update, delete, or manage their calendar, assignments, exams, study sessions, or courses, respond with structured JSON:
 
 {
   "reply_markdown": "Your conversational response in markdown",
   "actions": [
     {
-      "type": "CREATE_EVENT",
-      "title": "Event title",
-      "start_iso": "2025-12-01T19:00:00",
-      "end_iso": "2025-12-01T20:30:00",
-      "location": "optional location",
-      "notes": "optional notes"
+      "type": "ACTION_TYPE",
+      ...action_specific_fields
     }
   ]
 }
 
 ## CRITICAL TIME FORMAT RULES:
-- **DO NOT** use "Z" suffix or timezone offsets in start_iso/end_iso
+- **DO NOT** use "Z" suffix or timezone offsets in datetime fields
 - Times should be in LOCAL format: "YYYY-MM-DDTHH:MM:SS" (no Z at the end!)
 - When user says "10 AM", use "T10:00:00" NOT "T10:00:00Z"
-- Example: "tomorrow at 2pm" → "2025-12-05T14:00:00" (assuming tomorrow is Dec 5)
 
-## ACTION TYPES:
-- CREATE_EVENT: Schedule a new calendar event
-  - title (required): Clear, descriptive event name
-  - start_iso (required): ISO 8601 datetime in LOCAL time (no Z suffix!)
-  - end_iso (required): ISO 8601 datetime in LOCAL time (no Z suffix!)
-  - location (optional): Where the event takes place
-  - notes (optional): Additional details
+## EVENT ACTIONS (Calendar Events/Classes):
+
+### CREATE_EVENT - Create a new calendar event
+{
+  "type": "CREATE_EVENT",
+  "title": "Event title",
+  "start_iso": "2025-12-01T19:00:00",
+  "end_iso": "2025-12-01T20:30:00",
+  "location": "optional location",
+  "notes": "optional notes",
+  "course_id": "optional course UUID"
+}
+
+### UPDATE_EVENT - Modify an existing event
+{
+  "type": "UPDATE_EVENT",
+  "id": "event UUID (required)",
+  "title": "new title (optional)",
+  "start_iso": "new start time (optional)",
+  "end_iso": "new end time (optional)",
+  "location": "new location (optional)"
+}
+
+### DELETE_EVENT - Remove an event
+{
+  "type": "DELETE_EVENT",
+  "id": "event UUID (required)",
+  "title": "event title for confirmation message"
+}
+
+## ASSIGNMENT ACTIONS:
+
+### CREATE_ASSIGNMENT - Create a new assignment
+{
+  "type": "CREATE_ASSIGNMENT",
+  "title": "Assignment title",
+  "course_id": "course UUID (required)",
+  "due_date": "2025-12-15T23:59:00",
+  "description": "optional description",
+  "priority": 1-3 (1=high, 2=medium, 3=low),
+  "estimated_hours": number,
+  "assignment_type": "homework|project|essay|quiz|exam|presentation|lab|test|report"
+}
+
+### UPDATE_ASSIGNMENT - Modify an assignment
+{
+  "type": "UPDATE_ASSIGNMENT",
+  "id": "assignment UUID (required)",
+  "title": "new title (optional)",
+  "due_date": "new due date (optional)",
+  "priority": "new priority (optional)",
+  "is_completed": true/false (optional)
+}
+
+### DELETE_ASSIGNMENT - Remove an assignment
+{
+  "type": "DELETE_ASSIGNMENT",
+  "id": "assignment UUID (required)",
+  "title": "assignment title for confirmation"
+}
+
+### COMPLETE_ASSIGNMENT - Mark assignment as complete
+{
+  "type": "COMPLETE_ASSIGNMENT",
+  "id": "assignment UUID (required)",
+  "title": "assignment title"
+}
+
+## EXAM ACTIONS:
+
+### CREATE_EXAM - Create a new exam
+{
+  "type": "CREATE_EXAM",
+  "title": "Exam title",
+  "course_id": "course UUID (required)",
+  "exam_date": "2025-12-20T09:00:00",
+  "duration_minutes": 120,
+  "location": "optional location",
+  "exam_type": "midterm|final|quiz|test",
+  "notes": "optional notes"
+}
+
+### UPDATE_EXAM - Modify an exam
+{
+  "type": "UPDATE_EXAM",
+  "id": "exam UUID (required)",
+  "title": "new title (optional)",
+  "exam_date": "new date (optional)",
+  "location": "new location (optional)"
+}
+
+### DELETE_EXAM - Remove an exam
+{
+  "type": "DELETE_EXAM",
+  "id": "exam UUID (required)",
+  "title": "exam title for confirmation"
+}
+
+## STUDY SESSION ACTIONS:
+
+### CREATE_STUDY_SESSION - Schedule a study session
+{
+  "type": "CREATE_STUDY_SESSION",
+  "title": "Study session title",
+  "scheduled_start": "2025-12-01T14:00:00",
+  "scheduled_end": "2025-12-01T16:00:00",
+  "course_id": "optional course UUID",
+  "exam_id": "optional exam UUID to study for",
+  "assignment_id": "optional assignment UUID to work on",
+  "notes": "optional notes"
+}
+
+### UPDATE_STUDY_SESSION - Modify a study session
+{
+  "type": "UPDATE_STUDY_SESSION",
+  "id": "study session UUID (required)",
+  "title": "new title (optional)",
+  "scheduled_start": "new start (optional)",
+  "scheduled_end": "new end (optional)",
+  "status": "scheduled|in_progress|completed|cancelled"
+}
+
+### DELETE_STUDY_SESSION - Cancel a study session
+{
+  "type": "DELETE_STUDY_SESSION",
+  "id": "study session UUID (required)",
+  "title": "session title for confirmation"
+}
+
+## COURSE ACTIONS:
+
+### CREATE_COURSE - Add a new course
+{
+  "type": "CREATE_COURSE",
+  "name": "Course name",
+  "code": "optional course code (e.g., CS101)",
+  "credits": 3,
+  "instructor": "optional instructor name",
+  "color": "blue|green|red|purple|orange|yellow|pink",
+  "target_grade": "optional target grade (A, B, etc.)"
+}
+
+### UPDATE_COURSE - Modify a course
+{
+  "type": "UPDATE_COURSE",
+  "id": "course UUID (required)",
+  "name": "new name (optional)",
+  "instructor": "new instructor (optional)",
+  "color": "new color (optional)"
+}
+
+### DELETE_COURSE - Remove a course
+{
+  "type": "DELETE_COURSE",
+  "id": "course UUID (required)",
+  "name": "course name for confirmation"
+}
 
 ## WHEN TO USE ACTIONS:
-- User says "schedule X at Y time"
-- User says "add X to my calendar"
-- User says "create a study session for X"
-- User says "book time for X"
-- User says "remind me to X at Y"
+- User says "schedule/add/create X" → CREATE action
+- User says "move/change/reschedule/update X" → UPDATE action
+- User says "delete/remove/cancel X" → DELETE action
+- User says "complete/finish/done with X" → COMPLETE action (for assignments)
 
 ## WHEN NOT TO USE ACTIONS:
-- User is asking questions about their calendar
+- User is asking questions about their calendar/schedule
 - User wants information or advice
 - User is chatting casually
+
+## FINDING ENTITY IDs:
+When user refers to an entity by name (e.g., "delete my Physics exam"), you MUST:
+1. Look in the calendar context provided to find the matching entity
+2. Use the exact UUID/ID from the calendar data
+3. If you cannot find the exact entity, ask the user to clarify which one they mean
 
 Always include reply_markdown even when returning actions. If no actions are needed, omit the actions array entirely and just respond normally.
 `;
@@ -1012,12 +1162,55 @@ ${documentContext ? documentContext : ''}
       console.log('Response is plain markdown (no actions)');
     }
 
-    // Validate actions
+    // Validate actions - support all CRUD action types
     const validatedActions = parsedResponse.actions.filter(action => {
-      if (action.type === 'CREATE_EVENT') {
-        return action.title && action.start_iso && action.end_iso;
+      switch (action.type) {
+        // Event actions
+        case 'CREATE_EVENT':
+          return action.title && action.start_iso && action.end_iso;
+        case 'UPDATE_EVENT':
+          return action.id && (action.title || action.start_iso || action.end_iso || action.location !== undefined);
+        case 'DELETE_EVENT':
+          return action.id;
+        
+        // Assignment actions
+        case 'CREATE_ASSIGNMENT':
+          return action.title && action.course_id && action.due_date;
+        case 'UPDATE_ASSIGNMENT':
+          return action.id;
+        case 'DELETE_ASSIGNMENT':
+          return action.id;
+        case 'COMPLETE_ASSIGNMENT':
+          return action.id;
+        
+        // Exam actions
+        case 'CREATE_EXAM':
+          return action.title && action.course_id && action.exam_date;
+        case 'UPDATE_EXAM':
+          return action.id;
+        case 'DELETE_EXAM':
+          return action.id;
+        
+        // Study session actions
+        case 'CREATE_STUDY_SESSION':
+          return action.title && action.scheduled_start && action.scheduled_end;
+        case 'UPDATE_STUDY_SESSION':
+          return action.id;
+        case 'DELETE_STUDY_SESSION':
+          return action.id;
+        
+        // Course actions
+        case 'CREATE_COURSE':
+          return action.name;
+        case 'UPDATE_COURSE':
+          return action.id;
+        case 'DELETE_COURSE':
+          return action.id;
+        
+        default:
+          console.log('Unknown action type:', action.type);
+          return false;
       }
-      return false;
     });
 
     console.log('Validated actions:', validatedActions.length);
