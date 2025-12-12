@@ -1,4 +1,5 @@
 {
+  "__comment": "Badge catalog mock; backend integration -> /api/achievements/badges",
   "badges": [
     {
       "id": "laser_focus_first_pomodoro",
@@ -46,6 +47,18 @@
       "criteria": {
         "type": "ada_chat_messages",
         "threshold": 10
+      }
+    },
+    {
+      "id": "first_voyage_event_created",
+      "title": "First Voyage",
+      "description": "Create your first calendar event with Ada AI.",
+      "unlock_toast": "Nice! Your first Ada-crafted event is on the books.",
+      "icon": "/assets/badges/first-voyage.png",
+      "category": "engagement",
+      "criteria": {
+        "type": "ada_events_created",
+        "threshold": 1
       }
     }
   ]

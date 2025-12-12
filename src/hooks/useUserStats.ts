@@ -49,7 +49,8 @@ export function useUserStats() {
         totalPomodoroSessions: 0,
         currentStreak,
         assignmentsCompleted: 0,
-        adaChatMessages: 0
+        adaChatMessages: 0,
+        adaEventsCreated: 0
       });
       
       for (const badge of eligibleBadges) {

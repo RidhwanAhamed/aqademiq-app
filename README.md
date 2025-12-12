@@ -73,6 +73,8 @@ export const awardBadge = (userId: string, badgeId: string) =>
 
 These three functions back `useAchievements()` and the new Ada’s Apprentice badge unlocker, so once the endpoints return `{ success: boolean; badge: Badge }` payloads the frontend will require no further changes.
 
+The eligibility payload now includes Ada-specific counters (`adaChatMessages`, `adaEventsCreated`) so the backend should record both the number of prompts per session and the number of AI-generated events when implementing `/api/achievements/check`.
+
 ### Ada AI Agentic Actions
 
 The Ada AI assistant (`supabase/functions/ai-chat/index.ts`) returns structured actions:
