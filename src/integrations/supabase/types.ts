@@ -310,6 +310,54 @@ export type Database = {
           },
         ]
       }
+      audit_log: {
+        Row: {
+          action: string
+          after_state: Json | null
+          before_state: Json | null
+          created_at: string | null
+          entity_id: string | null
+          entity_type: string
+          id: string
+          idempotency_key: string | null
+          metadata: Json | null
+          request_id: string | null
+          source: string
+          transaction_id: string | null
+          user_id: string
+        }
+        Insert: {
+          action: string
+          after_state?: Json | null
+          before_state?: Json | null
+          created_at?: string | null
+          entity_id?: string | null
+          entity_type: string
+          id?: string
+          idempotency_key?: string | null
+          metadata?: Json | null
+          request_id?: string | null
+          source?: string
+          transaction_id?: string | null
+          user_id: string
+        }
+        Update: {
+          action?: string
+          after_state?: Json | null
+          before_state?: Json | null
+          created_at?: string | null
+          entity_id?: string | null
+          entity_type?: string
+          id?: string
+          idempotency_key?: string | null
+          metadata?: Json | null
+          request_id?: string | null
+          source?: string
+          transaction_id?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       chat_messages: {
         Row: {
           conversation_id: string | null
@@ -1194,6 +1242,7 @@ export type Database = {
           rotation_type: string | null
           rotation_weeks: number[] | null
           semester_week_start: number | null
+          source: string | null
           specific_date: string | null
           start_time: string
           title: string
@@ -1216,6 +1265,7 @@ export type Database = {
           rotation_type?: string | null
           rotation_weeks?: number[] | null
           semester_week_start?: number | null
+          source?: string | null
           specific_date?: string | null
           start_time: string
           title: string
@@ -1238,6 +1288,7 @@ export type Database = {
           rotation_type?: string | null
           rotation_weeks?: number[] | null
           semester_week_start?: number | null
+          source?: string | null
           specific_date?: string | null
           start_time?: string
           title?: string
