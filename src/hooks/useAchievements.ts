@@ -21,6 +21,7 @@ interface AchievementStats {
   currentStreak: number;
   assignmentsCompleted: number;
   adaChatMessages?: number;
+  adaEventsCreated?: number;
 }
 
 export function useAchievements() {
@@ -130,6 +131,13 @@ export function useAchievements() {
     return awardSpecificBadge('adas_apprentice_10_messages');
   }, [isBadgeUnlocked, awardSpecificBadge]);
 
+  const awardFirstVoyageBadge = useCallback(async () => {
+    if (isBadgeUnlocked('first_voyage_event_created')) {
+      return null;
+    }
+    return awardSpecificBadge('first_voyage_event_created');
+  }, [isBadgeUnlocked, awardSpecificBadge]);
+
   // Get unlocked badge details with unlock date
   const getUnlockedBadgeDetails = useCallback((badgeId: string) => {
     const userBadge = userBadges.find(ub => ub.badge_id === badgeId);
@@ -156,6 +164,7 @@ export function useAchievements() {
     checkAndAwardBadges,
     awardSpecificBadge,
     awardAdaApprenticeBadge,
+    awardFirstVoyageBadge,
     isBadgeUnlocked,
     getUnlockedBadgeDetails,
     clearRecentUnlock,

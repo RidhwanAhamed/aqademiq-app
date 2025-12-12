@@ -153,7 +153,8 @@ export default function Timer() {
             totalPomodoroSessions: totalSessions,
             currentStreak: currentStreak,
             assignmentsCompleted: assignmentsCompleted,
-            adaChatMessages: 0
+            adaChatMessages: 0,
+            adaEventsCreated: 0
           });
 
           if (awardedBadges.length > 0) {

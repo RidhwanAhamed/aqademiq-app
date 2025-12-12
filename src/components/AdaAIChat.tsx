@@ -115,7 +115,7 @@ export function AdaAIChat({
   });
 
   const { detectConflicts } = useAdvancedConflictDetection();
-  const { awardAdaApprenticeBadge, isBadgeUnlocked } = useAchievements();
+  const { awardAdaApprenticeBadge, awardFirstVoyageBadge, isBadgeUnlocked } = useAchievements();
 
   const {
     isSupported: isSpeechSupported,
@@ -670,6 +670,20 @@ export function AdaAIChat({
         }
       }
 
+      const createdEvents = Array.isArray(parseResult?.created_events)
+        ? parseResult.created_events.filter((event: any) => event?.success !== false)
+        : [];
+      const calendarResults = parseResult?.calendar_results;
+      const calendarEventsAdded = calendarResults
+        ? ['courses_added', 'classes_added', 'assignments_added', 'exams_added'].some(
+            key => Number(calendarResults?.[key] || 0) > 0
+          )
+        : false;
+
+      if (createdEvents.length > 0 || calendarEventsAdded) {
+        await handleFirstVoyageUnlock();
+      }
+
     } catch (error: any) {
       console.error('Error in agentic file processing:', error);
       const errorMessage = await saveChatMessage(
@@ -689,7 +703,7 @@ export function AdaAIChat({
         variant: 'destructive'
       });
     }
-  }, [user, saveChatMessage, playNotificationSound, detectConflicts, toast]);
+  }, [user, saveChatMessage, playNotificationSound, detectConflicts, toast, handleFirstVoyageUnlock]);
 
   // Chat badge unlock helper (TODO: API -> /api/achievements/award once backend ships)
   const handleChatBadgeUnlock = useCallback(async (nextCount: number) => {
@@ -706,6 +720,18 @@ export function AdaAIChat({
       setShowChatBadgeModal(true);
     }
   }, [MESSAGE_LIMIT, awardAdaApprenticeBadge, isBadgeUnlocked, conversationId]);
+
+  const handleFirstVoyageUnlock = useCallback(async () => {
+    const badge = await awardFirstVoyageBadge();
+    if (badge) {
+      logger.info('First Voyage badge unlocked', {
+        badgeId: badge.id,
+        conversationId
+      });
+      setChatBadgeUnlock(badge);
+      setShowChatBadgeModal(true);
+    }
+  }, [awardFirstVoyageBadge, conversationId]);
 
   // Import handlers
   const handleImportAsSchedule = useCallback(async () => {
@@ -862,6 +888,8 @@ export function AdaAIChat({
         metadata: { action_confirmed: true }
       }]);
 
+      await handleFirstVoyageUnlock();
+
     } catch (error) {
       console.error('Error confirming action:', error);
       toast({
@@ -870,7 +898,7 @@ export function AdaAIChat({
         variant: 'destructive'
       });
     }
-  }, [user, pendingActions, toast, saveChatMessage]);
+  }, [user, pendingActions, toast, saveChatMessage, handleFirstVoyageUnlock]);
 
   const handleCancelAction = useCallback((actionIndex: number) => {
     setPendingActions(prev => prev.map((p, i) => 

@@ -10,7 +10,8 @@ export type BadgeCriteriaType =
   | 'first_pomodoro'
   | 'streak_days'
   | 'assignments_completed'
-  | 'ada_chat_messages';
+  | 'ada_chat_messages'
+  | 'ada_events_created';
 
 export interface Badge {
   id: string;

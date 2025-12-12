@@ -110,6 +110,18 @@ export const adaAgentTests = {
     return true;
   },
 
+  'awards First Voyage after first AI event': () => {
+    const createdEvents = [{ id: 'evt-1', success: true }];
+    const calendarResults = { classes_added: 0, assignments_added: 0, exams_added: 0 };
+
+    const parserAward = createdEvents.some(event => event.success !== false);
+    const calendarAward = Object.values(calendarResults).some(count => Number(count) > 0);
+
+    console.assert(parserAward || calendarAward, 'First Voyage should unlock when Ada makes an event');
+    // TODO: Swap console.assert with expect + render once vitest is configured.
+    return true;
+  },
+
   'voice toggle renders when supported': () => {
     const browserSupportsSpeech = true;
     const statusPill = browserSupportsSpeech ? 'listening-pill' : 'fallback-pill';

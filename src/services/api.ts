@@ -80,6 +80,7 @@ export const checkBadgeEligibility = async (
     currentStreak: number;
     assignmentsCompleted: number;
     adaChatMessages?: number;
+    adaEventsCreated?: number;
   }
 ): Promise<Badge[]> => {
   const badges = await getBadges();
@@ -105,6 +106,9 @@ export const checkBadgeEligibility = async (
         break;
       case 'ada_chat_messages':
         qualifies = (stats.adaChatMessages ?? 0) >= badge.criteria.threshold;
+        break;
+      case 'ada_events_created':
+        qualifies = (stats.adaEventsCreated ?? 0) >= badge.criteria.threshold;
         break;
     }
     
