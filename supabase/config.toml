@@ -328,6 +328,9 @@ deno_version = 2
 [functions.ai-chat]
 verify_jwt = false
 
+[functions.ada-master-agent]
+verify_jwt = false
+
 [functions.generate-embeddings]
 verify_jwt = false
 
