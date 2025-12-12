@@ -1021,16 +1021,31 @@ When answering, cite the source (e.g., "According to your uploaded document...")
         const userStats = userStatsResult.data;
         const currentDate = new Date().toISOString();
 
-        if (courses.length > 0 || pendingAssignments.length > 0 || upcomingExams.length > 0) {
-          userContext = `
+        // Build course list with IDs for AI to use
+        const coursesList = courses.length > 0 
+          ? courses.map(c => `  - "${c.name}" (ID: ${c.id}${c.code ? `, Code: ${c.code}` : ''})`).join('\n')
+          : '  - No active courses';
+
+        userContext = `
 ## User Context (${currentDate.split('T')[0]}):
-- Active courses: ${courses.map(c => c.name).join(', ') || 'None'}
-- Pending assignments: ${pendingAssignments.length} (${pendingAssignments.slice(0, 3).map(a => `"${a.title}" due ${a.due_date.split('T')[0]}`).join(', ')})
-- Upcoming exams: ${upcomingExams.length} (${upcomingExams.slice(0, 2).map(e => `"${e.title}" on ${e.exam_date.split('T')[0]}`).join(', ')})
+
+### AVAILABLE COURSES (Use these exact IDs for course_id field!):
+${coursesList}
+
+### IMPORTANT - Course ID Instructions:
+When creating assignments, exams, or study sessions that reference a course:
+1. Look at the courses list above to find the matching course
+2. Use the EXACT UUID from that list (e.g., "a1b2c3d4-e5f6-7890-abcd-ef1234567890")
+3. Do NOT generate placeholder text like "course_id_placeholder"
+4. If user mentions a course by name, match it to the list and use its UUID
+5. Also include "course_name" field with the human-readable name for display
+
+### Academic Status:
+- Pending assignments: ${pendingAssignments.length} (${pendingAssignments.slice(0, 3).map(a => `"${a.title}" due ${a.due_date.split('T')[0]}`).join(', ') || 'None'})
+- Upcoming exams: ${upcomingExams.length} (${upcomingExams.slice(0, 2).map(e => `"${e.title}" on ${e.exam_date.split('T')[0]}`).join(', ') || 'None'})
 - Study streak: ${userStats?.current_streak || 0} days
 - User timezone: ${userTimezone || 'UTC'}
 `;
-        }
       } catch (error) {
         console.log('Could not fetch user context:', error);
       }
