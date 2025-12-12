@@ -418,6 +418,19 @@ export function AdaAIChat({
     }
   }, [user]);
 
+  // First Voyage badge unlock (for first event creation via Ada AI)
+  const handleFirstVoyageUnlock = useCallback(async () => {
+    const badge = await awardFirstVoyageBadge();
+    if (badge) {
+      logger.info('First Voyage badge unlocked', {
+        badgeId: badge.id,
+        conversationId
+      });
+      setChatBadgeUnlock(badge);
+      setShowChatBadgeModal(true);
+    }
+  }, [awardFirstVoyageBadge, conversationId]);
+
   // Check if user wants schedule parsing
   const wantsScheduleParsing = useCallback((message: string): boolean => {
     const scheduleKeywords = [
@@ -720,18 +733,6 @@ export function AdaAIChat({
       setShowChatBadgeModal(true);
     }
   }, [MESSAGE_LIMIT, awardAdaApprenticeBadge, isBadgeUnlocked, conversationId]);
-
-  const handleFirstVoyageUnlock = useCallback(async () => {
-    const badge = await awardFirstVoyageBadge();
-    if (badge) {
-      logger.info('First Voyage badge unlocked', {
-        badgeId: badge.id,
-        conversationId
-      });
-      setChatBadgeUnlock(badge);
-      setShowChatBadgeModal(true);
-    }
-  }, [awardFirstVoyageBadge, conversationId]);
 
   // Import handlers
   const handleImportAsSchedule = useCallback(async () => {
