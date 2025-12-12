@@ -12,7 +12,24 @@ import { ConflictResolutionPanel } from '@/components/ConflictResolutionPanel';
 import { useAdvancedConflictDetection } from '@/hooks/useAdvancedConflictDetection';
 import { useSpeechToText } from '@/hooks/useSpeechToText';
 import { useAchievements } from '@/hooks/useAchievements';
-import { createScheduleBlock, detectScheduleConflicts, deleteScheduleBlock } from '@/services/api';
+import { 
+  createScheduleBlock, 
+  detectScheduleConflicts, 
+  deleteScheduleBlock,
+  createAssignment,
+  updateAssignment,
+  deleteAssignment,
+  completeAssignment,
+  createExam,
+  updateExam,
+  deleteExam,
+  createStudySession,
+  updateStudySession,
+  deleteStudySession,
+  createCourse,
+  updateCourse,
+  deleteCourse
+} from '@/services/api';
 import type { Badge } from '@/types/badges';
 import { mergeTranscriptWithInput } from '@/utils/voice-cleaner';
 import {
@@ -838,6 +855,42 @@ export function AdaAIChat({
     }
   }, [pendingFile, user, isProcessing, saveChatMessage, handleEnhancedFileUpload, toast, handleChatBadgeUnlock]);
 
+  // Helper to resolve course ID from name
+  const resolveCourseId = useCallback(async (courseName: string): Promise<string | null> => {
+    if (!user) return null;
+    const { data } = await supabase
+      .from('courses')
+      .select('id')
+      .eq('user_id', user.id)
+      .ilike('name', `%${courseName}%`)
+      .eq('is_active', true)
+      .limit(1);
+    return data?.[0]?.id || null;
+  }, [user]);
+
+  // Entity labels for toast messages
+  const getEntityLabel = (actionType: AdaActionType): string => {
+    const labels: Record<string, string> = {
+      CREATE_EVENT: 'Event',
+      UPDATE_EVENT: 'Event',
+      DELETE_EVENT: 'Event',
+      CREATE_ASSIGNMENT: 'Assignment',
+      UPDATE_ASSIGNMENT: 'Assignment',
+      DELETE_ASSIGNMENT: 'Assignment',
+      COMPLETE_ASSIGNMENT: 'Assignment',
+      CREATE_EXAM: 'Exam',
+      UPDATE_EXAM: 'Exam',
+      DELETE_EXAM: 'Exam',
+      CREATE_STUDY_SESSION: 'Study Session',
+      UPDATE_STUDY_SESSION: 'Study Session',
+      DELETE_STUDY_SESSION: 'Study Session',
+      CREATE_COURSE: 'Course',
+      UPDATE_COURSE: 'Course',
+      DELETE_COURSE: 'Course'
+    };
+    return labels[actionType] || 'Item';
+  };
+
   // Action handlers
   const handleConfirmAction = useCallback(async (actionIndex: number) => {
     if (!user) return;
@@ -845,92 +898,332 @@ export function AdaAIChat({
     const pending = pendingActions[actionIndex];
     if (!pending || pending.status !== 'pending') return;
 
+    const action = pending.action;
+    const entityLabel = getEntityLabel(action.type);
+    const entityName = action.title || action.name || 'item';
+
     try {
-      const action = pending.action;
-      const startDate = new Date(action.start_iso);
-      const endDate = new Date(action.end_iso);
-      
-      const specificDate = startDate.toISOString().split('T')[0];
-      const startTime = startDate.toTimeString().slice(0, 5);
-      const endTime = endDate.toTimeString().slice(0, 5);
+      let resultId: string | null = null;
+      let confirmMessage = '';
 
-      const conflictResult = await detectScheduleConflicts({
-        user_id: user.id,
-        start_time: startTime,
-        end_time: endTime,
-        specific_date: specificDate
-      });
+      switch (action.type) {
+        // ========== EVENTS ==========
+        case 'CREATE_EVENT': {
+          const startDate = new Date(action.start_iso!);
+          const endDate = new Date(action.end_iso!);
+          const specificDate = startDate.toISOString().split('T')[0];
+          const startTime = startDate.toTimeString().slice(0, 5);
+          const endTime = endDate.toTimeString().slice(0, 5);
 
-      const detectedConflicts = conflictResult?.conflicts || [];
-      if (detectedConflicts.length > 0) {
-        setPendingActions(prev => prev.map((p, i) => 
-          i === actionIndex ? { ...p, conflicts: detectedConflicts } : p
-        ));
-        
-        toast({
-          title: 'Schedule Conflict Detected',
-          description: `This overlaps with ${detectedConflicts[0].conflict_title}.`,
-          variant: 'destructive'
-        });
-        return;
+          // Check conflicts for events
+          const conflictResult = await detectScheduleConflicts({
+            user_id: user.id,
+            start_time: startTime,
+            end_time: endTime,
+            specific_date: specificDate
+          });
+
+          if (conflictResult?.conflicts?.length > 0) {
+            setPendingActions(prev => prev.map((p, i) => 
+              i === actionIndex ? { ...p, conflicts: conflictResult.conflicts } : p
+            ));
+            toast({
+              title: 'Schedule Conflict Detected',
+              description: `This overlaps with ${conflictResult.conflicts[0].conflict_title}.`,
+              variant: 'destructive'
+            });
+            return;
+          }
+
+          const eventResult = await createScheduleBlock({
+            title: action.title!,
+            specific_date: specificDate,
+            start_time: startTime,
+            end_time: endTime,
+            location: action.location,
+            notes: action.notes,
+            is_recurring: false,
+            source: 'ada-ai',
+            user_id: user.id
+          });
+          resultId = eventResult.id;
+          confirmMessage = `✅ Done! I've added **"${action.title}"** to your calendar on ${specificDate} from ${startTime} to ${endTime}.`;
+          break;
+        }
+
+        case 'UPDATE_EVENT': {
+          if (!action.id) throw new Error('Missing event ID for update');
+          const updates: any = {};
+          if (action.title) updates.title = action.title;
+          if (action.start_iso) {
+            const startDate = new Date(action.start_iso);
+            updates.specific_date = startDate.toISOString().split('T')[0];
+            updates.start_time = startDate.toTimeString().slice(0, 5);
+          }
+          if (action.end_iso) {
+            const endDate = new Date(action.end_iso);
+            updates.end_time = endDate.toTimeString().slice(0, 5);
+          }
+          if (action.location) updates.location = action.location;
+          if (action.notes) updates.notes = action.notes;
+          
+          const { updateScheduleBlock } = await import('@/services/api');
+          await updateScheduleBlock(action.id, user.id, updates);
+          resultId = action.id;
+          confirmMessage = `✅ Updated **"${entityName}"** successfully.`;
+          break;
+        }
+
+        case 'DELETE_EVENT': {
+          if (!action.id) throw new Error('Missing event ID for delete');
+          await deleteScheduleBlock(action.id, user.id);
+          resultId = action.id;
+          confirmMessage = `🗑️ Deleted **"${entityName}"** from your calendar.`;
+          break;
+        }
+
+        // ========== ASSIGNMENTS ==========
+        case 'CREATE_ASSIGNMENT': {
+          let courseId = action.course_id;
+          if (!courseId && action.course_id) {
+            courseId = await resolveCourseId(action.course_id) || undefined;
+          }
+          if (!courseId) {
+            // Try to find any active course
+            const { data: courses } = await supabase
+              .from('courses')
+              .select('id')
+              .eq('user_id', user.id)
+              .eq('is_active', true)
+              .limit(1);
+            courseId = courses?.[0]?.id;
+          }
+          if (!courseId) {
+            throw new Error('No course found. Please create a course first.');
+          }
+
+          const assignmentResult = await createAssignment({
+            user_id: user.id,
+            course_id: courseId,
+            title: action.title!,
+            due_date: action.due_date!,
+            description: action.description || action.notes,
+            priority: action.priority ?? 2,
+            assignment_type: action.assignment_type || 'homework'
+          });
+          resultId = assignmentResult.id;
+          confirmMessage = `✅ Created assignment **"${action.title}"** due ${new Date(action.due_date!).toLocaleDateString()}.`;
+          break;
+        }
+
+        case 'UPDATE_ASSIGNMENT': {
+          if (!action.id) throw new Error('Missing assignment ID for update');
+          const updates: any = {};
+          if (action.title) updates.title = action.title;
+          if (action.due_date) updates.due_date = action.due_date;
+          if (action.priority !== undefined) updates.priority = action.priority;
+          if (action.description) updates.description = action.description;
+          
+          await updateAssignment(action.id, user.id, updates);
+          resultId = action.id;
+          confirmMessage = `✅ Updated assignment **"${entityName}"**.`;
+          break;
+        }
+
+        case 'DELETE_ASSIGNMENT': {
+          if (!action.id) throw new Error('Missing assignment ID for delete');
+          await deleteAssignment(action.id, user.id);
+          resultId = action.id;
+          confirmMessage = `🗑️ Deleted assignment **"${entityName}"**.`;
+          break;
+        }
+
+        case 'COMPLETE_ASSIGNMENT': {
+          if (!action.id) throw new Error('Missing assignment ID for complete');
+          await completeAssignment(action.id, user.id);
+          resultId = action.id;
+          confirmMessage = `✅ Marked **"${entityName}"** as complete!`;
+          break;
+        }
+
+        // ========== EXAMS ==========
+        case 'CREATE_EXAM': {
+          let courseId = action.course_id;
+          if (!courseId) {
+            const { data: courses } = await supabase
+              .from('courses')
+              .select('id')
+              .eq('user_id', user.id)
+              .eq('is_active', true)
+              .limit(1);
+            courseId = courses?.[0]?.id;
+          }
+          if (!courseId) {
+            throw new Error('No course found. Please create a course first.');
+          }
+
+          const examResult = await createExam({
+            user_id: user.id,
+            course_id: courseId,
+            title: action.title!,
+            exam_date: action.exam_date!,
+            duration_minutes: action.duration_minutes || 60,
+            location: action.location,
+            exam_type: action.exam_type || 'midterm',
+            notes: action.notes
+          });
+          resultId = examResult.id;
+          confirmMessage = `✅ Created exam **"${action.title}"** on ${new Date(action.exam_date!).toLocaleDateString()}.`;
+          break;
+        }
+
+        case 'UPDATE_EXAM': {
+          if (!action.id) throw new Error('Missing exam ID for update');
+          const updates: any = {};
+          if (action.title) updates.title = action.title;
+          if (action.exam_date) updates.exam_date = action.exam_date;
+          if (action.location) updates.location = action.location;
+          if (action.duration_minutes) updates.duration_minutes = action.duration_minutes;
+          
+          await updateExam(action.id, user.id, updates);
+          resultId = action.id;
+          confirmMessage = `✅ Updated exam **"${entityName}"**.`;
+          break;
+        }
+
+        case 'DELETE_EXAM': {
+          if (!action.id) throw new Error('Missing exam ID for delete');
+          await deleteExam(action.id, user.id);
+          resultId = action.id;
+          confirmMessage = `🗑️ Deleted exam **"${entityName}"**.`;
+          break;
+        }
+
+        // ========== STUDY SESSIONS ==========
+        case 'CREATE_STUDY_SESSION': {
+          const sessionResult = await createStudySession({
+            user_id: user.id,
+            title: action.title!,
+            scheduled_start: action.scheduled_start || action.start_iso!,
+            scheduled_end: action.scheduled_end || action.end_iso!,
+            course_id: action.course_id,
+            assignment_id: action.assignment_id,
+            exam_id: action.exam_id,
+            notes: action.notes
+          });
+          resultId = sessionResult.id;
+          confirmMessage = `✅ Created study session **"${action.title}"**.`;
+          break;
+        }
+
+        case 'UPDATE_STUDY_SESSION': {
+          if (!action.id) throw new Error('Missing study session ID for update');
+          const updates: any = {};
+          if (action.title) updates.title = action.title;
+          if (action.scheduled_start) updates.scheduled_start = action.scheduled_start;
+          if (action.scheduled_end) updates.scheduled_end = action.scheduled_end;
+          if (action.notes) updates.notes = action.notes;
+          if (action.status) updates.status = action.status;
+          
+          await updateStudySession(action.id, user.id, updates);
+          resultId = action.id;
+          confirmMessage = `✅ Updated study session **"${entityName}"**.`;
+          break;
+        }
+
+        case 'DELETE_STUDY_SESSION': {
+          if (!action.id) throw new Error('Missing study session ID for delete');
+          await deleteStudySession(action.id, user.id);
+          resultId = action.id;
+          confirmMessage = `🗑️ Deleted study session **"${entityName}"**.`;
+          break;
+        }
+
+        // ========== COURSES ==========
+        case 'CREATE_COURSE': {
+          const courseResult = await createCourse({
+            user_id: user.id,
+            name: action.name || action.title!,
+            code: action.code,
+            credits: action.credits,
+            instructor: action.instructor,
+            color: action.color,
+            target_grade: action.target_grade
+          });
+          resultId = courseResult.id;
+          confirmMessage = `✅ Created course **"${action.name || action.title}"**.`;
+          break;
+        }
+
+        case 'UPDATE_COURSE': {
+          if (!action.id) throw new Error('Missing course ID for update');
+          const updates: any = {};
+          if (action.name) updates.name = action.name;
+          if (action.code) updates.code = action.code;
+          if (action.credits) updates.credits = action.credits;
+          if (action.instructor) updates.instructor = action.instructor;
+          if (action.color) updates.color = action.color;
+          if (action.target_grade) updates.target_grade = action.target_grade;
+          
+          await updateCourse(action.id, user.id, updates);
+          resultId = action.id;
+          confirmMessage = `✅ Updated course **"${entityName}"**.`;
+          break;
+        }
+
+        case 'DELETE_COURSE': {
+          if (!action.id) throw new Error('Missing course ID for delete');
+          await deleteCourse(action.id, user.id);
+          resultId = action.id;
+          confirmMessage = `🗑️ Deleted course **"${entityName}"**.`;
+          break;
+        }
+
+        default:
+          throw new Error(`Unknown action type: ${action.type}`);
       }
 
-      const result = await createScheduleBlock({
-        title: action.title,
-        specific_date: specificDate,
-        start_time: startTime,
-        end_time: endTime,
-        location: action.location,
-        notes: action.notes,
-        is_recurring: false,
-        source: 'ada-ai',
-        user_id: user.id
-      });
-
+      // Update pending action status
       setPendingActions(prev => prev.map((p, i) => 
-        i === actionIndex ? { ...p, status: 'confirmed', createdBlockId: result.id } : p
+        i === actionIndex ? { ...p, status: 'confirmed', createdBlockId: resultId || undefined } : p
       ));
 
+      // Show success toast with undo for CREATE actions
+      const isCreate = action.type.startsWith('CREATE_');
       toast({
-        title: '✅ Event Created',
-        description: `"${action.title}" added to your calendar`,
-        action: (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handleUndoAction(result.id)}
-          >
+        title: `✅ ${entityLabel} ${isCreate ? 'Created' : action.type.startsWith('DELETE_') ? 'Deleted' : action.type === 'COMPLETE_ASSIGNMENT' ? 'Completed' : 'Updated'}`,
+        description: `"${entityName}" ${isCreate ? 'added successfully' : 'updated'}`,
+        action: isCreate && action.type === 'CREATE_EVENT' && resultId ? (
+          <Button variant="outline" size="sm" onClick={() => handleUndoAction(resultId!)}>
             Undo
           </Button>
-        )
+        ) : undefined
       });
 
-      await saveChatMessage(
-        `✅ Done! I've added **"${action.title}"** to your calendar on ${specificDate} from ${startTime} to ${endTime}.`,
-        false,
-        undefined,
-        { action_confirmed: true, block_id: result.id }
-      );
-      
+      // Save confirmation message
+      await saveChatMessage(confirmMessage, false, undefined, { action_confirmed: true, entity_id: resultId });
       setMessages(prev => [...prev, {
         id: `confirm-${Date.now()}`,
-        message: `✅ Done! I've added **"${action.title}"** to your calendar on ${specificDate} from ${startTime} to ${endTime}.`,
+        message: confirmMessage,
         is_user: false,
         created_at: new Date().toISOString(),
         metadata: { action_confirmed: true }
       }]);
 
-      await handleFirstVoyageUnlock();
+      // Award First Voyage badge for first event creation
+      if (action.type === 'CREATE_EVENT') {
+        await handleFirstVoyageUnlock();
+      }
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error confirming action:', error);
       toast({
         title: 'Error',
-        description: 'Failed to create event. Please try again.',
+        description: error.message || `Failed to ${action.type.toLowerCase().replace('_', ' ')}. Please try again.`,
         variant: 'destructive'
       });
     }
-  }, [user, pendingActions, toast, saveChatMessage, handleFirstVoyageUnlock]);
+  }, [user, pendingActions, toast, saveChatMessage, handleFirstVoyageUnlock, resolveCourseId]);
 
   const handleCancelAction = useCallback((actionIndex: number) => {
     setPendingActions(prev => prev.map((p, i) => 
