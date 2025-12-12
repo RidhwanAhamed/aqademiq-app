@@ -38,6 +38,15 @@ interface AdaAction {
   notes?: string;
   description?: string;
   course_id?: string;
+  course_name?: string;
+  priority?: number;
+  estimated_hours?: number;
+  assignment_type?: string;
+  exam_type?: string;
+  duration_minutes?: number;
+  credits?: number;
+  code?: string;
+  instructor?: string;
   [key: string]: any;
 }
 
@@ -205,13 +214,87 @@ export const AdaMessagesPanel = memo(function AdaMessagesPanel({
                   <p className="text-sm font-medium text-foreground">
                     {actionLabel}: <strong>{entityName}</strong>
                   </p>
-                  {(dateStr || timeStr || action.location) && (
-                    <div className="text-xs text-muted-foreground space-y-1">
-                      {dateStr && <div className="flex items-center gap-2"><Calendar className="w-3 h-3" /><span>{dateStr}</span></div>}
-                      {timeStr && <div className="flex items-center gap-2"><Clock className="w-3 h-3" /><span>{timeStr}</span></div>}
-                      {action.location && <div className="flex items-center gap-2"><span>📍</span><span>{action.location}</span></div>}
-                    </div>
-                  )}
+                  <div className="text-xs text-muted-foreground space-y-1">
+                    {/* Date and time */}
+                    {dateStr && <div className="flex items-center gap-2"><Calendar className="w-3 h-3" /><span>{dateStr}</span></div>}
+                    {timeStr && <div className="flex items-center gap-2"><Clock className="w-3 h-3" /><span>{timeStr}</span></div>}
+                    
+                    {/* Course */}
+                    {action.course_name && <div className="flex items-center gap-2"><span>📚</span><span>{action.course_name}</span></div>}
+                    
+                    {/* Location */}
+                    {action.location && <div className="flex items-center gap-2"><span>📍</span><span>{action.location}</span></div>}
+                    
+                    {/* Priority (for assignments) */}
+                    {action.priority && (
+                      <div className="flex items-center gap-2">
+                        <span>⭐</span>
+                        <span>Priority: {action.priority === 1 ? 'High' : action.priority === 2 ? 'Medium' : 'Low'}</span>
+                      </div>
+                    )}
+                    
+                    {/* Assignment type */}
+                    {action.assignment_type && (
+                      <div className="flex items-center gap-2">
+                        <span>📋</span>
+                        <span>Type: {action.assignment_type.charAt(0).toUpperCase() + action.assignment_type.slice(1)}</span>
+                      </div>
+                    )}
+                    
+                    {/* Exam type and duration */}
+                    {action.exam_type && (
+                      <div className="flex items-center gap-2">
+                        <span>📝</span>
+                        <span>Type: {action.exam_type.charAt(0).toUpperCase() + action.exam_type.slice(1)}</span>
+                      </div>
+                    )}
+                    {action.duration_minutes && (
+                      <div className="flex items-center gap-2">
+                        <span>⏱️</span>
+                        <span>Duration: {action.duration_minutes} min</span>
+                      </div>
+                    )}
+                    
+                    {/* Estimated hours */}
+                    {action.estimated_hours && (
+                      <div className="flex items-center gap-2">
+                        <span>⏳</span>
+                        <span>Est. {action.estimated_hours} hour(s)</span>
+                      </div>
+                    )}
+                    
+                    {/* Course credits */}
+                    {action.credits && (
+                      <div className="flex items-center gap-2">
+                        <span>🎓</span>
+                        <span>{action.credits} credits</span>
+                      </div>
+                    )}
+                    
+                    {/* Course code */}
+                    {action.code && (
+                      <div className="flex items-center gap-2">
+                        <span>🔢</span>
+                        <span>Code: {action.code}</span>
+                      </div>
+                    )}
+                    
+                    {/* Instructor */}
+                    {action.instructor && (
+                      <div className="flex items-center gap-2">
+                        <span>👨‍🏫</span>
+                        <span>{action.instructor}</span>
+                      </div>
+                    )}
+                    
+                    {/* Description/notes */}
+                    {(action.description || action.notes) && (
+                      <div className="flex items-start gap-2 mt-1">
+                        <span>📝</span>
+                        <span className="line-clamp-2">{action.description || action.notes}</span>
+                      </div>
+                    )}
+                  </div>
                   {pending.conflicts?.length > 0 && (
                     <div className="p-2 bg-destructive/10 rounded-md border border-destructive/20">
                       <div className="flex items-center gap-2 text-destructive text-xs font-medium">

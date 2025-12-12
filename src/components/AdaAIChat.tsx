@@ -985,11 +985,18 @@ export function AdaAIChat({
         // ========== ASSIGNMENTS ==========
         case 'CREATE_ASSIGNMENT': {
           let courseId = action.course_id;
-          if (!courseId && action.course_id) {
-            courseId = await resolveCourseId(action.course_id) || undefined;
+          
+          // Check if courseId is a valid UUID
+          const isValidUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(courseId || '');
+          
+          if (!isValidUUID && courseId) {
+            // AI sent a name or placeholder instead of UUID - try to resolve
+            console.log('Course ID is not a valid UUID, attempting resolution:', courseId);
+            courseId = await resolveCourseId(courseId) || undefined;
           }
+          
           if (!courseId) {
-            // Try to find any active course
+            // Try to find any active course as fallback
             const { data: courses } = await supabase
               .from('courses')
               .select('id')
@@ -998,6 +1005,7 @@ export function AdaAIChat({
               .limit(1);
             courseId = courses?.[0]?.id;
           }
+          
           if (!courseId) {
             throw new Error('No course found. Please create a course first.');
           }
@@ -1009,6 +1017,7 @@ export function AdaAIChat({
             due_date: action.due_date!,
             description: action.description || action.notes,
             priority: action.priority ?? 2,
+            estimated_hours: action.estimated_hours,
             assignment_type: action.assignment_type || 'homework'
           });
           resultId = assignmentResult.id;
@@ -1049,6 +1058,15 @@ export function AdaAIChat({
         // ========== EXAMS ==========
         case 'CREATE_EXAM': {
           let courseId = action.course_id;
+          
+          // Check if courseId is a valid UUID
+          const isValidUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(courseId || '');
+          
+          if (!isValidUUID && courseId) {
+            console.log('Exam course ID is not a valid UUID, attempting resolution:', courseId);
+            courseId = await resolveCourseId(courseId) || undefined;
+          }
+          
           if (!courseId) {
             const { data: courses } = await supabase
               .from('courses')
@@ -1101,12 +1119,23 @@ export function AdaAIChat({
 
         // ========== STUDY SESSIONS ==========
         case 'CREATE_STUDY_SESSION': {
+          let courseId = action.course_id;
+          
+          // Check if courseId is a valid UUID (optional for study sessions)
+          if (courseId) {
+            const isValidUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(courseId);
+            if (!isValidUUID) {
+              console.log('Study session course ID is not a valid UUID, attempting resolution:', courseId);
+              courseId = await resolveCourseId(courseId) || undefined;
+            }
+          }
+          
           const sessionResult = await createStudySession({
             user_id: user.id,
             title: action.title!,
             scheduled_start: action.scheduled_start || action.start_iso!,
             scheduled_end: action.scheduled_end || action.end_iso!,
-            course_id: action.course_id,
+            course_id: courseId,
             assignment_id: action.assignment_id,
             exam_id: action.exam_id,
             notes: action.notes
