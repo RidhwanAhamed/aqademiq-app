@@ -161,12 +161,10 @@ export interface CreateScheduleBlockResult {
 
 /**
  * Creates a new schedule block in the calendar.
- * TODO: API -> POST /api/calendar/events
  */
 export const createScheduleBlock = async (
   payload: ScheduleBlockPayload
 ): Promise<CreateScheduleBlockResult> => {
-  // Calculate day_of_week from specific_date if not provided
   const dayOfWeek = payload.day_of_week ?? new Date(payload.specific_date).getDay();
   
   const { data, error } = await supabase
@@ -183,7 +181,6 @@ export const createScheduleBlock = async (
       is_active: true,
       course_id: payload.course_id || null,
       user_id: payload.user_id,
-      // Store source in rotation_group field as workaround (or add migration)
       rotation_group: payload.source || 'manual'
     }])
     .select()
@@ -206,13 +203,11 @@ export const createScheduleBlock = async (
 
 /**
  * Detects scheduling conflicts for a given time slot.
- * TODO: API -> POST /api/calendar/conflicts
  */
 export const detectScheduleConflicts = async (
   payload: ConflictCheckPayload
 ): Promise<{ conflicts: ScheduleConflict[] }> => {
   try {
-    // Construct full datetime strings for conflict detection
     const startDateTime = `${payload.specific_date}T${payload.start_time}:00`;
     const endDateTime = `${payload.specific_date}T${payload.end_time}:00`;
 
@@ -237,7 +232,6 @@ export const detectScheduleConflicts = async (
 
 /**
  * Deletes/deactivates a schedule block (for undo functionality).
- * TODO: API -> DELETE /api/calendar/events/:id
  */
 export const deleteScheduleBlock = async (
   blockId: string,
@@ -259,7 +253,6 @@ export const deleteScheduleBlock = async (
 
 /**
  * Restores a previously deleted schedule block (undo).
- * TODO: API -> PATCH /api/calendar/events/:id/restore
  */
 export const restoreScheduleBlock = async (
   blockId: string,
@@ -281,7 +274,6 @@ export const restoreScheduleBlock = async (
 
 /**
  * Updates an existing schedule block.
- * TODO: API -> PATCH /api/calendar/events/:id
  */
 export const updateScheduleBlock = async (
   blockId: string,
@@ -306,5 +298,322 @@ export const updateScheduleBlock = async (
     return false;
   }
 
+  return true;
+};
+
+// =============================================================================
+// Assignment CRUD
+// =============================================================================
+
+export interface AssignmentPayload {
+  title: string;
+  course_id: string;
+  due_date: string;
+  description?: string;
+  priority?: number;
+  estimated_hours?: number;
+  assignment_type?: string;
+  user_id: string;
+}
+
+export const createAssignment = async (payload: AssignmentPayload) => {
+  const { data, error } = await supabase
+    .from('assignments')
+    .insert([{
+      user_id: payload.user_id,
+      course_id: payload.course_id,
+      title: payload.title,
+      description: payload.description || null,
+      due_date: payload.due_date,
+      priority: payload.priority ?? 2,
+      estimated_hours: payload.estimated_hours || null,
+      assignment_type: payload.assignment_type || 'homework',
+      is_completed: false,
+      completion_percentage: 0
+    }])
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+};
+
+export const updateAssignment = async (
+  assignmentId: string,
+  userId: string,
+  updates: Partial<{
+    title: string;
+    due_date: string;
+    priority: number;
+    is_completed: boolean;
+    description: string;
+  }>
+) => {
+  const updateData: any = { ...updates };
+  if (updates.is_completed !== undefined) {
+    updateData.completion_percentage = updates.is_completed ? 100 : 0;
+  }
+
+  const { data, error } = await supabase
+    .from('assignments')
+    .update(updateData)
+    .eq('id', assignmentId)
+    .eq('user_id', userId)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+};
+
+export const deleteAssignment = async (assignmentId: string, userId: string) => {
+  const { error } = await supabase
+    .from('assignments')
+    .delete()
+    .eq('id', assignmentId)
+    .eq('user_id', userId);
+
+  if (error) throw error;
+  return true;
+};
+
+export const completeAssignment = async (assignmentId: string, userId: string) => {
+  return updateAssignment(assignmentId, userId, { is_completed: true });
+};
+
+// =============================================================================
+// Exam CRUD
+// =============================================================================
+
+export interface ExamPayload {
+  title: string;
+  course_id: string;
+  exam_date: string;
+  duration_minutes?: number;
+  location?: string;
+  exam_type?: string;
+  notes?: string;
+  user_id: string;
+}
+
+export const createExam = async (payload: ExamPayload) => {
+  const { data, error } = await supabase
+    .from('exams')
+    .insert([{
+      user_id: payload.user_id,
+      course_id: payload.course_id,
+      title: payload.title,
+      exam_date: payload.exam_date,
+      duration_minutes: payload.duration_minutes || 60,
+      location: payload.location || null,
+      exam_type: payload.exam_type || 'midterm',
+      notes: payload.notes || null
+    }])
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+};
+
+export const updateExam = async (
+  examId: string,
+  userId: string,
+  updates: Partial<{
+    title: string;
+    exam_date: string;
+    location: string;
+    duration_minutes: number;
+  }>
+) => {
+  const { data, error } = await supabase
+    .from('exams')
+    .update(updates)
+    .eq('id', examId)
+    .eq('user_id', userId)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+};
+
+export const deleteExam = async (examId: string, userId: string) => {
+  const { error } = await supabase
+    .from('exams')
+    .delete()
+    .eq('id', examId)
+    .eq('user_id', userId);
+
+  if (error) throw error;
+  return true;
+};
+
+// =============================================================================
+// Study Session CRUD
+// =============================================================================
+
+export interface StudySessionPayload {
+  title: string;
+  scheduled_start: string;
+  scheduled_end: string;
+  course_id?: string;
+  assignment_id?: string;
+  exam_id?: string;
+  notes?: string;
+  user_id: string;
+}
+
+export const createStudySession = async (payload: StudySessionPayload) => {
+  const { data, error } = await supabase
+    .from('study_sessions')
+    .insert([{
+      user_id: payload.user_id,
+      title: payload.title,
+      scheduled_start: payload.scheduled_start,
+      scheduled_end: payload.scheduled_end,
+      course_id: payload.course_id || null,
+      assignment_id: payload.assignment_id || null,
+      exam_id: payload.exam_id || null,
+      notes: payload.notes || null,
+      status: 'scheduled'
+    }])
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+};
+
+export const updateStudySession = async (
+  sessionId: string,
+  userId: string,
+  updates: Partial<{
+    title: string;
+    scheduled_start: string;
+    scheduled_end: string;
+    status: string;
+    notes: string;
+  }>
+) => {
+  const { data, error } = await supabase
+    .from('study_sessions')
+    .update(updates)
+    .eq('id', sessionId)
+    .eq('user_id', userId)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+};
+
+export const deleteStudySession = async (sessionId: string, userId: string) => {
+  const { error } = await supabase
+    .from('study_sessions')
+    .delete()
+    .eq('id', sessionId)
+    .eq('user_id', userId);
+
+  if (error) throw error;
+  return true;
+};
+
+// =============================================================================
+// Course CRUD
+// =============================================================================
+
+export interface CoursePayload {
+  name: string;
+  code?: string;
+  credits?: number;
+  instructor?: string;
+  color?: string;
+  target_grade?: string;
+  semester_id?: string;
+  user_id: string;
+}
+
+export const createCourse = async (payload: CoursePayload) => {
+  let semesterId = payload.semester_id;
+  
+  if (!semesterId) {
+    const { data: semesters } = await supabase
+      .from('semesters')
+      .select('id')
+      .eq('user_id', payload.user_id)
+      .eq('is_active', true)
+      .limit(1);
+    
+    if (semesters && semesters.length > 0) {
+      semesterId = semesters[0].id;
+    } else {
+      const { data: newSemester } = await supabase
+        .from('semesters')
+        .insert({
+          user_id: payload.user_id,
+          name: 'Current Semester',
+          start_date: new Date().toISOString().split('T')[0],
+          end_date: new Date(Date.now() + 120*24*60*60*1000).toISOString().split('T')[0],
+          is_active: true
+        })
+        .select()
+        .single();
+      semesterId = newSemester?.id;
+    }
+  }
+
+  const { data, error } = await supabase
+    .from('courses')
+    .insert([{
+      user_id: payload.user_id,
+      semester_id: semesterId,
+      name: payload.name,
+      code: payload.code || null,
+      credits: payload.credits || 3,
+      instructor: payload.instructor || null,
+      color: payload.color || 'blue',
+      target_grade: payload.target_grade || null,
+      is_active: true
+    }])
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+};
+
+export const updateCourse = async (
+  courseId: string,
+  userId: string,
+  updates: Partial<{
+    name: string;
+    code: string;
+    credits: number;
+    instructor: string;
+    color: string;
+    target_grade: string;
+  }>
+) => {
+  const { data, error } = await supabase
+    .from('courses')
+    .update(updates)
+    .eq('id', courseId)
+    .eq('user_id', userId)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+};
+
+export const deleteCourse = async (courseId: string, userId: string) => {
+  const { error } = await supabase
+    .from('courses')
+    .update({ is_active: false })
+    .eq('id', courseId)
+    .eq('user_id', userId);
+
+  if (error) throw error;
   return true;
 };

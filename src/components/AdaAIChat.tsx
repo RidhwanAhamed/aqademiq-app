@@ -20,7 +20,8 @@ import {
   AdaMessagesPanel,
   AdaInputPanel,
   type AdaInputPanelRef,
-  type ChatMessage
+  type ChatMessage,
+  type PendingAction
 } from '@/components/ada';
 import {
   Upload,
@@ -43,20 +44,50 @@ interface AccessibilitySettings {
   focusOutlines: boolean;
 }
 
+// All supported Ada AI action types
+type AdaActionType = 
+  | 'CREATE_EVENT' | 'UPDATE_EVENT' | 'DELETE_EVENT'
+  | 'CREATE_ASSIGNMENT' | 'UPDATE_ASSIGNMENT' | 'DELETE_ASSIGNMENT' | 'COMPLETE_ASSIGNMENT'
+  | 'CREATE_EXAM' | 'UPDATE_EXAM' | 'DELETE_EXAM'
+  | 'CREATE_STUDY_SESSION' | 'UPDATE_STUDY_SESSION' | 'DELETE_STUDY_SESSION'
+  | 'CREATE_COURSE' | 'UPDATE_COURSE' | 'DELETE_COURSE';
+
 interface AdaAction {
-  type: 'CREATE_EVENT';
-  title: string;
-  start_iso: string;
-  end_iso: string;
+  type: AdaActionType;
+  id?: string;
+  title?: string;
+  name?: string;
+  start_iso?: string;
+  end_iso?: string;
+  scheduled_start?: string;
+  scheduled_end?: string;
+  due_date?: string;
+  exam_date?: string;
   location?: string;
   notes?: string;
+  description?: string;
+  course_id?: string;
+  assignment_id?: string;
+  exam_id?: string;
+  priority?: number;
+  is_completed?: boolean;
+  status?: string;
+  duration_minutes?: number;
+  credits?: number;
+  code?: string;
+  instructor?: string;
+  color?: string;
+  target_grade?: string;
+  assignment_type?: string;
+  exam_type?: string;
 }
 
-interface PendingAction {
-  action: AdaAction;
-  status: 'pending' | 'confirmed' | 'cancelled';
-  conflicts?: ScheduleConflict[];
-  createdBlockId?: string;
+interface ScheduleConflict {
+  conflict_type: string;
+  conflict_id: string;
+  conflict_title: string;
+  conflict_start: string;
+  conflict_end: string;
 }
 
 interface AdaAIChatProps {
@@ -68,7 +99,7 @@ interface AdaAIChatProps {
   isHistoryOpen?: boolean;
 }
 
-export function AdaAIChat({ 
+export function AdaAIChat({
   isFullScreen = false, 
   onFullScreenToggle,
   selectedConversationId,
