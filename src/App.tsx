@@ -15,6 +15,7 @@ import { useThemeInit } from "@/hooks/useThemeInit";
 import { useCapacitorInit } from "@/hooks/useCapacitorInit";
 import { offlineLazy } from "@/utils/offlineLazyLoader";
 import { OfflineSuspenseFallback } from "@/components/OfflineSuspenseFallback";
+import { OfflineFirstProvider } from "@/components/OfflineFirstProvider";
 
 // Theme and Capacitor initialization component
 function AppInitializer({ children }: { children: React.ReactNode }) {
@@ -48,15 +49,16 @@ import NotFound from "./pages/NotFound";
 const App = () => (
   <ErrorBoundary>
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          <AppInitializer>
-            <TooltipProvider>
-            <SecurityHeaders />
-            <OptimizedSecurityMonitor />
-            <Toaster />
-            <Sonner />
-            <BrowserRouter>
+      <OfflineFirstProvider>
+        <AuthProvider>
+          <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+            <AppInitializer>
+              <TooltipProvider>
+                <SecurityHeaders />
+                <OptimizedSecurityMonitor />
+                <Toaster />
+                <Sonner />
+                <BrowserRouter>
           <Routes>
             <Route path="/welcome" element={<Welcome />} />
             <Route path="/onboarding" element={<Onboarding />} />
@@ -100,11 +102,12 @@ const App = () => (
             {/* Catch-all route for 404 page */}
             <Route path="*" element={<NotFound />} />
             </Routes>
-          </BrowserRouter>
-          </TooltipProvider>
-          </AppInitializer>
-        </ThemeProvider>
-      </AuthProvider>
+                </BrowserRouter>
+              </TooltipProvider>
+            </AppInitializer>
+          </ThemeProvider>
+        </AuthProvider>
+      </OfflineFirstProvider>
     </QueryClientProvider>
   </ErrorBoundary>
 );
