@@ -15,8 +15,11 @@ export default defineConfig(({ command, mode }) => {
     navigateFallback: string;
     navigateFallbackDenylist: RegExp[];
     navigateFallbackAllowlist: RegExp[];
+    maximumFileSizeToCacheInBytes: number;
   } = {
     globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2,json}'],
+    // Increase max file size to 5MB to handle large bundles
+    maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
     runtimeCaching: [
       // Cache JavaScript and CSS chunks for offline access
       {
