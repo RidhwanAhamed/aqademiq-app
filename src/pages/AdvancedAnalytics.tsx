@@ -11,6 +11,7 @@ import { useCourses } from "@/hooks/useCourses";
 import { useAssignments } from "@/hooks/useAssignments";
 import { useStudySessions } from "@/hooks/useStudySessions";
 import { useExams } from "@/hooks/useExams";
+import { useIsMobile } from "@/hooks/use-mobile";
 import {
   Activity,
   BarChart3,
@@ -38,6 +39,9 @@ import { CoursePerformanceComparison } from "@/components/analytics/CoursePerfor
 import { StudyScheduleOptimization } from "@/components/analytics/StudyScheduleOptimization";
 import { WorkloadDistributionAnalysis } from "@/components/analytics/WorkloadDistributionAnalysis";
 
+// Mobile-optimized analytics
+import { MobileAnalyticsPage } from "@/components/analytics/mobile";
+
 // Mobile abbreviated labels
 const mobileLabels: Record<string, string> = {
   "study-activity": "Activity",
@@ -53,6 +57,7 @@ export default function Analytics() {
   const { assignments } = useAssignments();
   const { studySessions, loading } = useStudySessions();
   const { exams } = useExams();
+  const isMobile = useIsMobile();
 
   const analyticsSegments = useMemo(
     () => [
@@ -158,6 +163,19 @@ export default function Analytics() {
 
   const [activeSegment, setActiveSegment] = useState(analyticsSegments[0]?.id ?? "");
 
+  // Render mobile-optimized layout
+  if (isMobile) {
+    return (
+      <MobileAnalyticsPage
+        studySessions={studySessions}
+        courses={courses}
+        assignments={assignments}
+        exams={exams}
+      />
+    );
+  }
+
+  // Desktop layout
   return (
     <div className="flex flex-col h-full min-h-0 w-full max-w-full overflow-x-hidden p-3 sm:p-4 lg:p-6 animate-fade-in">
       {/* Header */}
