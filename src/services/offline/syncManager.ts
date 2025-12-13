@@ -3,7 +3,7 @@ import { Capacitor } from '@capacitor/core';
 import { supabase } from '@/integrations/supabase/client';
 import { offlineStorage } from './storage';
 import { 
-  EntityType, 
+  SyncableEntityType, 
   PendingOperation, 
   SyncConflict,
   MAX_RETRY_COUNT,
@@ -382,7 +382,7 @@ class SyncManager {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const entityTypes: EntityType[] = [
+    const entityTypes: SyncableEntityType[] = [
       'assignments', 
       'exams', 
       'courses', 
