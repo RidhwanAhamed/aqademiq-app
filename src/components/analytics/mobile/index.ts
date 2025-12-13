@@ -7,3 +7,7 @@ export { MobileStudyDistribution } from "./MobileStudyDistribution";
 export { MobileAssignmentsStats } from "./MobileAssignmentsStats";
 export { MobileStreakCard } from "./MobileStreakCard";
 export { MobileEmptyState } from "./MobileEmptyState";
+export { MobilePerformanceTrends } from "./MobilePerformanceTrends";
+export { MobileEfficiencySection } from "./MobileEfficiencySection";
+export { MobilePlanningSection } from "./MobilePlanningSection";
+export { MobileTasksSection } from "./MobileTasksSection";
