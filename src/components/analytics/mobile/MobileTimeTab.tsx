@@ -98,7 +98,7 @@ export function MobileTimeTab({ studySessions, timeRange }: MobileTimeTabProps) 
 
   return (
     <div className="space-y-4 p-4 pb-24">
-      {/* Daily Study Time */}
+      {/* Daily Study Time - Matching Desktop */}
       <Card className="bg-card/50 border-border/50">
         <CardHeader className="pb-2">
           <CardTitle className="text-base flex items-center gap-2">
@@ -106,36 +106,53 @@ export function MobileTimeTab({ studySessions, timeRange }: MobileTimeTabProps) 
             Daily Study Time
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          {dailyData.totalHours === 0 ? (
-            <div className="flex flex-col items-center justify-center py-8 text-center">
-              <Clock className="w-10 h-10 text-muted-foreground/40 mb-2" />
-              <p className="text-sm text-muted-foreground">No study sessions recorded</p>
+        <CardContent className="pt-0">
+          {/* Stats Row - matching desktop layout */}
+          <div className="flex items-center gap-6 mb-4">
+            <div className="text-center">
+              <p className="text-2xl font-bold">{dailyData.totalHours}</p>
+              <p className="text-xs text-muted-foreground">Total Hours</p>
             </div>
-          ) : (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="p-3 rounded-xl bg-muted/30 text-center">
-                  <p className="text-2xl font-bold">{dailyData.totalHours}</p>
-                  <p className="text-xs text-muted-foreground">Total Hours</p>
-                </div>
-                <div className="p-3 rounded-xl bg-muted/30 text-center">
-                  <p className="text-2xl font-bold">{dailyData.avgDaily}</p>
-                  <p className="text-xs text-muted-foreground">Daily Avg</p>
-                </div>
-              </div>
-              <div className="h-[120px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={dailyData.chartData} margin={{ top: 5, right: 5, left: -25, bottom: 0 }}>
-                    <XAxis dataKey="day" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
-                    <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: "12px" }} formatter={(v: number) => [`${v}h`, "Study Time"]} />
-                    <Bar dataKey="hours" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
+            <div className="text-center">
+              <p className="text-2xl font-bold">{dailyData.avgDaily}</p>
+              <p className="text-xs text-muted-foreground">Daily Avg</p>
             </div>
-          )}
+          </div>
+          
+          {/* Bar Chart - matching desktop with numbered days */}
+          <div className="h-[100px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart 
+                data={dailyData.chartData.map((d, i) => ({ ...d, dayNum: i + 1 }))} 
+                margin={{ top: 5, right: 0, left: -30, bottom: 0 }}
+              >
+                <XAxis 
+                  dataKey="dayNum" 
+                  tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} 
+                  axisLine={false} 
+                  tickLine={false}
+                  interval={0}
+                />
+                <YAxis 
+                  tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} 
+                  axisLine={false} 
+                  tickLine={false}
+                  domain={[0, 'auto']}
+                />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: "hsl(var(--card))", 
+                    border: "1px solid hsl(var(--border))", 
+                    borderRadius: "8px", 
+                    fontSize: "12px" 
+                  }} 
+                  formatter={(v: number) => [`${v}h`, "Study Time"]}
+                  labelFormatter={(label) => `Day ${label}`}
+                />
+                <Bar dataKey="hours" fill="hsl(var(--primary))" radius={[2, 2, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         </CardContent>
       </Card>
 
