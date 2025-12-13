@@ -5,9 +5,35 @@ import type { CapacitorConfig } from '@capacitor/cli';
 const isDevelopment = process.env.CAPACITOR_DEV_MODE === 'true';
 
 const config: CapacitorConfig = {
-  appId: 'app.lovable.48f8950b43ad4931ad31927b47b786b3',
-  appName: 'aqademiq-app',
+  appId: 'com.aqademiq.app',
+  appName: 'Aqademiq',
   webDir: 'dist',
+  
+  // Plugin configurations for native features
+  plugins: {
+    SplashScreen: {
+      launchShowDuration: 2000,
+      launchAutoHide: true,
+      backgroundColor: "#0A0A0A",
+      showSpinner: false,
+      androidSplashResourceName: "splash",
+      iosSplashResourceName: "splash",
+      splashFullScreen: true,
+      splashImmersive: true
+    },
+    StatusBar: {
+      style: "dark",
+      backgroundColor: "#0A0A0A"
+    },
+    Keyboard: {
+      resize: "body",
+      resizeOnFullScreen: true
+    },
+    PushNotifications: {
+      presentationOptions: ["badge", "sound", "alert"]
+    }
+  },
+  
   // Only use remote URL in development mode
   // Production builds will load from local dist/ folder (bundled in APK/IPA)
   ...(isDevelopment ? {

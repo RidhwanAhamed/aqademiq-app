@@ -45,6 +45,8 @@ import Timer from "./pages/Timer";
 import Settings from "./pages/Settings";
 import Install from "./pages/Install";
 import NotFound from "./pages/NotFound";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import TermsOfService from "./pages/TermsOfService";
 
 const App = () => (
   <ErrorBoundary>
@@ -67,6 +69,8 @@ const App = () => (
             <Route path="/auth/verify" element={<EmailVerification />} />
             <Route path="/auth/reset-password" element={<PasswordResetConfirm />} />
             <Route path="/install" element={<Install />} />
+            <Route path="/privacy" element={<PrivacyPolicy />} />
+            <Route path="/terms" element={<TermsOfService />} />
             <Route path="/" element={<AppLayout />}>
               <Route index element={<Index />} />
               <Route path="calendar" element={
