@@ -17,6 +17,22 @@ export default defineConfig(({ command, mode }) => {
   } = {
     globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
     runtimeCaching: [
+      // Cache JavaScript and CSS chunks for offline access
+      {
+        urlPattern: /\.(?:js|css)$/,
+        handler: 'StaleWhileRevalidate' as const,
+        options: {
+          cacheName: 'static-resources',
+          expiration: {
+            maxEntries: 100,
+            maxAgeSeconds: 7 * 24 * 60 * 60, // 7 days
+          },
+          cacheableResponse: {
+            statuses: [0, 200]
+          }
+        }
+      },
+      // Cache Supabase API responses
       {
         urlPattern: /^https:\/\/thmyddcvpopzjbvmhbur\.supabase\.co\/.*$/,
         handler: 'NetworkFirst' as const,
@@ -32,6 +48,7 @@ export default defineConfig(({ command, mode }) => {
           }
         }
       },
+      // Cache Google Fonts
       {
         urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com\/.*$/,
         handler: 'CacheFirst' as const,
@@ -46,20 +63,24 @@ export default defineConfig(({ command, mode }) => {
           }
         }
       },
+      // Cache images
       {
-        urlPattern: /\.(?:png|jpg|jpeg|svg|gif|webp)$/,
+        urlPattern: /\.(?:png|jpg|jpeg|svg|gif|webp|ico)$/,
         handler: 'CacheFirst' as const,
         options: {
           cacheName: 'images-cache',
           expiration: {
             maxEntries: 60,
             maxAgeSeconds: 30 * 24 * 60 * 60,
+          },
+          cacheableResponse: {
+            statuses: [0, 200]
           }
         }
       }
     ],
     navigateFallback: '/index.html',
-    navigateFallbackDenylist: [/^\/api/, /^\/auth/]
+    navigateFallbackDenylist: [/^\/api/, /^\/supabase/]
   };
 
   if (enableDevPWA) {
