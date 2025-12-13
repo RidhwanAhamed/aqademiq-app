@@ -2,7 +2,8 @@
  * Types for offline data management
  */
 
-export type EntityType = 
+// Entity types that correspond to actual Supabase tables and can be synced
+export type SyncableEntityType = 
   | 'assignments' 
   | 'exams' 
   | 'courses' 
@@ -11,11 +12,18 @@ export type EntityType =
   | 'semesters'
   | 'reminders';
 
+// All entity types including local-only cache types
+export type EntityType = 
+  | SyncableEntityType
+  | 'profiles'
+  | 'user_preferences';
+
 export type OperationType = 'create' | 'update' | 'delete';
 
+// PendingOperation only uses SyncableEntityType since only those can be synced to Supabase
 export interface PendingOperation {
   id: string;
-  entityType: EntityType;
+  entityType: SyncableEntityType;
   operationType: OperationType;
   entityId: string;
   payload: Record<string, unknown>;
@@ -34,9 +42,10 @@ export interface CachedEntity<T = unknown> {
   localVersion: number;
 }
 
+// SyncConflict only uses SyncableEntityType since only those can have sync conflicts
 export interface SyncConflict {
   id: string;
-  entityType: EntityType;
+  entityType: SyncableEntityType;
   entityId: string;
   localData: Record<string, unknown>;
   serverData: Record<string, unknown>;
@@ -65,8 +74,28 @@ export const STORAGE_KEYS = {
   PENDING_OPS: 'aqademiq_pending_operations',
   CONFLICTS: 'aqademiq_sync_conflicts',
   SYNC_STATUS: 'aqademiq_sync_status',
-  USER_ID: 'aqademiq_user_id'
+  USER_ID: 'aqademiq_user_id',
+  AUTH_SESSION: 'aqademiq_auth_session',
+  ONBOARDING_STATUS: 'aqademiq_onboarding_status'
 } as const;
+
+export interface CachedAuthSession {
+  userId: string;
+  email: string | undefined;
+  accessToken: string;
+  refreshToken: string | undefined;
+  expiresAt: number;
+  userMetadata: Record<string, unknown>;
+  cachedAt: number;
+}
+
+export interface CachedOnboardingStatus {
+  userId: string;
+  hasProfile: boolean;
+  hasSemester: boolean;
+  onboardingCompleted: boolean;
+  cachedAt: number;
+}
 
 export const MAX_RETRY_COUNT = 3;
 export const SYNC_DEBOUNCE_MS = 2000;

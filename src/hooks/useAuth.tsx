@@ -1,8 +1,9 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { logger } from '@/utils/logger';
 import { validateAuthSession, cleanupAuthState } from '@/utils/authCleanup';
+import { useOfflineAuth } from '@/hooks/useOfflineAuth';
 
 interface AuthContextType {
   user: User | null;
@@ -23,9 +24,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { cacheSession, getCachedSession, clearCachedAuth } = useOfflineAuth();
 
   // Clear any auth errors
   const clearError = () => setError(null);
+
+  // Cache session whenever it changes
+  const handleSessionChange = useCallback((newSession: Session | null, newUser: User | null) => {
+    setSession(newSession);
+    setUser(newUser);
+    
+    // Cache for offline use when we have a valid session
+    if (newSession && newUser) {
+      cacheSession(newSession, newUser);
+    }
+  }, [cacheSession]);
 
   useEffect(() => {
     let mounted = true;
@@ -39,15 +52,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         
         // Handle different auth events with enhanced error recovery
         if (event === 'SIGNED_OUT') {
-          setSession(null);
-          setUser(null);
+          handleSessionChange(null, null);
           setError(null);
           setLoading(false);
         } else if (event === 'PASSWORD_RECOVERY') {
           // Handle password recovery - navigate to reset page and preserve session
           if (session) {
-            setSession(session);
-            setUser(session.user);
+            handleSessionChange(session, session.user);
             setError(null);
             
             const currentPath = window.location.pathname;
@@ -58,8 +69,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setLoading(false);
         } else if (event === 'SIGNED_IN') {
           if (session) {
-            setSession(session);
-            setUser(session.user);
+            handleSessionChange(session, session.user);
             setError(null);
             
             // Check if this is a password recovery flow
@@ -90,36 +100,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setLoading(false);
         } else if (event === 'TOKEN_REFRESHED') {
           if (session) {
-            setSession(session);
-            setUser(session.user);
+            handleSessionChange(session, session.user);
             setError(null);
           }
           setLoading(false);
         } else if (event === 'USER_UPDATED') {
           if (session) {
-            setSession(session);
-            setUser(session.user);
+            handleSessionChange(session, session.user);
           }
           setLoading(false);
         } else {
           // For other events, validate session
           if (session) {
             // Validate session in background to catch token issues early
+            // But DON'T cleanup if offline - trust local session
             setTimeout(async () => {
               const isValid = await validateAuthSession();
-              if (!isValid && mounted) {
-                logger.warn('Invalid session detected, cleaning up');
-                await cleanupAuthState();
-                setSession(null);
-                setUser(null);
+              if (!isValid && mounted && navigator.onLine) {
+                logger.warn('Invalid session detected while online, cleaning up');
+                await cleanupAuthState(false); // Not intentional logout
+                handleSessionChange(null, null);
               }
             }, 0);
             
-            setSession(session);
-            setUser(session.user);
+            handleSessionChange(session, session.user);
           } else {
-            setSession(null);
-            setUser(null);
+            handleSessionChange(null, null);
           }
           setLoading(false);
         }
@@ -135,19 +141,58 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (isValid) {
           const { data: { session } } = await supabase.auth.getSession();
           if (mounted && session) {
-            setSession(session);
-            setUser(session.user);
+            handleSessionChange(session, session.user);
           }
         } else {
-          // Clean up invalid state
-          await cleanupAuthState();
+          // If offline and validation failed, try to use cached session
+          if (!navigator.onLine) {
+            logger.info('Offline - attempting to restore from cached session');
+            const cached = await getCachedSession();
+            if (cached && mounted) {
+              logger.info('Restored user from cached session', { userId: cached.userId });
+              // Create a minimal user object from cache
+              // The actual session will be restored when back online
+              setUser({
+                id: cached.userId,
+                email: cached.email,
+                user_metadata: cached.userMetadata,
+                app_metadata: {},
+                aud: 'authenticated',
+                created_at: '',
+              } as User);
+              setLoading(false);
+              return;
+            }
+          }
+          
+          // Only clean up if online and session is truly invalid
+          if (navigator.onLine) {
+            await cleanupAuthState(false);
+          }
         }
       } catch (error) {
         logger.error('Auth initialization error:', error);
+        
+        // On error while offline, try cached session
+        if (!navigator.onLine && mounted) {
+          const cached = await getCachedSession();
+          if (cached) {
+            logger.info('Using cached session after init error', { userId: cached.userId });
+            setUser({
+              id: cached.userId,
+              email: cached.email,
+              user_metadata: cached.userMetadata,
+              app_metadata: {},
+              aud: 'authenticated',
+              created_at: '',
+            } as User);
+            setLoading(false);
+            return;
+          }
+        }
+        
         if (mounted) {
-          // On critical error, ensure clean state
-          setSession(null);
-          setUser(null);
+          handleSessionChange(null, null);
         }
       } finally {
         if (mounted) {
@@ -342,20 +387,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       clearError();
       
       // Enhanced sign out with cleanup
-      await supabase.auth.signOut({ scope: 'global' });
+      if (navigator.onLine) {
+        await supabase.auth.signOut({ scope: 'global' });
+      }
       
-      // Ensure complete cleanup
-      await cleanupAuthState();
+      // Intentional logout - clear everything including offline cache
+      await cleanupAuthState(true);
+      await clearCachedAuth();
       
+      handleSessionChange(null, null);
     } catch (error) {
       logger.error('Sign out failed', error);
       
       // Force clear local state even if API call fails
-      setSession(null);
-      setUser(null);
+      handleSessionChange(null, null);
       
-      // Force cleanup on error
-      await cleanupAuthState();
+      // Force cleanup on error - intentional logout
+      await cleanupAuthState(true);
+      await clearCachedAuth();
     } finally {
       setLoading(false);
     }

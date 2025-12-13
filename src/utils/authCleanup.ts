@@ -1,17 +1,33 @@
 import { supabase } from '@/integrations/supabase/client';
 import { logger } from '@/utils/logger';
+import { STORAGE_KEYS } from '@/services/offline/types';
+
+// Keys that should NEVER be cleared during auth cleanup (offline data)
+const PROTECTED_KEYS = [
+  STORAGE_KEYS.ENTITIES,
+  STORAGE_KEYS.PENDING_OPS,
+  STORAGE_KEYS.CONFLICTS,
+  STORAGE_KEYS.SYNC_STATUS,
+  STORAGE_KEYS.AUTH_SESSION,
+  STORAGE_KEYS.ONBOARDING_STATUS,
+];
 
 /**
  * Clean up corrupted authentication state
+ * @param isIntentionalLogout - If true, also clears protected offline auth cache
  */
-export const cleanupAuthState = async () => {
+export const cleanupAuthState = async (isIntentionalLogout: boolean = false) => {
   try {
-    logger.info('Starting auth state cleanup...');
+    logger.info('Starting auth state cleanup...', { isIntentionalLogout });
     
-    // Clear all auth-related storage comprehensively
-    const authKeys = Object.keys(localStorage).filter(key => 
-      key.includes('supabase') || key.includes('auth') || key.includes('sb-')
-    );
+    // Clear auth-related storage but PROTECT offline data keys
+    const authKeys = Object.keys(localStorage).filter(key => {
+      // Don't clear protected offline keys unless intentional logout
+      if (!isIntentionalLogout && PROTECTED_KEYS.some(pk => key.includes(pk))) {
+        return false;
+      }
+      return key.includes('supabase') || key.includes('auth') || key.includes('sb-');
+    });
     
     authKeys.forEach(key => {
       localStorage.removeItem(key);
@@ -21,22 +37,32 @@ export const cleanupAuthState = async () => {
     // Clear session storage
     sessionStorage.clear();
     
-    // Force sign out from Supabase with global scope to ensure complete cleanup
-    await supabase.auth.signOut({ scope: 'global' });
+    // Only clear offline auth cache if intentional logout
+    if (isIntentionalLogout) {
+      localStorage.removeItem(STORAGE_KEYS.AUTH_SESSION);
+      localStorage.removeItem(STORAGE_KEYS.ONBOARDING_STATUS);
+    }
+    
+    // Only sign out from Supabase if online
+    if (navigator.onLine) {
+      try {
+        await supabase.auth.signOut({ scope: 'global' });
+      } catch (e) {
+        logger.warn('Failed to sign out from Supabase (might be offline):', e);
+      }
+    }
     
     logger.info('Auth state cleanup completed');
     return true;
   } catch (error) {
     logger.error('Auth cleanup failed:', error);
-    // Force clear even if signOut fails
-    localStorage.clear();
-    sessionStorage.clear();
     return false;
   }
 };
 
 /**
  * Check if current session is valid with comprehensive validation
+ * When offline, trusts locally cached session without network validation
  */
 export const validateAuthSession = async () => {
   try {
@@ -58,18 +84,39 @@ export const validateAuthSession = async () => {
       return false;
     }
     
-    // Additional validation - try to get user info
-    const { error: userError } = await supabase.auth.getUser();
+    // CRITICAL: If offline, trust the cached session - don't make network calls
+    if (!navigator.onLine) {
+      logger.info('Offline - trusting cached session without network validation');
+      return true;
+    }
     
-    if (userError) {
-      logger.error('User validation error:', userError);
-      return false;
+    // Only validate with network when online
+    try {
+      const { error: userError } = await supabase.auth.getUser();
+      
+      if (userError) {
+        // Check if it's a network error - if so, trust local session
+        if (userError.message?.includes('fetch') || userError.message?.includes('network')) {
+          logger.warn('Network error during validation, trusting local session');
+          return true;
+        }
+        logger.error('User validation error:', userError);
+        return false;
+      }
+    } catch (networkError) {
+      // Network error - trust local session
+      logger.warn('Network exception during validation, trusting local session');
+      return true;
     }
     
     logger.info('Session validation successful');
     return true;
   } catch (error) {
     logger.error('Session validation failed:', error);
+    // On any error while offline, trust local session
+    if (!navigator.onLine) {
+      return true;
+    }
     return false;
   }
 };
