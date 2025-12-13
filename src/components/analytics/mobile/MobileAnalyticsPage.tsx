@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Clock, Target, Flame, TrendingUp } from "lucide-react";
+import { Clock, Target, Flame, TrendingUp, Gauge, BrainCircuit, Layers3, ClipboardCheck } from "lucide-react";
 import { MobileAnalyticsHeader } from "./MobileAnalyticsHeader";
 import { MobileTimeRangeSelector, TimeRange } from "./MobileTimeRangeSelector";
 import { MobileHeroCard } from "./MobileHeroCard";
@@ -8,6 +8,10 @@ import { MobileStudyDistribution } from "./MobileStudyDistribution";
 import { MobileAssignmentsStats } from "./MobileAssignmentsStats";
 import { MobileStreakCard } from "./MobileStreakCard";
 import { MobileEmptyState } from "./MobileEmptyState";
+import { MobilePerformanceTrends } from "./MobilePerformanceTrends";
+import { MobileEfficiencySection } from "./MobileEfficiencySection";
+import { MobilePlanningSection } from "./MobilePlanningSection";
+import { MobileTasksSection } from "./MobileTasksSection";
 
 interface MobileAnalyticsPageProps {
   studySessions: any[];
@@ -65,6 +69,40 @@ export function MobileAnalyticsPage({
           <MobileAssignmentsStats 
             assignments={assignments} 
             timeRange={timeRange} 
+          />
+        </MobileAnalyticsSection>
+
+        <MobileAnalyticsSection title="Performance Trends" icon={Gauge}>
+          <MobilePerformanceTrends 
+            assignments={assignments} 
+            exams={exams}
+            courses={courses}
+            timeRange={timeRange} 
+          />
+        </MobileAnalyticsSection>
+
+        <MobileAnalyticsSection title="Efficiency" icon={BrainCircuit}>
+          <MobileEfficiencySection 
+            studySessions={studySessions}
+            assignments={assignments}
+            timeRange={timeRange} 
+          />
+        </MobileAnalyticsSection>
+
+        <MobileAnalyticsSection title="Planning & Workload" icon={Layers3}>
+          <MobilePlanningSection 
+            assignments={assignments}
+            exams={exams}
+            courses={courses}
+            timeRange={timeRange} 
+          />
+        </MobileAnalyticsSection>
+
+        <MobileAnalyticsSection title="Upcoming Tasks" icon={ClipboardCheck}>
+          <MobileTasksSection 
+            assignments={assignments}
+            exams={exams}
+            courses={courses}
           />
         </MobileAnalyticsSection>
 
