@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { App as CapacitorApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
+import { Network } from '@capacitor/network';
 import { syncManager } from '@/services/offline';
 import { notificationService } from '@/services/notifications';
 import { haptics } from '@/services/haptics';
@@ -19,14 +20,27 @@ export function useCapacitorInit() {
     const initializeNativeFeatures = async () => {
       console.log('Initializing Capacitor native features...');
 
-      // Initialize sync manager for offline support
+      // Check network status first
+      const networkStatus = await Network.getStatus();
+      console.log('Network status:', networkStatus.connected ? 'ONLINE' : 'OFFLINE');
+
+      // Initialize sync manager for offline support (works offline)
       await syncManager.initialize();
       console.log('Sync manager initialized');
 
-      // Initialize notifications
-      await notificationService.initialize();
-      await notificationService.initializeLocal();
-      console.log('Notifications initialized');
+      // Only initialize network-dependent features if online
+      if (networkStatus.connected) {
+        try {
+          // Initialize notifications (may require network)
+          await notificationService.initialize();
+          await notificationService.initializeLocal();
+          console.log('Notifications initialized');
+        } catch (error) {
+          console.warn('Notifications init failed (offline?):', error);
+        }
+      } else {
+        console.log('Skipping network-dependent init (offline mode)');
+      }
 
       // Set up app state listeners
       CapacitorApp.addListener('appStateChange', async ({ isActive }) => {
