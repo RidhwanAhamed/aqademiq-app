@@ -1,4 +1,6 @@
 import { useMemo } from "react";
+import { Zap, CheckCircle2, Clock, Target } from "lucide-react";
+import { RadialBarChart, RadialBar, ResponsiveContainer, PolarAngleAxis } from "recharts";
 import { Progress } from "@/components/ui/progress";
 import { TimeRange } from "./MobileTimeRangeSelector";
 
@@ -29,14 +31,14 @@ export function MobileEfficiencySection({
       s.status === 'completed' || s.actual_end
     ).length;
     const sessionCompletionRate = sessionsInRange.length > 0 
-      ? (completedSessions / sessionsInRange.length) * 100 
+      ? Math.round((completedSessions / sessionsInRange.length) * 100)
       : 0;
 
     // Calculate focus score average
     const sessionsWithScore = sessionsInRange.filter(s => s.focus_score !== null);
     const avgFocusScore = sessionsWithScore.length > 0
-      ? sessionsWithScore.reduce((sum, s) => sum + (s.focus_score || 0), 0) / sessionsWithScore.length
-      : null;
+      ? Math.round(sessionsWithScore.reduce((sum, s) => sum + (s.focus_score || 0), 0) / sessionsWithScore.length)
+      : 0;
 
     // Assignment on-time rate
     const completedAssignments = assignments?.filter(a => a.is_completed) || [];
@@ -45,22 +47,29 @@ export function MobileEfficiencySection({
       return new Date(a.updated_at) <= new Date(a.due_date);
     });
     const onTimeRate = completedAssignments.length > 0
-      ? (onTimeAssignments.length / completedAssignments.length) * 100
-      : null;
+      ? Math.round((onTimeAssignments.length / completedAssignments.length) * 100)
+      : 0;
+
+    // Overall efficiency score
+    const efficiency = Math.round((sessionCompletionRate + avgFocusScore + onTimeRate) / 3);
 
     return {
       sessionCompletionRate,
       totalSessions: sessionsInRange.length,
       completedSessions,
       avgFocusScore,
-      onTimeRate
+      onTimeRate,
+      efficiency
     };
   }, [studySessions, assignments, timeRange]);
 
-  if (stats.totalSessions === 0 && stats.onTimeRate === null) {
+  const gaugeData = [{ value: stats.efficiency, fill: 'hsl(var(--primary))' }];
+
+  if (stats.totalSessions === 0 && stats.onTimeRate === 0) {
     return (
-      <div className="text-center py-6">
-        <p className="text-muted-foreground text-sm">No efficiency data yet</p>
+      <div className="flex flex-col items-center justify-center py-6 text-center">
+        <Zap className="w-8 h-8 text-muted-foreground/40 mb-2" />
+        <p className="text-sm text-muted-foreground">No efficiency data yet</p>
         <p className="text-xs text-muted-foreground/70 mt-1">Complete study sessions to track efficiency</p>
       </div>
     );
@@ -68,47 +77,70 @@ export function MobileEfficiencySection({
 
   return (
     <div className="space-y-4">
-      {/* Session Completion */}
-      {stats.totalSessions > 0 && (
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">Session Completion</span>
-            <span className="text-sm font-medium text-foreground">
-              {stats.sessionCompletionRate.toFixed(0)}%
-            </span>
+      {/* Efficiency Gauge + Stats */}
+      <div className="flex items-center gap-4">
+        {/* Radial Gauge */}
+        <div className="relative w-[100px] h-[100px] flex-shrink-0">
+          <ResponsiveContainer width="100%" height="100%">
+            <RadialBarChart 
+              cx="50%" 
+              cy="50%" 
+              innerRadius="65%" 
+              outerRadius="100%" 
+              data={gaugeData}
+              startAngle={180}
+              endAngle={0}
+            >
+              <PolarAngleAxis type="number" domain={[0, 100]} angleAxisId={0} tick={false} />
+              <RadialBar
+                background={{ fill: 'hsl(var(--muted))' }}
+                dataKey="value"
+                cornerRadius={10}
+              />
+            </RadialBarChart>
+          </ResponsiveContainer>
+          <div className="absolute inset-0 flex flex-col items-center justify-center pt-2">
+            <span className="text-2xl font-bold">{stats.efficiency}%</span>
+            <span className="text-[10px] text-muted-foreground">Efficiency</span>
           </div>
-          <Progress value={stats.sessionCompletionRate} className="h-2" />
-          <p className="text-xs text-muted-foreground">
-            {stats.completedSessions} of {stats.totalSessions} sessions completed
-          </p>
         </div>
-      )}
 
-      {/* Focus Score */}
-      {stats.avgFocusScore !== null && (
-        <div className="flex items-center justify-between p-3 rounded-xl bg-muted/30">
-          <span className="text-sm text-muted-foreground">Avg Focus Score</span>
-          <span className="text-lg font-bold text-foreground">
-            {stats.avgFocusScore.toFixed(0)}/100
-          </span>
-        </div>
-      )}
-
-      {/* On-time Rate */}
-      {stats.onTimeRate !== null && (
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">On-time Submissions</span>
-            <span className="text-sm font-medium text-foreground">
-              {stats.onTimeRate.toFixed(0)}%
-            </span>
+        {/* Progress Bars */}
+        <div className="flex-1 space-y-3">
+          {/* Completion Rate */}
+          <div>
+            <div className="flex justify-between text-xs mb-1">
+              <span className="text-muted-foreground flex items-center gap-1">
+                <CheckCircle2 className="w-3 h-3" /> Completion
+              </span>
+              <span className="font-medium">{stats.sessionCompletionRate}%</span>
+            </div>
+            <Progress value={stats.sessionCompletionRate} className="h-1.5" />
           </div>
-          <Progress 
-            value={stats.onTimeRate} 
-            className="h-2"
-          />
+
+          {/* Focus Score */}
+          <div>
+            <div className="flex justify-between text-xs mb-1">
+              <span className="text-muted-foreground flex items-center gap-1">
+                <Target className="w-3 h-3" /> Focus
+              </span>
+              <span className="font-medium">{stats.avgFocusScore}%</span>
+            </div>
+            <Progress value={stats.avgFocusScore} className="h-1.5" />
+          </div>
+
+          {/* On-Time Rate */}
+          <div>
+            <div className="flex justify-between text-xs mb-1">
+              <span className="text-muted-foreground flex items-center gap-1">
+                <Clock className="w-3 h-3" /> On-Time
+              </span>
+              <span className="font-medium">{stats.onTimeRate}%</span>
+            </div>
+            <Progress value={stats.onTimeRate} className="h-1.5" />
+          </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }
