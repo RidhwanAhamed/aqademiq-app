@@ -1,4 +1,4 @@
-import React, { lazy, Suspense } from 'react';
+import React, { Suspense } from 'react';
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -13,6 +13,8 @@ import { OptimizedSecurityMonitor } from "@/components/OptimizedSecurityMonitor"
 import { queryClient } from "@/config/queryClient";
 import { useThemeInit } from "@/hooks/useThemeInit";
 import { useCapacitorInit } from "@/hooks/useCapacitorInit";
+import { offlineLazy } from "@/utils/offlineLazyLoader";
+import { OfflineSuspenseFallback } from "@/components/OfflineSuspenseFallback";
 
 // Theme and Capacitor initialization component
 function AppInitializer({ children }: { children: React.ReactNode }) {
@@ -20,11 +22,13 @@ function AppInitializer({ children }: { children: React.ReactNode }) {
   useCapacitorInit();
   return <>{children}</>;
 }
-const Calendar = lazy(() => import("./pages/Calendar"));
-const Ada = lazy(() => import("./pages/Ada"));
-const AboutAdaAI = lazy(() => import("./pages/AboutAdaAI"));
-const Analytics = lazy(() => import("./pages/AdvancedAnalytics"));
-const Marketplace = lazy(() => import("./pages/Marketplace"));
+
+// Use offline-aware lazy loading for heavy routes
+const Calendar = offlineLazy(() => import("./pages/Calendar"));
+const Ada = offlineLazy(() => import("./pages/Ada"));
+const AboutAdaAI = offlineLazy(() => import("./pages/AboutAdaAI"));
+const Analytics = offlineLazy(() => import("./pages/AdvancedAnalytics"));
+const Marketplace = offlineLazy(() => import("./pages/Marketplace"));
 
 // Import all auth and core page components
 import Index from "./pages/Index";
@@ -64,22 +68,22 @@ const App = () => (
             <Route path="/" element={<AppLayout />}>
               <Route index element={<Index />} />
               <Route path="calendar" element={
-                <Suspense fallback={<div>Loading Calendar...</div>}>
+                <Suspense fallback={<OfflineSuspenseFallback pageName="Calendar" />}>
                   <Calendar />
                 </Suspense>
               } />
               <Route path="ada" element={
-                <Suspense fallback={<div>Loading Ada...</div>}>
+                <Suspense fallback={<OfflineSuspenseFallback pageName="Ada AI" />}>
                   <Ada />
                 </Suspense>
               } />
               <Route path="about-ada-ai" element={
-                <Suspense fallback={<div>Loading About Ada AI...</div>}>
+                <Suspense fallback={<OfflineSuspenseFallback pageName="About Ada AI" />}>
                   <AboutAdaAI />
                 </Suspense>
               } />
               <Route path="marketplace" element={
-                <Suspense fallback={<div>Loading Marketplace...</div>}>
+                <Suspense fallback={<OfflineSuspenseFallback pageName="Marketplace" />}>
                   <Marketplace />
                 </Suspense>
               } />
@@ -87,7 +91,7 @@ const App = () => (
               <Route path="assignments" element={<Assignments />} />
               <Route path="timer" element={<Timer />} />
               <Route path="analytics" element={
-                <Suspense fallback={<div>Loading Analytics...</div>}>
+                <Suspense fallback={<OfflineSuspenseFallback pageName="Analytics" />}>
                   <Analytics />
                 </Suspense>
               } />
