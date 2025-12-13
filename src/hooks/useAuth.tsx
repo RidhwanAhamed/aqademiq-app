@@ -235,7 +235,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
       
       if (result.error) {
-        // Enhanced error handling for sign up with specific 422 handling
+        const errorCode = (result.error as any).code;
+        const errorReasons = (result.error as any).weak_password?.reasons || [];
+        
+        // Handle weak password errors specifically (status 422, code: weak_password)
+        if (result.error.status === 422 && errorCode === 'weak_password') {
+          logger.warn('Weak password rejected during signup', { 
+            reasons: errorReasons, 
+            email 
+          });
+          
+          if (errorReasons.includes('pwned')) {
+            return { 
+              error: { 
+                message: 'This password has been found in a data breach. Please choose a different, more secure password that you haven\'t used elsewhere.',
+                isRetryable: false
+              } 
+            };
+          }
+          
+          return { 
+            error: { 
+              message: 'Password is too weak. Please choose a stronger password with a mix of uppercase, lowercase, numbers, and symbols.',
+              isRetryable: false
+            } 
+          };
+        }
+        
+        // Handle other 422 errors (database validation errors)
         if (result.error.status === 422) {
           logger.error('Database validation error during signup', { 
             error: result.error, 
@@ -243,7 +270,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           });
           return { 
             error: { 
-              message: 'Account creation failed due to a database error. Please try again in a moment.',
+              message: 'Account creation failed due to a validation error. Please try again.',
               isRetryable: true,
               originalError: result.error
             } 
