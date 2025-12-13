@@ -1,10 +1,14 @@
 import { useMemo } from "react";
-import { Clock, Target, TrendingUp, TrendingDown, Minus } from "lucide-react";
-import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, Tooltip, Legend } from "recharts";
+import { Clock, Target, TrendingUp, BookOpen } from "lucide-react";
+import { 
+  PieChart, Pie, Cell, ResponsiveContainer, 
+  BarChart, Bar, XAxis, Tooltip 
+} from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
 import { TimeRange } from "./MobileTimeRangeSelector";
-import { subWeeks, subMonths, isAfter, isBefore } from "date-fns";
+import { subWeeks, subMonths, isAfter, isBefore, format, startOfWeek, endOfWeek } from "date-fns";
 
 const COLORS = ["hsl(var(--primary))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))"];
 
@@ -47,7 +51,14 @@ export function MobileActivityTab({ studySessions, assignments, courses, timeRan
       .sort((a, b) => b.value - a.value)
       .slice(0, 5);
 
-    return { pieData, totalHours: Math.round((totalMinutes / 60) * 10) / 10 };
+    // Create bar chart data for top courses
+    const barData = pieData.map(item => ({
+      name: item.name.substring(0, 8),
+      hours: item.value,
+      color: item.color
+    }));
+
+    return { pieData, barData, totalHours: Math.round((totalMinutes / 60) * 10) / 10 };
   }, [studySessions, courses, timeRange]);
 
   const assignmentStats = useMemo(() => {
@@ -61,7 +72,16 @@ export function MobileActivityTab({ studySessions, assignments, courses, timeRan
     const total = filtered.length;
     const rate = total > 0 ? Math.round((completed / total) * 100) : 0;
 
-    return { total, completed, pending, overdue, rate };
+    // Calculate on-time rate
+    const completedOnTime = filtered.filter(a => {
+      if (!a.is_completed) return false;
+      const dueDate = new Date(a.due_date);
+      const completionDate = new Date(a.updated_at || a.created_at);
+      return completionDate <= dueDate;
+    }).length;
+    const onTimeRate = completed > 0 ? Math.round((completedOnTime / completed) * 100) : 0;
+
+    return { total, completed, pending, overdue, rate, onTimeRate };
   }, [assignments, timeRange]);
 
   const assignmentPieData = [
@@ -75,10 +95,15 @@ export function MobileActivityTab({ studySessions, assignments, courses, timeRan
       {/* Study Hours Distribution */}
       <Card className="bg-card/50 border-border/50">
         <CardHeader className="pb-2">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Clock className="w-4 h-4 text-primary" />
-            Study Hours Distribution
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Clock className="w-4 h-4 text-primary" />
+              Study Distribution
+            </CardTitle>
+            <span className="text-xs text-muted-foreground">
+              Total: {studyData.totalHours}h
+            </span>
+          </div>
         </CardHeader>
         <CardContent>
           {studyData.pieData.length === 0 ? (
@@ -88,6 +113,7 @@ export function MobileActivityTab({ studySessions, assignments, courses, timeRan
             </div>
           ) : (
             <div className="space-y-4">
+              {/* Donut Chart */}
               <div className="flex items-center gap-4">
                 <div className="relative w-[100px] h-[100px]">
                   <ResponsiveContainer width="100%" height="100%">
@@ -112,6 +138,46 @@ export function MobileActivityTab({ studySessions, assignments, courses, timeRan
                       <span className="font-medium">{course.value}h</span>
                     </div>
                   ))}
+                </div>
+              </div>
+
+              {/* Bar Chart */}
+              {studyData.barData.length > 0 && (
+                <ResponsiveContainer width="100%" height={100}>
+                  <BarChart data={studyData.barData} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
+                    <XAxis dataKey="name" tick={{ fontSize: 9 }} />
+                    <Tooltip 
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          return (
+                            <div className="bg-card p-2 border border-border rounded text-xs">
+                              <p>{payload[0].payload.name}: {payload[0].payload.hours}h</p>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                    <Bar dataKey="hours" radius={[4, 4, 0, 0]}>
+                      {studyData.barData.map((entry, index) => (
+                        <Cell key={index} fill={entry.color} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+
+              {/* Summary Stats */}
+              <div className="grid grid-cols-2 gap-2 pt-2 border-t">
+                <div className="text-center">
+                  <div className="text-lg font-bold text-primary">{studyData.pieData.length}</div>
+                  <div className="text-[10px] text-muted-foreground">Active Courses</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-lg font-bold text-primary">
+                    {studyData.pieData.length > 0 ? (studyData.totalHours / studyData.pieData.length).toFixed(1) : 0}
+                  </div>
+                  <div className="text-[10px] text-muted-foreground">Avg Hours/Course</div>
                 </div>
               </div>
             </div>
@@ -169,12 +235,39 @@ export function MobileActivityTab({ studySessions, assignments, courses, timeRan
                   </div>
                 </div>
               </div>
-              <div>
-                <div className="flex justify-between text-xs mb-1">
-                  <span className="text-muted-foreground">Completion Rate</span>
-                  <span className="font-medium">{assignmentStats.rate}%</span>
+              
+              {/* Progress Bars */}
+              <div className="space-y-2">
+                <div>
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="text-muted-foreground">Completion Rate</span>
+                    <span className="font-medium">{assignmentStats.rate}%</span>
+                  </div>
+                  <Progress value={assignmentStats.rate} className="h-2" />
                 </div>
-                <Progress value={assignmentStats.rate} className="h-2" />
+                <div>
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="text-muted-foreground">On-Time Rate</span>
+                    <span className="font-medium">{assignmentStats.onTimeRate}%</span>
+                  </div>
+                  <Progress value={assignmentStats.onTimeRate} className="h-2" />
+                </div>
+              </div>
+
+              {/* Insights */}
+              <div className="p-2 bg-muted/20 rounded-lg">
+                <div className="flex items-center gap-2 mb-1">
+                  <TrendingUp className="w-3 h-3 text-primary" />
+                  <span className="text-xs font-medium">Insights</span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {assignmentStats.overdue > 0 
+                    ? `${assignmentStats.overdue} overdue assignments need attention.`
+                    : assignmentStats.rate >= 80 
+                    ? "Great progress! Keep up the good work."
+                    : `${assignmentStats.pending} assignments pending. Stay on track!`
+                  }
+                </p>
               </div>
             </div>
           )}
