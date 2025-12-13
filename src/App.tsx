@@ -12,10 +12,12 @@ import { SecurityHeaders } from "@/components/SecurityHeaders";
 import { OptimizedSecurityMonitor } from "@/components/OptimizedSecurityMonitor";
 import { queryClient } from "@/config/queryClient";
 import { useThemeInit } from "@/hooks/useThemeInit";
+import { useCapacitorInit } from "@/hooks/useCapacitorInit";
 
-// Theme initialization component
-function ThemeInitializer({ children }: { children: React.ReactNode }) {
+// Theme and Capacitor initialization component
+function AppInitializer({ children }: { children: React.ReactNode }) {
   useThemeInit();
+  useCapacitorInit();
   return <>{children}</>;
 }
 const Calendar = lazy(() => import("./pages/Calendar"));
@@ -44,7 +46,7 @@ const App = () => (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          <ThemeInitializer>
+          <AppInitializer>
             <TooltipProvider>
             <SecurityHeaders />
             <OptimizedSecurityMonitor />
@@ -96,7 +98,7 @@ const App = () => (
             </Routes>
           </BrowserRouter>
           </TooltipProvider>
-          </ThemeInitializer>
+          </AppInitializer>
         </ThemeProvider>
       </AuthProvider>
     </QueryClientProvider>
