@@ -100,6 +100,13 @@ export class ErrorBoundary extends Component<Props, State> {
         return this.props.fallback;
       }
 
+      const isChunkOrNetworkError = this.state.error && (
+        this.state.error.name === 'ChunkLoadError' ||
+        /Loading chunk [\d]+ failed/i.test(this.state.error.message) ||
+        /Failed to fetch dynamically imported module/i.test(this.state.error.message) ||
+        /Importing a module script failed/i.test(this.state.error.message)
+      );
+
       return (
         <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/10 flex items-center justify-center p-4">
           <Card className="w-full max-w-lg bg-card/80 backdrop-blur-sm border-border/50 shadow-elevated">
@@ -107,14 +114,18 @@ export class ErrorBoundary extends Component<Props, State> {
               <div className="mx-auto w-16 h-16 bg-destructive/10 rounded-full flex items-center justify-center mb-4">
                 <AlertTriangle className="w-8 h-8 text-destructive" />
               </div>
-              <CardTitle className="text-xl">Something went wrong</CardTitle>
+              <CardTitle className="text-xl">
+                {isChunkOrNetworkError ? 'You appear to be offline' : 'Something went wrong'}
+              </CardTitle>
               <p className="text-muted-foreground text-sm">
-                We apologize for the inconvenience. An unexpected error occurred.
+                {isChunkOrNetworkError
+                  ? 'We could not load part of the app. Check your internet connection and try again.'
+                  : 'We apologize for the inconvenience. An unexpected error occurred.'}
               </p>
             </CardHeader>
             
             <CardContent className="space-y-4">
-              {this.state.error && (
+              {this.state.error && !isChunkOrNetworkError && (
                 <div className="space-y-3">
                   <details className="bg-muted/50 p-3 rounded-lg text-xs">
                     <summary className="cursor-pointer font-medium mb-2 flex items-center gap-2">
@@ -172,8 +183,12 @@ export class ErrorBoundary extends Component<Props, State> {
               </div>
               
               <div className="text-xs text-muted-foreground text-center space-y-1">
-                <p>If this problem persists, please refresh the page or contact support.</p>
-                {this.state.errorId && (
+                <p>
+                  {isChunkOrNetworkError
+                    ? 'Once you are back online, reload the app to continue where you left off.'
+                    : 'If this problem persists, please refresh the page or contact support.'}
+                </p>
+                {this.state.errorId && !isChunkOrNetworkError && (
                   <p className="font-mono">Error ID: {this.state.errorId}</p>
                 )}
               </div>

@@ -14,8 +14,9 @@ export default defineConfig(({ command, mode }) => {
     runtimeCaching: any[];
     navigateFallback: string;
     navigateFallbackDenylist: RegExp[];
+    navigateFallbackAllowlist: RegExp[];
   } = {
-    globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
+    globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2,json}'],
     runtimeCaching: [
       // Cache JavaScript and CSS chunks for offline access
       {
@@ -80,7 +81,8 @@ export default defineConfig(({ command, mode }) => {
       }
     ],
     navigateFallback: '/index.html',
-    navigateFallbackDenylist: [/^\/api/, /^\/supabase/]
+    navigateFallbackDenylist: [/^\/api/, /^\/supabase/, /^\/auth\/v1/],
+    navigateFallbackAllowlist: [/^.*/]
   };
 
   if (enableDevPWA) {
@@ -98,10 +100,10 @@ export default defineConfig(({ command, mode }) => {
       react(),
       isDevMode && componentTagger(),
       VitePWA({
-        disable: command === 'serve' && !enableDevPWA,
-      registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'assets/*.png', 'lovable-uploads/*.png'],
-      manifest: {
+         disable: command === 'serve' && !enableDevPWA,
+       registerType: 'autoUpdate',
+       includeAssets: ['favicon.ico', 'assets/*.png', 'lovable-uploads/*.png', 'offline.html'],
+       manifest: {
         name: 'Aqademiq - Intelligent Academic Organizer',
         short_name: 'Aqademiq',
         description: 'AI-powered academic study hub with Ada assistant for smart schedule management and grade tracking',
