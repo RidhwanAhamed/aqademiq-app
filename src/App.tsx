@@ -17,8 +17,6 @@ import { offlineLazy } from "@/utils/offlineLazyLoader";
 import { OfflineSuspenseFallback } from "@/components/OfflineSuspenseFallback";
 import { OfflineFirstProvider } from "@/components/OfflineFirstProvider";
 import { AnimatedSplash } from "@/components/AnimatedSplash";
-import { coordinateSplashTransition } from "@/services/capacitorInit";
-import { Capacitor } from "@capacitor/core";
 
 // Theme and Capacitor initialization component
 function AppInitializer({ children }: { children: React.ReactNode }) {
@@ -54,20 +52,18 @@ import TermsOfService from "./pages/TermsOfService";
 // Splash screen wrapper component
 function SplashWrapper({ children }: { children: React.ReactNode }) {
   const [showSplash, setShowSplash] = useState(true);
-  const [appReady, setAppReady] = useState(false);
 
   useEffect(() => {
-    // Hide native splash when web splash takes over
-    if (Capacitor.isNativePlatform()) {
-      coordinateSplashTransition();
-    }
-    
-    // Mark app as ready after a short delay for auth check
-    const timer = setTimeout(() => {
-      setAppReady(true);
-    }, 500);
-
-    return () => clearTimeout(timer);
+    // Dynamically import and coordinate splash transition for native platforms
+    import('@capacitor/core').then(({ Capacitor }) => {
+      if (Capacitor.isNativePlatform()) {
+        import('@/services/capacitorInit').then(({ coordinateSplashTransition }) => {
+          coordinateSplashTransition();
+        });
+      }
+    }).catch(() => {
+      // Not on native platform, ignore
+    });
   }, []);
 
   const handleSplashComplete = () => {
