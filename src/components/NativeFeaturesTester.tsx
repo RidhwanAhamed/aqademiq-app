@@ -1,182 +1,312 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Vibrate, Bell, BellOff, Smartphone } from "lucide-react";
-import { haptics } from "@/services/haptics";
-import { notificationService } from "@/services/notifications";
-import { useToast } from "@/hooks/use-toast";
-import { Capacitor } from "@capacitor/core";
+import React, { useState, useEffect } from 'react';
+import { Capacitor } from '@capacitor/core';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { useToast } from '@/hooks/use-toast';
+import { haptics } from '@/services/haptics';
+import { notificationService } from '@/services/notifications';
+import { 
+  Vibrate, 
+  Bell, 
+  BellRing, 
+  BellOff, 
+  Smartphone,
+  ShieldCheck,
+  AlertCircle
+} from 'lucide-react';
 
 export function NativeFeaturesTester() {
   const { toast } = useToast();
   const isNative = Capacitor.isNativePlatform();
+  const platform = Capacitor.getPlatform();
+  const [permissionStatus, setPermissionStatus] = useState<string>('checking...');
+  const [isLoading, setIsLoading] = useState<string | null>(null);
 
-  const testHaptic = async (type: string, fn: () => Promise<void>) => {
-    await fn();
+  useEffect(() => {
+    checkPermissions();
+  }, []);
+
+  const checkPermissions = async () => {
+    const status = await notificationService.getPermissionStatus();
+    setPermissionStatus(status.display);
+  };
+
+  const testHaptic = async (type: string, fn: () => Promise<boolean>) => {
+    setIsLoading(type);
+    const success = await fn();
+    setIsLoading(null);
+    
+    if (success) {
+      toast({
+        title: `${type} Haptic`,
+        description: 'Triggered successfully',
+      });
+    } else {
+      toast({
+        title: `${type} Haptic Failed`,
+        description: isNative 
+          ? 'Check device haptic settings or permissions' 
+          : 'Haptics only work on native iOS/Android',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const requestPermissions = async () => {
+    setIsLoading('permissions');
+    const status = await notificationService.checkAndRequestPermissions();
+    setPermissionStatus(status.display);
+    setIsLoading(null);
+    
     toast({
-      title: "Haptic Triggered",
-      description: `${type} haptic feedback sent`,
+      title: 'Permission Status',
+      description: status.display === 'granted' 
+        ? 'Notifications enabled!' 
+        : 'Notification permission denied. Please enable in device settings.',
+      variant: status.display === 'granted' ? 'default' : 'destructive',
     });
   };
 
   const showTestNotification = async () => {
-    await notificationService.showLocalNotification({
-      title: "Test Notification",
-      body: "This is a test notification from Aqademiq!",
-      data: { type: "test" }
+    setIsLoading('show');
+    
+    // Initialize first if needed
+    await notificationService.initializeLocal();
+    
+    const success = await notificationService.showLocalNotification({
+      title: 'Test Notification',
+      body: 'This is a test from Aqademiq! 🎉',
+      data: { type: 'test' }
     });
-    toast({
-      title: "Notification Sent",
-      description: "Check your notification center",
-    });
+    
+    setIsLoading(null);
+    await checkPermissions();
+    
+    if (success) {
+      toast({
+        title: 'Notification Sent',
+        description: 'Check your notification tray',
+      });
+    } else {
+      toast({
+        title: 'Notification Failed',
+        description: permissionStatus !== 'granted'
+          ? 'Permission denied. Tap "Request Permission" first.'
+          : 'Failed to show notification. Check device settings.',
+        variant: 'destructive',
+      });
+    }
   };
 
   const scheduleNotification = async () => {
-    const scheduleTime = new Date(Date.now() + 5000); // 5 seconds from now
-    await notificationService.scheduleNotification({
-      title: "Scheduled Test",
-      body: "This notification was scheduled 5 seconds ago!",
+    setIsLoading('schedule');
+    
+    // Initialize first if needed
+    await notificationService.initializeLocal();
+    
+    const scheduleTime = new Date(Date.now() + 5000);
+    const id = await notificationService.scheduleNotification({
+      title: 'Scheduled Notification',
+      body: 'This was scheduled 5 seconds ago! ⏰',
       schedule: { at: scheduleTime }
     });
-    toast({
-      title: "Notification Scheduled",
-      description: "Will appear in 5 seconds",
-    });
+    
+    setIsLoading(null);
+    await checkPermissions();
+    
+    if (id !== null) {
+      toast({
+        title: 'Notification Scheduled',
+        description: 'Will appear in 5 seconds',
+      });
+    } else {
+      toast({
+        title: 'Scheduling Failed',
+        description: permissionStatus !== 'granted'
+          ? 'Permission denied. Tap "Request Permission" first.'
+          : 'Failed to schedule notification. Check device settings.',
+        variant: 'destructive',
+      });
+    }
   };
 
   const cancelAllNotifications = async () => {
-    await notificationService.cancelAllNotifications();
-    toast({
-      title: "Notifications Cancelled",
-      description: "All pending notifications have been cancelled",
-    });
+    setIsLoading('cancel');
+    const success = await notificationService.cancelAllNotifications();
+    setIsLoading(null);
+    
+    if (success) {
+      toast({
+        title: 'Notifications Cancelled',
+        description: 'All pending notifications cleared',
+      });
+    } else {
+      toast({
+        title: 'Cancel Failed',
+        description: 'Could not cancel notifications',
+        variant: 'destructive',
+      });
+    }
   };
 
   return (
-    <Card className="bg-gradient-card">
-      <CardHeader className="pb-2 sm:pb-4">
+    <Card>
+      <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
-            <Smartphone className="w-5 h-5" />
-            Native Features Testing
-          </CardTitle>
-          <Badge variant={isNative ? "default" : "secondary"}>
-            {isNative ? "Native" : "Web"}
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <Smartphone className="h-5 w-5" />
+              Native Features Testing
+            </CardTitle>
+            <CardDescription>
+              Test haptic feedback and notifications on your device
+            </CardDescription>
+          </div>
+          <Badge variant={isNative ? 'default' : 'secondary'}>
+            {isNative ? `${platform.charAt(0).toUpperCase() + platform.slice(1)}` : 'Web'}
           </Badge>
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
         {!isNative && (
-          <div className="p-3 bg-yellow-500/10 rounded-lg border border-yellow-500/20">
-            <p className="text-sm text-yellow-600 dark:text-yellow-400">
-              These features only work on iOS/Android. Run the app via Xcode or Android Studio to test.
+          <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+            <AlertCircle className="h-5 w-5 text-amber-500 mt-0.5 shrink-0" />
+            <p className="text-sm text-amber-500">
+              Native features only work on iOS/Android devices. 
+              Build with Capacitor and test on a real device or emulator.
             </p>
           </div>
         )}
 
-        {/* Haptics Section */}
+        {/* Haptic Feedback Section */}
         <div className="space-y-3">
-          <h3 className="font-medium flex items-center gap-2 text-sm">
-            <Vibrate className="w-4 h-4" />
+          <h4 className="font-medium flex items-center gap-2">
+            <Vibrate className="h-4 w-4" />
             Haptic Feedback
-          </h3>
+          </h4>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             <Button 
               variant="outline" 
               size="sm"
-              className="h-10"
-              onClick={() => testHaptic("Light", haptics.light)}
+              disabled={isLoading === 'Light'}
+              onClick={() => testHaptic('Light', haptics.light)}
             >
               Light
             </Button>
             <Button 
               variant="outline" 
               size="sm"
-              className="h-10"
-              onClick={() => testHaptic("Medium", haptics.medium)}
+              disabled={isLoading === 'Medium'}
+              onClick={() => testHaptic('Medium', haptics.medium)}
             >
               Medium
             </Button>
             <Button 
               variant="outline" 
               size="sm"
-              className="h-10"
-              onClick={() => testHaptic("Heavy", haptics.heavy)}
+              disabled={isLoading === 'Heavy'}
+              onClick={() => testHaptic('Heavy', haptics.heavy)}
             >
               Heavy
             </Button>
             <Button 
               variant="outline" 
               size="sm"
-              className="h-10"
-              onClick={() => testHaptic("Selection", haptics.selectionChanged)}
+              disabled={isLoading === 'Selection'}
+              onClick={() => testHaptic('Selection', haptics.selectionChanged)}
             >
               Selection
             </Button>
             <Button 
               variant="outline" 
               size="sm"
-              className="h-10 bg-green-500/10 border-green-500/30 hover:bg-green-500/20"
-              onClick={() => testHaptic("Success", haptics.success)}
+              disabled={isLoading === 'Success'}
+              onClick={() => testHaptic('Success', haptics.success)}
             >
-              Success
+              ✓ Success
             </Button>
             <Button 
               variant="outline" 
               size="sm"
-              className="h-10 bg-yellow-500/10 border-yellow-500/30 hover:bg-yellow-500/20"
-              onClick={() => testHaptic("Warning", haptics.warning)}
+              disabled={isLoading === 'Warning'}
+              onClick={() => testHaptic('Warning', haptics.warning)}
             >
-              Warning
+              ⚠ Warning
             </Button>
             <Button 
               variant="outline" 
               size="sm"
-              className="h-10 bg-red-500/10 border-red-500/30 hover:bg-red-500/20"
-              onClick={() => testHaptic("Error", haptics.error)}
+              disabled={isLoading === 'Error'}
+              onClick={() => testHaptic('Error', haptics.error)}
             >
-              Error
+              ✕ Error
             </Button>
             <Button 
               variant="outline" 
               size="sm"
-              className="h-10"
-              onClick={() => testHaptic("Vibrate", () => haptics.vibrate(300))}
+              disabled={isLoading === 'Vibrate'}
+              onClick={() => testHaptic('Vibrate', () => haptics.vibrate(300))}
             >
               Vibrate
             </Button>
           </div>
         </div>
 
-        {/* Notifications Section */}
+        {/* Local Notifications Section */}
         <div className="space-y-3">
-          <h3 className="font-medium flex items-center gap-2 text-sm">
-            <Bell className="w-4 h-4" />
-            Local Notifications
-          </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <div className="flex items-center justify-between">
+            <h4 className="font-medium flex items-center gap-2">
+              <Bell className="h-4 w-4" />
+              Local Notifications
+            </h4>
+            <Badge 
+              variant={permissionStatus === 'granted' ? 'default' : 'destructive'}
+              className="text-xs"
+            >
+              {permissionStatus === 'granted' ? 'Enabled' : 
+               permissionStatus === 'denied' ? 'Denied' : 
+               permissionStatus === 'prompt' ? 'Not Asked' : permissionStatus}
+            </Badge>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-2">
             <Button 
               variant="outline" 
-              className="h-12 sm:h-10"
+              size="sm"
+              disabled={isLoading === 'permissions'}
+              onClick={requestPermissions}
+              className="col-span-2"
+            >
+              <ShieldCheck className="h-4 w-4 mr-2" />
+              Request Permission
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm"
+              disabled={isLoading === 'show'}
               onClick={showTestNotification}
             >
-              <Bell className="w-4 h-4 mr-2" />
+              <BellRing className="h-4 w-4 mr-2" />
               Show Now
             </Button>
             <Button 
               variant="outline" 
-              className="h-12 sm:h-10"
+              size="sm"
+              disabled={isLoading === 'schedule'}
               onClick={scheduleNotification}
             >
-              <Bell className="w-4 h-4 mr-2" />
-              Schedule (5s)
+              <Bell className="h-4 w-4 mr-2" />
+              In 5 Seconds
             </Button>
             <Button 
               variant="outline" 
-              className="h-12 sm:h-10"
+              size="sm"
+              disabled={isLoading === 'cancel'}
               onClick={cancelAllNotifications}
+              className="col-span-2"
             >
-              <BellOff className="w-4 h-4 mr-2" />
+              <BellOff className="h-4 w-4 mr-2" />
               Cancel All
             </Button>
           </div>
@@ -185,3 +315,5 @@ export function NativeFeaturesTester() {
     </Card>
   );
 }
+
+export default NativeFeaturesTester;
