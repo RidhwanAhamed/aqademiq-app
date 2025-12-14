@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <defs>
+    <linearGradient id="logoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#7c3aed"/>
+      <stop offset="100%" style="stop-color:#3b82f6"/>
+    </linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="8" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="512" height="512" rx="96" fill="#0A0A0A"/>
+  
+  <!-- Graduation cap icon -->
+  <g transform="translate(128, 128)" filter="url(#glow)">
+    <!-- Cap top -->
+    <path d="M128 40L20 96L128 152L236 96L128 40Z" fill="url(#logoGradient)"/>
+    <!-- Cap base -->
+    <path d="M60 120V180C60 200 90 220 128 220C166 220 196 200 196 180V120L128 156L60 120Z" fill="url(#logoGradient)" opacity="0.9"/>
+    <!-- Tassel -->
+    <path d="M196 96V160" stroke="url(#logoGradient)" stroke-width="8" stroke-linecap="round"/>
+    <circle cx="196" cy="168" r="12" fill="url(#logoGradient)"/>
+  </g>
+</svg>
