@@ -57,7 +57,10 @@ function SplashWrapper({ children }: { children: React.ReactNode }) {
     // Dynamically import and coordinate splash transition for native platforms
     import('@capacitor/core').then(({ Capacitor }) => {
       if (Capacitor.isNativePlatform()) {
-        import('@/services/capacitorInit').then(({ coordinateSplashTransition }) => {
+        import('@/services/capacitorInit').then(({ coordinateSplashTransition, ensureSplashHidden }) => {
+          // Safety: ensure splash hides within 5 seconds no matter what
+          ensureSplashHidden(5000);
+          // Normal transition when AnimatedSplash completes
           coordinateSplashTransition();
         });
       }
