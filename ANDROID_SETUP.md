@@ -346,6 +346,52 @@ Password: PlayStoreReview123!
 
 ## Troubleshooting
 
+### Haptics Not Working
+
+1. **Check VIBRATE permission** is added to AndroidManifest.xml:
+   ```xml
+   <uses-permission android:name="android.permission.VIBRATE" />
+   ```
+
+2. **Check device settings** - some devices have haptic feedback disabled globally
+
+3. **Test on physical device** - Android emulators often don't support haptics
+
+4. **Verify in Settings** - Use the Native Features Testing section in app Settings to test
+
+### Notifications Not Working
+
+1. **Check POST_NOTIFICATIONS permission** for Android 13+ (API 33+):
+   ```xml
+   <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+   ```
+
+2. **Request permission at runtime** - Use the "Request Permission" button in Settings > Native Features Testing
+
+3. **Check notification channel** is created (happens automatically on first use)
+
+4. **Verify app notification settings** in device Settings → Apps → Aqademiq → Notifications
+
+5. **Permission dialog not appearing?** - On Android 13+, permission must be explicitly requested. If previously denied, user must enable in device settings.
+
+### Permission Dialog Not Showing
+
+On Android 13+, the `POST_NOTIFICATIONS` permission requires:
+1. The permission to be declared in AndroidManifest.xml
+2. An explicit call to `LocalNotifications.requestPermissions()`
+3. If denied previously, user must manually enable in device Settings
+
+### Scheduled Notifications Not Firing
+
+1. **Add SCHEDULE_EXACT_ALARM permission**:
+   ```xml
+   <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+   ```
+
+2. **Battery optimization** - Some devices aggressively kill background processes. Disable battery optimization for the app.
+
+3. **Doze mode** - The app uses `allowWhileIdle: true` for notifications, but some OEMs override this.
+
 ### Gradle Sync Failed
 
 ```bash
@@ -387,3 +433,5 @@ buildTypes {
 - [Capacitor Android Documentation](https://capacitorjs.com/docs/android)
 - [Android Developer Documentation](https://developer.android.com/docs)
 - [Play Console Help](https://support.google.com/googleplay/android-developer)
+- [Capacitor Local Notifications](https://capacitorjs.com/docs/apis/local-notifications)
+- [Capacitor Haptics](https://capacitorjs.com/docs/apis/haptics)

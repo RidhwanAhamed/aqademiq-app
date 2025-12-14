@@ -1,5 +1,5 @@
 import { PushNotifications, Token, ActionPerformed, PushNotificationSchema } from '@capacitor/push-notifications';
-import { LocalNotifications, LocalNotificationSchema, ScheduleOptions } from '@capacitor/local-notifications';
+import { LocalNotifications, LocalNotificationSchema } from '@capacitor/local-notifications';
 import { Capacitor } from '@capacitor/core';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -14,9 +14,14 @@ export interface NotificationPayload {
   };
 }
 
+export interface PermissionStatus {
+  display: 'granted' | 'denied' | 'prompt';
+}
+
 class NotificationService {
   private initialized = false;
   private pushToken: string | null = null;
+  private localNotificationsInitialized = false;
 
   /**
    * Initialize push notifications (call once on app start)
@@ -129,17 +134,90 @@ class NotificationService {
   }
 
   /**
-   * Initialize local notifications
+   * Check and request notification permissions
+   * Returns the current permission status
+   */
+  async checkAndRequestPermissions(): Promise<PermissionStatus> {
+    if (!Capacitor.isNativePlatform()) {
+      // Web fallback - check browser notification permission
+      if ('Notification' in window) {
+        if (Notification.permission === 'granted') {
+          return { display: 'granted' };
+        } else if (Notification.permission === 'denied') {
+          return { display: 'denied' };
+        } else {
+          const result = await Notification.requestPermission();
+          return { display: result === 'granted' ? 'granted' : 'denied' };
+        }
+      }
+      return { display: 'denied' };
+    }
+
+    try {
+      // Check current permission status
+      const status = await LocalNotifications.checkPermissions();
+      
+      if (status.display === 'granted') {
+        return { display: 'granted' };
+      }
+      
+      // Request permissions if not granted
+      const requestResult = await LocalNotifications.requestPermissions();
+      return { display: requestResult.display as 'granted' | 'denied' | 'prompt' };
+    } catch (error) {
+      console.error('Error checking/requesting permissions:', error);
+      return { display: 'denied' };
+    }
+  }
+
+  /**
+   * Initialize local notifications with proper channel for Android
    */
   async initializeLocal(): Promise<boolean> {
+    if (this.localNotificationsInitialized) return true;
+    
     if (!Capacitor.isNativePlatform()) {
       console.log('Local notifications only available on native platforms');
       return false;
     }
 
     try {
-      const permStatus = await LocalNotifications.requestPermissions();
-      return permStatus.display === 'granted';
+      // Request permissions
+      const permStatus = await this.checkAndRequestPermissions();
+      
+      if (permStatus.display !== 'granted') {
+        console.log('Local notification permission not granted');
+        return false;
+      }
+
+      // Create notification channel for Android (required for Android 8.0+)
+      if (Capacitor.getPlatform() === 'android') {
+        try {
+          await LocalNotifications.createChannel({
+            id: 'aqademiq_default',
+            name: 'Aqademiq Notifications',
+            description: 'Default notification channel for Aqademiq',
+            importance: 5, // Max importance
+            visibility: 1, // Public
+            vibration: true,
+            lights: true,
+            sound: 'default'
+          });
+          console.log('Android notification channel created');
+        } catch (channelError) {
+          console.warn('Error creating notification channel:', channelError);
+        }
+      }
+
+      // Set up local notification action listener
+      LocalNotifications.addListener('localNotificationActionPerformed', (notification) => {
+        console.log('Local notification action:', notification);
+        this.handleNotificationAction(notification.notification.extra);
+      });
+
+      this.localNotificationsInitialized = true;
+      console.log('Local notifications initialized');
+      return true;
     } catch (error) {
       console.error('Error initializing local notifications:', error);
       return false;
@@ -148,14 +226,35 @@ class NotificationService {
 
   /**
    * Show an immediate local notification
+   * Returns true if notification was shown successfully
    */
-  async showLocalNotification(payload: NotificationPayload): Promise<void> {
+  async showLocalNotification(payload: NotificationPayload): Promise<boolean> {
     if (!Capacitor.isNativePlatform()) {
       // Fallback to browser notification
-      if ('Notification' in window && Notification.permission === 'granted') {
-        new Notification(payload.title, { body: payload.body });
+      if ('Notification' in window) {
+        if (Notification.permission !== 'granted') {
+          const permission = await Notification.requestPermission();
+          if (permission !== 'granted') {
+            console.warn('Browser notification permission denied');
+            return false;
+          }
+        }
+        try {
+          new Notification(payload.title, { body: payload.body });
+          return true;
+        } catch (e) {
+          console.error('Error showing browser notification:', e);
+          return false;
+        }
       }
-      return;
+      return false;
+    }
+
+    // Check permissions first
+    const permStatus = await this.checkAndRequestPermissions();
+    if (permStatus.display !== 'granted') {
+      console.warn('Notification permission not granted');
+      return false;
     }
 
     try {
@@ -164,18 +263,23 @@ class NotificationService {
         title: payload.title,
         body: payload.body,
         extra: payload.data,
+        channelId: 'aqademiq_default',
         smallIcon: 'ic_stat_notification',
-        iconColor: '#6366f1'
+        iconColor: '#8B5CF6' // Aqademiq purple
       };
 
       await LocalNotifications.schedule({ notifications: [notification] });
+      console.log('Local notification shown successfully');
+      return true;
     } catch (error) {
       console.error('Error showing local notification:', error);
+      return false;
     }
   }
 
   /**
    * Schedule a local notification for later
+   * Returns notification ID if successful, null otherwise
    */
   async scheduleNotification(payload: NotificationPayload): Promise<number | null> {
     if (!payload.schedule?.at) {
@@ -188,6 +292,13 @@ class NotificationService {
       return null;
     }
 
+    // Check permissions first
+    const permStatus = await this.checkAndRequestPermissions();
+    if (permStatus.display !== 'granted') {
+      console.warn('Notification permission not granted');
+      return null;
+    }
+
     try {
       const id = Date.now();
       const notification: LocalNotificationSchema = {
@@ -195,13 +306,15 @@ class NotificationService {
         title: payload.title,
         body: payload.body,
         extra: payload.data,
+        channelId: 'aqademiq_default',
         schedule: {
           at: payload.schedule.at,
           repeats: payload.schedule.repeats || false,
-          every: payload.schedule.every
+          every: payload.schedule.every,
+          allowWhileIdle: true // Important for Android Doze mode
         },
         smallIcon: 'ic_stat_notification',
-        iconColor: '#6366f1'
+        iconColor: '#8B5CF6'
       };
 
       await LocalNotifications.schedule({ notifications: [notification] });
@@ -216,29 +329,52 @@ class NotificationService {
   /**
    * Cancel a scheduled notification
    */
-  async cancelNotification(id: number): Promise<void> {
-    if (!Capacitor.isNativePlatform()) return;
+  async cancelNotification(id: number): Promise<boolean> {
+    if (!Capacitor.isNativePlatform()) return false;
 
     try {
       await LocalNotifications.cancel({ notifications: [{ id }] });
+      return true;
     } catch (error) {
       console.error('Error canceling notification:', error);
+      return false;
     }
   }
 
   /**
    * Cancel all scheduled notifications
    */
-  async cancelAllNotifications(): Promise<void> {
-    if (!Capacitor.isNativePlatform()) return;
+  async cancelAllNotifications(): Promise<boolean> {
+    if (!Capacitor.isNativePlatform()) return false;
 
     try {
       const pending = await LocalNotifications.getPending();
       if (pending.notifications.length > 0) {
         await LocalNotifications.cancel({ notifications: pending.notifications });
       }
+      return true;
     } catch (error) {
       console.error('Error canceling all notifications:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Get current permission status without requesting
+   */
+  async getPermissionStatus(): Promise<PermissionStatus> {
+    if (!Capacitor.isNativePlatform()) {
+      if ('Notification' in window) {
+        return { display: Notification.permission === 'granted' ? 'granted' : 'denied' };
+      }
+      return { display: 'denied' };
+    }
+
+    try {
+      const status = await LocalNotifications.checkPermissions();
+      return { display: status.display as 'granted' | 'denied' | 'prompt' };
+    } catch (error) {
+      return { display: 'denied' };
     }
   }
 
