@@ -1,23 +1,5 @@
-import { 
-  Home, 
-  Calendar, 
-  BookOpen, 
-  Target, 
-  Clock, 
-  BarChart3, 
-  Settings,
-  Plus,
-  ChevronLeft,
-  ChevronRight,
-  Bot,
-  LogOut,
-  TrendingUp,
-  Sparkles,
-  Store,
-  MessageSquare
-} from "lucide-react";
-import { useState } from "react";
-import { NavLink, useLocation } from "react-router-dom";
+import { AddCourseDialog } from "@/components/AddCourseDialog";
+import { Badge } from "@/components/ui/badge";
 import {
   Sidebar,
   SidebarContent,
@@ -30,10 +12,23 @@ import {
   SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
-import { AddCourseDialog } from "@/components/AddCourseDialog";
+import {
+  BarChart3,
+  BookOpen,
+  Calendar,
+  Clock,
+  Home,
+  LogOut,
+  MessageSquare,
+  Plus,
+  Settings,
+  Sparkles,
+  Store,
+  Target
+} from "lucide-react";
+import { useState } from "react";
+import { NavLink, useLocation } from "react-router-dom";
 
 interface NavItem {
   title: string;
@@ -77,7 +72,7 @@ export function AppSidebar() {
 
   return (
     <Sidebar
-      className={`transition-all duration-300 ${collapsed ? "w-16" : "w-64"} border-r bg-card`}
+      className={transition-all duration-300 ${collapsed ? "w-16" : "w-64"} border-r bg-card}
       collapsible="icon"
     >
       {/* Header */}
@@ -99,16 +94,21 @@ export function AppSidebar() {
 
       <SidebarContent className="flex flex-col h-full">
         {/* Quick Add Button */}
-        <div className="p-4">
-          <Button 
-            className="w-full bg-gradient-primary hover:opacity-90 shadow-primary"
-            size={collapsed ? "icon" : "default"}
-            onClick={() => setShowAddCourse(true)}
-          >
-            <Plus className="w-4 h-4" />
-            {!collapsed && <span className="ml-2">Quick Add</span>}
-          </Button>
-        </div>
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  onClick={() => setShowAddCourse(true)}
+                  className="bg-gradient-primary hover:opacity-90 shadow-primary text-white hover:text-white hover:bg-primary"
+                >
+                  <Plus className="w-5 h-5" />
+                  {!collapsed && <span>Quick Add</span>}
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
 
         {/* Main Navigation */}
         <SidebarGroup className="flex-1">
@@ -161,33 +161,29 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
-            </SidebarMenu>
             
-            {/* Give Feedback Button */}
-            <div className="mt-4 p-2">
-              <Button
-                onClick={() => window.open('https://docs.google.com/forms/d/e/1FAIpQLSfdFekCco-gJkDuXZh5VaOa_FI9sJIo7vgrCoXnJAKZklGv6A/viewform?usp=dialog', '_blank')}
-                variant="outline"
-                size={collapsed ? "icon" : "default"}
-                className="w-full bg-primary/10 text-primary hover:bg-primary/20 border-primary/20"
-              >
-                <MessageSquare className="w-4 h-4" />
-                {!collapsed && <span className="ml-2">Give Feedback</span>}
-              </Button>
-            </div>
+              {/* Give Feedback Button */}
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  onClick={() => window.open('https://docs.google.com/forms/d/e/1FAIpQLSfdFekCco-gJkDuXZh5VaOa_FI9sJIo7vgrCoXnJAKZklGv6A/viewform?usp=dialog', '_blank')}
+                  className="bg-primary/10 text-primary hover:bg-primary/20 hover:text-primary"
+                >
+                  <MessageSquare className="w-5 h-5" />
+                  {!collapsed && <span>Give Feedback</span>}
+                </SidebarMenuButton>
+              </SidebarMenuItem>
 
-            {/* Sign Out Button */}
-            <div className="p-2">
-              <Button
-                onClick={() => signOut()}
-                variant="outline"
-                size={collapsed ? "icon" : "default"}
-                className="w-full text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/20"
-              >
-                <LogOut className="w-4 h-4" />
-                {!collapsed && <span className="ml-2">Sign Out</span>}
-              </Button>
-            </div>
+              {/* Sign Out Button */}
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  onClick={() => signOut()}
+                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                >
+                  <LogOut className="w-5 h-5" />
+                  {!collapsed && <span>Sign Out</span>}
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
