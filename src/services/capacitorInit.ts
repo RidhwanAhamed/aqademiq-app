@@ -41,7 +41,28 @@ export async function coordinateSplashTransition() {
     console.log('Native splash hidden, web app taking over');
   } catch (error) {
     console.warn('Failed to coordinate splash transition:', error);
+    // Force hide even on error
+    try {
+      await SplashScreen.hide();
+    } catch {}
   }
+}
+
+/**
+ * Safety function to ensure splash always hides after a maximum duration
+ * Prevents infinite splash scenarios if web app fails to load properly
+ */
+export async function ensureSplashHidden(maxWaitMs: number = 5000) {
+  if (!Capacitor.isNativePlatform()) return;
+  
+  setTimeout(async () => {
+    try {
+      await SplashScreen.hide();
+      console.log('Safety timeout: forced splash hide after', maxWaitMs, 'ms');
+    } catch (error) {
+      console.warn('Safety splash hide failed:', error);
+    }
+  }, maxWaitMs);
 }
 
 /**
