@@ -8,6 +8,9 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
+    /* iOS Keyboard height - dynamically set by JS */
+    --keyboard-height: 0px;
+    
     /* Base colors for Aqademiq */
     --background: 215 28% 97%;
     --foreground: 215 25% 15%;

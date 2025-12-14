@@ -85,13 +85,19 @@ export async function initializeCapacitorUI() {
   }
 
   try {
-    // Configure keyboard behavior
+    // Configure keyboard behavior with CSS variable and custom events
     Keyboard.addListener('keyboardWillShow', (info) => {
       console.log('Keyboard will show with height:', info.keyboardHeight);
+      // Set CSS variable for global keyboard-aware positioning
+      document.documentElement.style.setProperty('--keyboard-height', `${info.keyboardHeight}px`);
+      // Dispatch custom event for React components
+      window.dispatchEvent(new CustomEvent('keyboard-show', { detail: info }));
     });
 
     Keyboard.addListener('keyboardWillHide', () => {
       console.log('Keyboard will hide');
+      document.documentElement.style.setProperty('--keyboard-height', '0px');
+      window.dispatchEvent(new CustomEvent('keyboard-hide'));
     });
     console.log('Keyboard listeners configured');
   } catch (error) {

@@ -4,6 +4,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { FileAttachmentChip } from '@/components/FileAttachmentChip';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
+import { useKeyboardHeight } from '@/hooks/useKeyboardHeight';
 import {
   Send,
   Loader2,
@@ -63,6 +64,18 @@ export const AdaInputPanel = forwardRef<AdaInputPanelRef, AdaInputPanelProps>(fu
   
   const [hasContent, setHasContent] = useState(false);
   const [attachSheetOpen, setAttachSheetOpen] = useState(false);
+  
+  // iOS keyboard height detection
+  const { keyboardHeight, isKeyboardVisible } = useKeyboardHeight();
+
+  // Scroll input into view when keyboard appears
+  const handleFocus = useCallback(() => {
+    if (isKeyboardVisible) {
+      setTimeout(() => {
+        textareaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 100);
+    }
+  }, [isKeyboardVisible]);
 
   useImperativeHandle(ref, () => ({
     focus: () => textareaRef.current?.focus(),
@@ -137,7 +150,10 @@ export const AdaInputPanel = forwardRef<AdaInputPanelRef, AdaInputPanelProps>(fu
       style={{ 
         contain: 'layout style',
         flexShrink: 0,
-        paddingBottom: 'max(env(safe-area-inset-bottom, 8px), 8px)'
+        paddingBottom: isKeyboardVisible 
+          ? `${keyboardHeight}px` 
+          : 'max(env(safe-area-inset-bottom, 8px), 8px)',
+        transition: 'padding-bottom 0.25s ease-out'
       }}
     >
       {/* Voice listening indicator - ChatGPT style banner */}
@@ -235,6 +251,7 @@ export const AdaInputPanel = forwardRef<AdaInputPanelRef, AdaInputPanelProps>(fu
               placeholder="Ask Ada"
               onKeyDown={handleKeyDown}
               onChange={handleChange}
+              onFocus={handleFocus}
               disabled={isProcessing}
               className={cn(
                 "min-h-[44px] max-h-[120px] resize-none",
