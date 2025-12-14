@@ -1,4 +1,4 @@
-import React, { Suspense } from 'react';
+import React, { Suspense, useState, useEffect } from 'react';
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -16,6 +16,9 @@ import { useCapacitorInit } from "@/hooks/useCapacitorInit";
 import { offlineLazy } from "@/utils/offlineLazyLoader";
 import { OfflineSuspenseFallback } from "@/components/OfflineSuspenseFallback";
 import { OfflineFirstProvider } from "@/components/OfflineFirstProvider";
+import { AnimatedSplash } from "@/components/AnimatedSplash";
+import { coordinateSplashTransition } from "@/services/capacitorInit";
+import { Capacitor } from "@capacitor/core";
 
 // Theme and Capacitor initialization component
 function AppInitializer({ children }: { children: React.ReactNode }) {
@@ -48,67 +51,102 @@ import NotFound from "./pages/NotFound";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
 
+// Splash screen wrapper component
+function SplashWrapper({ children }: { children: React.ReactNode }) {
+  const [showSplash, setShowSplash] = useState(true);
+  const [appReady, setAppReady] = useState(false);
+
+  useEffect(() => {
+    // Hide native splash when web splash takes over
+    if (Capacitor.isNativePlatform()) {
+      coordinateSplashTransition();
+    }
+    
+    // Mark app as ready after a short delay for auth check
+    const timer = setTimeout(() => {
+      setAppReady(true);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  const handleSplashComplete = () => {
+    setShowSplash(false);
+  };
+
+  return (
+    <>
+      {showSplash && <AnimatedSplash onComplete={handleSplashComplete} minimumDuration={2500} />}
+      <div style={{ visibility: showSplash ? 'hidden' : 'visible' }}>
+        {children}
+      </div>
+    </>
+  );
+}
+
 const App = () => (
   <ErrorBoundary>
     <QueryClientProvider client={queryClient}>
       <OfflineFirstProvider>
         <AuthProvider>
           <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-            <AppInitializer>
-              <TooltipProvider>
-                <SecurityHeaders />
-                <OptimizedSecurityMonitor />
-                <Toaster />
-                <Sonner />
-                <BrowserRouter>
-          <Routes>
-            <Route path="/welcome" element={<Welcome />} />
-            <Route path="/onboarding" element={<Onboarding />} />
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/auth-callback" element={<AuthCallback />} />
-            <Route path="/auth/verify" element={<EmailVerification />} />
-            <Route path="/auth/reset-password" element={<PasswordResetConfirm />} />
-            <Route path="/install" element={<Install />} />
-            <Route path="/privacy" element={<PrivacyPolicy />} />
-            <Route path="/terms" element={<TermsOfService />} />
-            <Route path="/" element={<AppLayout />}>
-              <Route index element={<Index />} />
-              <Route path="calendar" element={
-                <Suspense fallback={<OfflineSuspenseFallback pageName="Calendar" />}>
-                  <Calendar />
-                </Suspense>
-              } />
-              <Route path="ada" element={
-                <Suspense fallback={<OfflineSuspenseFallback pageName="Ada AI" />}>
-                  <Ada />
-                </Suspense>
-              } />
-              <Route path="about-ada-ai" element={
-                <Suspense fallback={<OfflineSuspenseFallback pageName="About Ada AI" />}>
-                  <AboutAdaAI />
-                </Suspense>
-              } />
-              <Route path="marketplace" element={
-                <Suspense fallback={<OfflineSuspenseFallback pageName="Marketplace" />}>
-                  <Marketplace />
-                </Suspense>
-              } />
-              <Route path="courses" element={<Courses />} />
-              <Route path="assignments" element={<Assignments />} />
-              <Route path="timer" element={<Timer />} />
-              <Route path="analytics" element={
-                <Suspense fallback={<OfflineSuspenseFallback pageName="Analytics" />}>
-                  <Analytics />
-                </Suspense>
-              } />
-              <Route path="settings" element={<Settings />} />
-            </Route>
-            {/* Catch-all route for 404 page */}
-            <Route path="*" element={<NotFound />} />
-            </Routes>
-                </BrowserRouter>
-              </TooltipProvider>
-            </AppInitializer>
+            <SplashWrapper>
+              <AppInitializer>
+                <TooltipProvider>
+                  <SecurityHeaders />
+                  <OptimizedSecurityMonitor />
+                  <Toaster />
+                  <Sonner />
+                  <BrowserRouter>
+                    <Routes>
+                      <Route path="/welcome" element={<Welcome />} />
+                      <Route path="/onboarding" element={<Onboarding />} />
+                      <Route path="/auth" element={<Auth />} />
+                      <Route path="/auth-callback" element={<AuthCallback />} />
+                      <Route path="/auth/verify" element={<EmailVerification />} />
+                      <Route path="/auth/reset-password" element={<PasswordResetConfirm />} />
+                      <Route path="/install" element={<Install />} />
+                      <Route path="/privacy" element={<PrivacyPolicy />} />
+                      <Route path="/terms" element={<TermsOfService />} />
+                      <Route path="/" element={<AppLayout />}>
+                        <Route index element={<Index />} />
+                        <Route path="calendar" element={
+                          <Suspense fallback={<OfflineSuspenseFallback pageName="Calendar" />}>
+                            <Calendar />
+                          </Suspense>
+                        } />
+                        <Route path="ada" element={
+                          <Suspense fallback={<OfflineSuspenseFallback pageName="Ada AI" />}>
+                            <Ada />
+                          </Suspense>
+                        } />
+                        <Route path="about-ada-ai" element={
+                          <Suspense fallback={<OfflineSuspenseFallback pageName="About Ada AI" />}>
+                            <AboutAdaAI />
+                          </Suspense>
+                        } />
+                        <Route path="marketplace" element={
+                          <Suspense fallback={<OfflineSuspenseFallback pageName="Marketplace" />}>
+                            <Marketplace />
+                          </Suspense>
+                        } />
+                        <Route path="courses" element={<Courses />} />
+                        <Route path="assignments" element={<Assignments />} />
+                        <Route path="timer" element={<Timer />} />
+                        <Route path="analytics" element={
+                          <Suspense fallback={<OfflineSuspenseFallback pageName="Analytics" />}>
+                            <Analytics />
+                          </Suspense>
+                        } />
+                        <Route path="settings" element={<Settings />} />
+                      </Route>
+                      {/* Catch-all route for 404 page */}
+                      <Route path="*" element={<NotFound />} />
+                    </Routes>
+                  </BrowserRouter>
+                </TooltipProvider>
+              </AppInitializer>
+            </SplashWrapper>
           </ThemeProvider>
         </AuthProvider>
       </OfflineFirstProvider>
