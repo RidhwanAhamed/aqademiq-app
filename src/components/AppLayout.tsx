@@ -1,4 +1,4 @@
-import { Outlet, useNavigate, useLocation } from "react-router-dom";
+import { Outlet, useNavigate } from "react-router-dom";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { MobileBottomNav } from "@/components/MobileBottomNav";
@@ -7,10 +7,12 @@ import { Button } from "@/components/ui/button";
 import { LogOut, Menu, Loader2 } from "lucide-react";
 import { useEffect } from "react";
 import { cn } from "@/lib/utils";
+import { useKeyboardHeight } from "@/hooks/useKeyboardHeight";
 
 export function AppLayout() {
   const { signOut, user, loading } = useAuth();
   const navigate = useNavigate();
+  const { isKeyboardVisible } = useKeyboardHeight();
 
   // Redirect to auth if not authenticated
   useEffect(() => {
@@ -62,8 +64,11 @@ export function AppLayout() {
             </div>
           </header>
 
-          {/* Main Content - With bottom padding on mobile for nav */}
-          <main className="flex-1 overflow-y-auto overflow-x-hidden pb-20 lg:pb-0 min-w-0">
+          {/* Main Content - With bottom padding on mobile for nav (removed when keyboard visible) */}
+          <main className={cn(
+            "flex-1 overflow-y-auto overflow-x-hidden min-w-0",
+            isKeyboardVisible ? "pb-0" : "pb-20 lg:pb-0"
+          )}>
             <Outlet />
           </main>
 

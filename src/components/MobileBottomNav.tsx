@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Home, Calendar, Sparkles, Clock, MoreHorizontal, BarChart3, BookOpen, GraduationCap, Settings, X } from "lucide-react";
+import { Home, Calendar, Sparkles, Clock, MoreHorizontal, BarChart3, BookOpen, GraduationCap, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { useKeyboardHeight } from "@/hooks/useKeyboardHeight";
 
 const mainNavItems = [
   { icon: Home, label: 'Home', path: '/' },
@@ -21,6 +22,12 @@ const moreNavItems = [
 export function MobileBottomNav() {
   const location = useLocation();
   const [moreOpen, setMoreOpen] = useState(false);
+  const { isKeyboardVisible } = useKeyboardHeight();
+
+  // Hide nav completely when keyboard is visible (ChatGPT-style)
+  if (isKeyboardVisible) {
+    return null;
+  }
 
   const isMoreActive = moreNavItems.some(item => 
     location.pathname === item.path || location.pathname.startsWith(item.path)
