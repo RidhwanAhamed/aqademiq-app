@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { AdaMessageBubble, ChatMessage } from './AdaMessageBubble';
 import { cn } from '@/lib/utils';
+import { useKeyboardHeight } from '@/hooks/useKeyboardHeight';
 import {
   CalendarPlus,
   Calendar,
@@ -93,6 +94,7 @@ export const AdaMessagesPanel = memo(function AdaMessagesPanel({
   const scrollViewportRef = useRef<HTMLDivElement>(null);
   const prevMessagesLengthRef = useRef(messages.length);
   const [showScrollButton, setShowScrollButton] = useState(false);
+  const { isKeyboardVisible } = useKeyboardHeight();
 
   // Scroll to bottom when new messages arrive
   useEffect(() => {
@@ -106,6 +108,18 @@ export const AdaMessagesPanel = memo(function AdaMessagesPanel({
     }
     prevMessagesLengthRef.current = messages.length;
   }, [messages.length]);
+
+  // Scroll to bottom when keyboard appears
+  useEffect(() => {
+    if (isKeyboardVisible) {
+      requestAnimationFrame(() => {
+        const viewport = scrollViewportRef.current;
+        if (viewport) {
+          viewport.scrollTo({ top: viewport.scrollHeight, behavior: 'smooth' });
+        }
+      });
+    }
+  }, [isKeyboardVisible]);
 
   // Track scroll position for FAB visibility
   useEffect(() => {
@@ -335,7 +349,12 @@ export const AdaMessagesPanel = memo(function AdaMessagesPanel({
           role="log" 
           aria-live="polite" 
           aria-label="Chat messages"
-          style={{ minHeight: '100%', display: 'flex', flexDirection: 'column' }}
+          style={{ 
+            minHeight: '100%', 
+            display: 'flex', 
+            flexDirection: 'column',
+            paddingBottom: isKeyboardVisible ? '140px' : undefined // Extra space for fixed input
+          }}
         >
           {messages.length === 0 ? (
             /* ChatGPT-style centered welcome - fills available space */
