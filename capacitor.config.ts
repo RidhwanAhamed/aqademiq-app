@@ -12,14 +12,16 @@ const config: CapacitorConfig = {
   // Plugin configurations for native features
   plugins: {
     SplashScreen: {
-      launchShowDuration: 2000,
-      launchAutoHide: true,
+      launchShowDuration: 2500,
+      launchAutoHide: false,
+      launchFadeOutDuration: 400,
       backgroundColor: "#0A0A0A",
       showSpinner: false,
       androidSplashResourceName: "splash",
-      iosSplashResourceName: "splash",
+      iosSplashResourceName: "Splash",
       splashFullScreen: true,
-      splashImmersive: true
+      splashImmersive: true,
+      androidScaleType: "CENTER_CROP"
     },
     StatusBar: {
       style: "dark",
