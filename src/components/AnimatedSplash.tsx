@@ -21,7 +21,7 @@ export function AnimatedSplash({ onComplete, minimumDuration = 2500 }: AnimatedS
     onComplete();
   };
 
-  const wordmark = "AQADEMIQ";
+  const wordmark = "Aqademiq";
   const tagline = "Supercharged Productivity";
 
   return (
