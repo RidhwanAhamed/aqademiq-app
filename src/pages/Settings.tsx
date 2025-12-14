@@ -6,6 +6,7 @@ import { GoogleCalendarSettings } from "@/components/GoogleCalendarSettings";
 import { EnhancedNotificationSettings } from "@/components/EnhancedNotificationSettings";
 import { SecurityMonitorDashboard } from "@/components/SecurityMonitorDashboard";
 import { AchievementShowcase } from "@/components/AchievementShowcase";
+import { NativeFeaturesTester } from "@/components/NativeFeaturesTester";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -310,6 +311,9 @@ export default function Settings() {
               </CardContent>
             </Card>
           </div>
+
+          {/* Native Features Testing */}
+          <NativeFeaturesTester />
         </TabsContent>
 
         <TabsContent value="achievements" className="space-y-4 sm:space-y-6">
