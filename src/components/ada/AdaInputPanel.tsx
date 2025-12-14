@@ -146,14 +146,18 @@ export const AdaInputPanel = forwardRef<AdaInputPanelRef, AdaInputPanelProps>(fu
 
   return (
     <div 
-      className="bg-background border-t border-border/50"
+      className={cn(
+        "bg-background border-t border-border/50",
+        isKeyboardVisible && "fixed left-0 right-0 z-50"
+      )}
       style={{ 
         contain: 'layout style',
         flexShrink: 0,
+        bottom: isKeyboardVisible ? `${keyboardHeight}px` : undefined,
         paddingBottom: isKeyboardVisible 
-          ? `${keyboardHeight}px` 
+          ? '8px' 
           : 'max(env(safe-area-inset-bottom, 8px), 8px)',
-        transition: 'padding-bottom 0.25s ease-out'
+        transition: 'bottom 0.25s ease-out'
       }}
     >
       {/* Voice listening indicator - ChatGPT style banner */}
