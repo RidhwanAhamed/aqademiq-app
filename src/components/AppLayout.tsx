@@ -40,9 +40,9 @@ export function AppLayout() {
         <AppSidebar />
         
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-          {/* Mobile Header */}
-          <header className="lg:hidden h-14 border-b bg-card/95 backdrop-blur-lg flex items-center justify-between px-4 sticky top-0 z-40">
-            <div className="flex items-center space-x-2">
+          {/* Mobile Header - with iOS safe area support */}
+          <header className="lg:hidden border-b bg-card/95 backdrop-blur-lg flex items-center justify-between px-4 sticky top-0 z-40 pt-[env(safe-area-inset-top)]">
+            <div className="flex items-center space-x-2 h-14">
               <SidebarTrigger className="h-9 w-9">
                 <Menu className="h-4 w-4" />
               </SidebarTrigger>
@@ -50,14 +50,16 @@ export function AppLayout() {
                 Aqademiq
               </span>
             </div>
-            <Button 
-              onClick={() => signOut()}
-              variant="ghost" 
-              size="icon"
-              className="h-9 w-9"
-            >
-              <LogOut className="h-4 w-4" />
-            </Button>
+            <div className="flex items-center h-14">
+              <Button 
+                onClick={() => signOut()}
+                variant="ghost" 
+                size="icon"
+                className="h-9 w-9"
+              >
+                <LogOut className="h-4 w-4" />
+              </Button>
+            </div>
           </header>
 
           {/* Main Content - With bottom padding on mobile for nav */}
