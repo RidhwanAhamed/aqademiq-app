@@ -2,6 +2,7 @@ import { AddStudySessionDialog } from "@/components/AddStudySessionDialog";
 import { TimerSettingsDialog } from "@/components/TimerSettingsDialog";
 import { AchievementUnlockModal } from "@/components/AchievementUnlockModal";
 import { StudyContextSelector, type StudyContext } from "@/components/StudyContextSelector";
+import { WhiteNoisePlayer } from "@/components/WhiteNoisePlayer";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -227,6 +228,7 @@ export default function Timer() {
           <p className="text-sm sm:text-base text-muted-foreground">Focus with Pomodoro technique</p>
         </div>
         <div className="flex gap-2">
+          <WhiteNoisePlayer />
           <Button 
             onClick={() => setSettingsOpen(true)}
             variant="outline"
