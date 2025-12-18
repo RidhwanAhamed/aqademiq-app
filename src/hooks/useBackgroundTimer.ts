@@ -1,6 +1,16 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { playTimerSound, getSoundTypeFromFile } from '@/utils/timerSounds';
-export type TimerMode = 'focus' | 'short-break' | 'long-break';
+import { getSoundTypeFromFile, playTimerSound } from '@/utils/timerSounds';
+import { useCallback, useEffect, useRef, useState } from 'react';
+
+// Timer modes: focus sessions, breaks, and custom
+export type TimerMode = 
+  | 'focus-25' 
+  | 'focus-45' 
+  | 'focus-60' 
+  | 'focus-90' 
+  | 'custom'
+  | 'short-break' 
+  | 'medium-break' 
+  | 'long-break';
 
 interface SoundSettings {
   enabled: boolean;
@@ -18,13 +28,26 @@ interface TimerState {
   sessionsCompleted: number;
   totalFocusTime: number;
   soundSettings: SoundSettings;
+  customDuration: number; // Custom duration in seconds
 }
 
-const TIMER_PRESETS = {
-  focus: 25 * 60, // 25 minutes in seconds
-  'short-break': 5 * 60, // 5 minutes in seconds
-  'long-break': 15 * 60, // 15 minutes in seconds
+// Helper to check if a mode is a focus session (includes custom)
+export const isFocusMode = (mode: TimerMode): boolean => 
+  mode.startsWith('focus') || mode === 'custom';
+
+// Preset durations (custom uses customDuration from state)
+const TIMER_PRESETS: Record<Exclude<TimerMode, 'custom'>, number> = {
+  'focus-25': 25 * 60,     // Classic Pomodoro - 25 minutes
+  'focus-45': 45 * 60,     // Deep focus - 45 minutes
+  'focus-60': 60 * 60,     // Extended focus - 1 hour timebox
+  'focus-90': 90 * 60,     // Ultra focus - 90 min ultradian rhythm
+  'short-break': 5 * 60,   // Short break - 5 minutes
+  'medium-break': 10 * 60, // Medium break - 10 minutes
+  'long-break': 15 * 60,   // Long break - 15 minutes
 };
+
+const DEFAULT_CUSTOM_DURATION = 30 * 60; // 30 minutes default for custom
+const CUSTOM_DURATION_KEY = 'pomodoro-custom-duration';
 
 const DEFAULT_SOUND_SETTINGS: SoundSettings = {
   enabled: true,
@@ -36,16 +59,23 @@ const DEFAULT_SOUND_SETTINGS: SoundSettings = {
 const STORAGE_KEY = 'pomodoro-timer-state';
 const SOUND_SETTINGS_KEY = 'pomodoro-sound-settings';
 
+// Helper to get duration for any mode including custom
+const getModeDuration = (mode: TimerMode, customDuration: number): number => {
+  if (mode === 'custom') return customDuration;
+  return TIMER_PRESETS[mode];
+};
+
 export const useBackgroundTimer = () => {
   const [state, setState] = useState<TimerState>({
-    mode: 'focus',
+    mode: 'focus-25',
     isRunning: false,
     startTime: null,
     endTime: null,
-    timeLeft: TIMER_PRESETS.focus,
+    timeLeft: TIMER_PRESETS['focus-25'],
     sessionsCompleted: 0,
     totalFocusTime: 0,
     soundSettings: DEFAULT_SOUND_SETTINGS,
+    customDuration: DEFAULT_CUSTOM_DURATION,
   });
 
   const animationFrameRef = useRef<number>();
@@ -73,6 +103,21 @@ export const useBackgroundTimer = () => {
     }
   }, []);
 
+  // Load custom duration from localStorage
+  useEffect(() => {
+    const savedCustomDuration = localStorage.getItem(CUSTOM_DURATION_KEY);
+    if (savedCustomDuration) {
+      try {
+        const parsed = JSON.parse(savedCustomDuration);
+        if (typeof parsed === 'number' && parsed > 0) {
+          setState(prev => ({ ...prev, customDuration: parsed }));
+        }
+      } catch (error) {
+        console.error('Failed to restore custom duration:', error);
+      }
+    }
+  }, []);
+
   // Load state from localStorage on mount
   useEffect(() => {
     const savedState = localStorage.getItem(STORAGE_KEY);
@@ -92,13 +137,16 @@ export const useBackgroundTimer = () => {
             endTime: timeLeft > 0 ? parsed.endTime : null,
           });
         } else {
+          const mode = parsed.mode as TimerMode;
+          const customDuration = parsed.customDuration || DEFAULT_CUSTOM_DURATION;
           setState(prev => ({
             ...prev,
             ...parsed,
             isRunning: false,
             startTime: null,
             endTime: null,
-            timeLeft: TIMER_PRESETS[parsed.mode] || TIMER_PRESETS.focus,
+            customDuration,
+            timeLeft: getModeDuration(mode, customDuration) || TIMER_PRESETS['focus-25'],
           }));
         }
       } catch (error) {
@@ -123,7 +171,7 @@ export const useBackgroundTimer = () => {
       const minutes = Math.floor(state.timeLeft / 60);
       const seconds = state.timeLeft % 60;
       const timeStr = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-      const modeLabel = state.mode === 'focus' ? '🍅' : '☕';
+      const modeLabel = isFocusMode(state.mode) ? '🍅' : '☕';
       document.title = `${modeLabel} ${timeStr} - Aqademiq`;
     } else {
       document.title = 'Aqademiq';
@@ -174,19 +222,22 @@ export const useBackgroundTimer = () => {
       
       if (timeLeft === 0) {
         // Timer completed
-        setState(prev => ({
-          ...prev,
-          isRunning: false,
-          startTime: null,
-          endTime: null,
-          sessionsCompleted: prev.mode === 'focus' ? prev.sessionsCompleted + 1 : prev.sessionsCompleted,
-          totalFocusTime: prev.mode === 'focus' ? 
-            prev.totalFocusTime + TIMER_PRESETS[prev.mode] / 60 : 
-            prev.totalFocusTime,
-        }));
+        setState(prev => {
+          const modeDuration = getModeDuration(prev.mode, prev.customDuration);
+          return {
+            ...prev,
+            isRunning: false,
+            startTime: null,
+            endTime: null,
+            sessionsCompleted: isFocusMode(prev.mode) ? prev.sessionsCompleted + 1 : prev.sessionsCompleted,
+            totalFocusTime: isFocusMode(prev.mode) ? 
+              prev.totalFocusTime + modeDuration / 60 : 
+              prev.totalFocusTime,
+          };
+        });
 
         // Show notification and play sound
-        if (state.mode === 'focus') {
+        if (isFocusMode(state.mode)) {
           playSound(state.soundSettings.focusCompleteSound, state.soundSettings.volume);
           showNotification('Focus Session Complete! 🍅', 'Time for a well-deserved break.');
         } else {
@@ -213,16 +264,19 @@ export const useBackgroundTimer = () => {
         
         if (timeLeft === 0) {
           // Timer completed while tab was hidden
-          setState(prev => ({
-            ...prev,
-            isRunning: false,
-            startTime: null,
-            endTime: null,
-            sessionsCompleted: prev.mode === 'focus' ? prev.sessionsCompleted + 1 : prev.sessionsCompleted,
-            totalFocusTime: prev.mode === 'focus' ? 
-              prev.totalFocusTime + TIMER_PRESETS[prev.mode] / 60 : 
-              prev.totalFocusTime,
-          }));
+          setState(prev => {
+            const modeDuration = getModeDuration(prev.mode, prev.customDuration);
+            return {
+              ...prev,
+              isRunning: false,
+              startTime: null,
+              endTime: null,
+              sessionsCompleted: isFocusMode(prev.mode) ? prev.sessionsCompleted + 1 : prev.sessionsCompleted,
+              totalFocusTime: isFocusMode(prev.mode) ? 
+                prev.totalFocusTime + modeDuration / 60 : 
+                prev.totalFocusTime,
+            };
+          });
         }
       }
     };
@@ -276,7 +330,7 @@ export const useBackgroundTimer = () => {
       isRunning: false,
       startTime: null,
       endTime: null,
-      timeLeft: TIMER_PRESETS[prev.mode],
+      timeLeft: getModeDuration(prev.mode, prev.customDuration),
     }));
   }, []);
 
@@ -287,7 +341,19 @@ export const useBackgroundTimer = () => {
       isRunning: false,
       startTime: null,
       endTime: null,
-      timeLeft: TIMER_PRESETS[mode],
+      timeLeft: getModeDuration(mode, prev.customDuration),
+    }));
+  }, []);
+
+  const setCustomDuration = useCallback((seconds: number) => {
+    // Accept seconds directly, minimum 1 second
+    const durationInSeconds = Math.max(1, seconds);
+    localStorage.setItem(CUSTOM_DURATION_KEY, JSON.stringify(durationInSeconds));
+    setState(prev => ({
+      ...prev,
+      customDuration: durationInSeconds,
+      // If currently in custom mode, also update timeLeft
+      timeLeft: prev.mode === 'custom' && !prev.isRunning ? durationInSeconds : prev.timeLeft,
     }));
   }, []);
 
@@ -307,15 +373,22 @@ export const useBackgroundTimer = () => {
     return playTimerSound(soundType, volume);
   }, []);
 
+  // Create a presets object that includes custom for UI display
+  const presetsWithCustom = {
+    ...TIMER_PRESETS,
+    custom: state.customDuration,
+  };
+
   return {
     ...state,
     startTimer,
     pauseTimer,
     resetTimer,
     setMode,
+    setCustomDuration,
     clearSavedState,
     updateSoundSettings,
     testSound,
-    presets: TIMER_PRESETS,
+    presets: presetsWithCustom,
   };
 };

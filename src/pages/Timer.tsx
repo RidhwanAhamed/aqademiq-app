@@ -1,25 +1,25 @@
-import { AddStudySessionDialog } from "@/components/AddStudySessionDialog";
-import { TimerSettingsDialog } from "@/components/TimerSettingsDialog";
 import { AchievementUnlockModal } from "@/components/AchievementUnlockModal";
+import { AddStudySessionDialog } from "@/components/AddStudySessionDialog";
 import { StudyContextSelector, type StudyContext } from "@/components/StudyContextSelector";
+import { TimerSettingsDialog } from "@/components/TimerSettingsDialog";
 import { WhiteNoisePlayer } from "@/components/WhiteNoisePlayer";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/hooks/useAuth";
-import { useBackgroundTimer, type TimerMode } from "@/hooks/useBackgroundTimer";
 import { useAchievements } from "@/hooks/useAchievements";
-import { useUserStats } from "@/hooks/useUserStats";
-import { useCourses } from "@/hooks/useCourses";
 import { useAssignments } from "@/hooks/useAssignments";
+import { useAuth } from "@/hooks/useAuth";
+import { isFocusMode, useBackgroundTimer, type TimerMode } from "@/hooks/useBackgroundTimer";
+import { useCourses } from "@/hooks/useCourses";
 import { useExams } from "@/hooks/useExams";
+import { useUserStats } from "@/hooks/useUserStats";
 import { supabase } from "@/integrations/supabase/client";
-import { BookOpen, Clock, Coffee, FileText, GraduationCap, Maximize2, Minimize2, Pause, Play, Plus, RotateCcw, Settings, Sparkles, Target, Volume2, VolumeX } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
 import { Badge as BadgeType } from "@/types/badges";
+import { BookOpen, Clock, Coffee, FileText, GraduationCap, Maximize2, Minimize2, Pause, Play, Plus, RotateCcw, Settings, SlidersHorizontal, Sparkles, Target, Volume2, VolumeX } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 
 export default function Timer() {
   const [showStudySessionDialog, setShowStudySessionDialog] = useState(false);
@@ -33,6 +33,10 @@ export default function Timer() {
     type: 'general',
     label: 'General Study'
   });
+  // Custom timer picker state (hours, minutes, seconds)
+  const [customHours, setCustomHours] = useState(0);
+  const [customMins, setCustomMins] = useState(30);
+  const [customSecs, setCustomSecs] = useState(0);
   const timerContainerRef = useRef<HTMLDivElement>(null);
   
   const { 
@@ -42,10 +46,12 @@ export default function Timer() {
     sessionsCompleted, 
     totalFocusTime,
     soundSettings,
+    customDuration,
     startTimer: startBackgroundTimer,
     pauseTimer,
     resetTimer: resetBackgroundTimer,
     setMode,
+    setCustomDuration,
     updateSoundSettings,
     testSound,
     presets
@@ -58,6 +64,17 @@ export default function Timer() {
   const { courses } = useCourses();
   const { assignments } = useAssignments();
   const { exams } = useExams();
+
+  // Sync custom picker with stored custom duration
+  useEffect(() => {
+    const totalSeconds = customDuration;
+    const hours = Math.floor(totalSeconds / 3600);
+    const mins = Math.floor((totalSeconds % 3600) / 60);
+    const secs = totalSeconds % 60;
+    setCustomHours(hours);
+    setCustomMins(mins);
+    setCustomSecs(secs);
+  }, [customDuration]);
 
   // Track timer completion for database logging
   useEffect(() => {
@@ -77,8 +94,8 @@ export default function Timer() {
   }, []);
 
   const handleTimerComplete = async () => {
-    if (mode === 'focus' && currentSessionStart) {
-      const sessionDuration = presets.focus / 60;
+    if (isFocusMode(mode) && currentSessionStart) {
+      const sessionDuration = presets[mode] / 60;
       
       if (user) {
         const endTime = new Date();
@@ -165,10 +182,12 @@ export default function Timer() {
         }
       }
       
+      // Suggest appropriate break based on session length and count
       const nextMode = sessionsCompleted % 4 === 3 ? 'long-break' : 'short-break';
       setMode(nextMode);
-    } else if (mode !== 'focus') {
-      setMode('focus');
+    } else if (!isFocusMode(mode)) {
+      // After break, default back to 25 min focus
+      setMode('focus-25');
     }
     
     setCurrentSessionStart(null);
@@ -176,7 +195,7 @@ export default function Timer() {
 
   const startTimer = () => {
     startBackgroundTimer();
-    if (!currentSessionStart && mode === 'focus') {
+    if (!currentSessionStart && isFocusMode(mode)) {
       setCurrentSessionStart(new Date());
     }
   };
@@ -195,26 +214,66 @@ export default function Timer() {
     }
   };
 
+  // Format time as H:MM:SS or MM:SS depending on duration
   const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
+    const hours = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
     const secs = seconds % 60;
+    
+    if (hours > 0) {
+      return `${hours}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  // Format duration as "X hr, Y min" for display
+  const formatDurationLabel = (seconds: number) => {
+    const hours = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    
+    const parts = [];
+    if (hours > 0) parts.push(`${hours} hr`);
+    if (mins > 0) parts.push(`${mins} min`);
+    if (secs > 0 && hours === 0) parts.push(`${secs} sec`);
+    
+    return parts.length > 0 ? parts.join(', ') : '0 sec';
   };
 
   const getModeLabel = () => {
     switch (mode) {
-      case 'focus': return 'Focus Session';
+      case 'focus-25': return 'Focus Session';
+      case 'focus-45': return 'Deep Focus';
+      case 'focus-60': return 'Extended Focus';
+      case 'focus-90': return 'Ultra Focus';
+      case 'custom': return 'Custom Timer';
       case 'short-break': return 'Short Break';
+      case 'medium-break': return 'Medium Break';
       case 'long-break': return 'Long Break';
     }
   };
 
   const getModeIcon = () => {
     switch (mode) {
-      case 'focus': return <Target className="w-5 h-5 sm:w-6 sm:h-6" />;
+      case 'focus-25': return <Target className="w-5 h-5 sm:w-6 sm:h-6" />;
+      case 'focus-45': return <Sparkles className="w-5 h-5 sm:w-6 sm:h-6" />;
+      case 'focus-60': return <Clock className="w-5 h-5 sm:w-6 sm:h-6" />;
+      case 'focus-90': return <BookOpen className="w-5 h-5 sm:w-6 sm:h-6" />;
+      case 'custom': return <SlidersHorizontal className="w-5 h-5 sm:w-6 sm:h-6" />;
       case 'short-break':
+      case 'medium-break':
       case 'long-break': return <Coffee className="w-5 h-5 sm:w-6 sm:h-6" />;
     }
+  };
+
+  // Handle custom duration change from picker
+  const handleCustomPickerChange = (hours: number, mins: number, secs: number) => {
+    setCustomHours(hours);
+    setCustomMins(mins);
+    setCustomSecs(secs);
+    // Convert to total seconds and update (minimum 1 second)
+    const totalSeconds = Math.max(1, hours * 3600 + mins * 60 + secs);
+    setCustomDuration(totalSeconds);
   };
 
   const progress = ((presets[mode] - timeLeft) / presets[mode]) * 100;
@@ -305,15 +364,85 @@ export default function Timer() {
                 }}
                 disabled={isRunning}
               >
-                <SelectTrigger className="w-full sm:w-48 mx-auto h-12 sm:h-10">
+                <SelectTrigger className="w-full sm:w-56 mx-auto h-12 sm:h-10">
                   <SelectValue placeholder="Select timer mode" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="focus">Focus (25 min)</SelectItem>
+                  <SelectItem value="custom">Custom Timer</SelectItem>
+                  <SelectItem value="focus-25">Focus (25 min)</SelectItem>
+                  <SelectItem value="focus-45">Deep Focus (45 min)</SelectItem>
+                  <SelectItem value="focus-60">Extended Focus (60 min)</SelectItem>
+                  <SelectItem value="focus-90">Ultra Focus (90 min)</SelectItem>
                   <SelectItem value="short-break">Short Break (5 min)</SelectItem>
+                  <SelectItem value="medium-break">Medium Break (10 min)</SelectItem>
                   <SelectItem value="long-break">Long Break (15 min)</SelectItem>
                 </SelectContent>
               </Select>
+
+              {/* Custom duration picker - iOS style with hours, minutes, seconds */}
+              {mode === 'custom' && !isRunning && (
+                <div className="flex items-center justify-center gap-2 mt-3">
+                  {/* Hours picker */}
+                  <div className="flex flex-col items-center">
+                    <Select
+                      value={String(customHours)}
+                      onValueChange={(val) => handleCustomPickerChange(parseInt(val), customMins, customSecs)}
+                    >
+                      <SelectTrigger className="w-20 h-12 text-center text-lg font-medium">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-48">
+                        {Array.from({ length: 24 }, (_, i) => (
+                          <SelectItem key={i} value={String(i)} className="text-center">
+                            {i}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <span className="text-xs text-muted-foreground mt-1">hours</span>
+                  </div>
+                  
+                  {/* Minutes picker */}
+                  <div className="flex flex-col items-center">
+                    <Select
+                      value={String(customMins)}
+                      onValueChange={(val) => handleCustomPickerChange(customHours, parseInt(val), customSecs)}
+                    >
+                      <SelectTrigger className="w-20 h-12 text-center text-lg font-medium">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-48">
+                        {Array.from({ length: 60 }, (_, i) => (
+                          <SelectItem key={i} value={String(i)} className="text-center">
+                            {i}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <span className="text-xs text-muted-foreground mt-1">min</span>
+                  </div>
+                  
+                  {/* Seconds picker */}
+                  <div className="flex flex-col items-center">
+                    <Select
+                      value={String(customSecs)}
+                      onValueChange={(val) => handleCustomPickerChange(customHours, customMins, parseInt(val))}
+                    >
+                      <SelectTrigger className="w-20 h-12 text-center text-lg font-medium">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-48">
+                        {Array.from({ length: 60 }, (_, i) => (
+                          <SelectItem key={i} value={String(i)} className="text-center">
+                            {i}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <span className="text-xs text-muted-foreground mt-1">sec</span>
+                  </div>
+                </div>
+              )}
               
               <div className="flex items-center justify-center gap-3">
                 <div className={`${isFullscreen ? 'text-9xl' : 'text-5xl sm:text-6xl lg:text-7xl'} font-mono font-bold text-primary transition-all`}>
@@ -325,6 +454,13 @@ export default function Timer() {
                   <VolumeX className="w-5 h-5 sm:w-6 sm:h-6 text-muted-foreground" />
                 )}
               </div>
+              
+              {/* Show original duration label when timer is running */}
+              {isRunning && mode === 'custom' && (
+                <div className="text-sm text-muted-foreground">
+                  {formatDurationLabel(presets[mode])}
+                </div>
+              )}
               
               <div className="text-base sm:text-lg text-muted-foreground flex items-center justify-center gap-2">
                 {getModeIcon()}
@@ -414,7 +550,7 @@ export default function Timer() {
                             </Badge>
                           )}
                         </div>
-                        <span className="text-xs sm:text-sm text-muted-foreground">{Math.floor(presets.focus / 60)} min</span>
+                        <span className="text-xs sm:text-sm text-muted-foreground">{Math.floor(presets[mode] / 60)} min</span>
                       </div>
                     ))}
                   </div>
@@ -432,7 +568,7 @@ export default function Timer() {
                           </Badge>
                         )}
                       </div>
-                      <span className="text-xs sm:text-sm text-muted-foreground">{Math.floor(presets.focus / 60)} min</span>
+                      <span className="text-xs sm:text-sm text-muted-foreground">{Math.floor(presets[mode] / 60)} min</span>
                     </div>
                   ))}
                 </div>
