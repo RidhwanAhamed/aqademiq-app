@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -53,6 +54,55 @@ serve(async (req) => {
   }
 
   try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Get user from auth header for token tracking
+    const authHeader = req.headers.get('Authorization');
+    let userId: string | null = null;
+
+    if (authHeader) {
+      try {
+        const token = authHeader.replace('Bearer ', '');
+        const { data } = await supabase.auth.getUser(token);
+        if (data?.user) {
+          userId = data.user.id;
+        }
+      } catch (e) {
+        console.log('Auth header present but user could not be resolved.');
+      }
+    }
+
+    // Token-based rate limiting (10,000 tokens per day per user)
+    if (userId) {
+      try {
+        const { data: usageData, error: usageError } = await supabase.rpc('get_daily_token_usage', {
+          p_user_id: userId
+        });
+
+        if (!usageError && usageData?.[0]?.is_limit_exceeded) {
+          const usage = usageData[0];
+          console.log(`Token limit exceeded for user ${userId}: ${usage.total_tokens_today}/10000 tokens used`);
+          return new Response(JSON.stringify({ 
+            success: false,
+            error: 'Daily token limit reached (10,000 tokens/day). Try again tomorrow.',
+            usage: {
+              used: Number(usage.total_tokens_today),
+              limit: 10000,
+              remaining: 0,
+              resets_at: usage.resets_at
+            }
+          }), {
+            status: 429,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+      } catch (tokenCheckError) {
+        console.log('Token limit check failed (non-blocking):', tokenCheckError);
+      }
+    }
+
     const { topic, fileContent, fileName, filePrompt, depthLevel = 'standard' } = await req.json();
     const content = fileContent || topic;
     const sourceType = fileContent ? 'file' : 'topic';
@@ -117,7 +167,31 @@ serve(async (req) => {
 
     const data = await response.json();
     const aiContent = data.choices?.[0]?.message?.content;
+    const tokenUsage = data.usage || {};
     if (!aiContent) throw new Error("No response from AI service");
+
+    console.log('Token usage:', tokenUsage);
+
+    // Record token usage to database
+    if (userId && tokenUsage.total_tokens) {
+      try {
+        await supabase.from('ai_token_usage').insert({
+          user_id: userId,
+          prompt_tokens: tokenUsage.prompt_tokens || 0,
+          completion_tokens: tokenUsage.completion_tokens || 0,
+          total_tokens: tokenUsage.total_tokens || 0,
+          function_name: 'generate-notes-orchestrator',
+          request_metadata: { 
+            topic: topic?.substring(0, 100),
+            depth_level: depthLevel,
+            source_type: sourceType
+          }
+        });
+        console.log(`Recorded ${tokenUsage.total_tokens} tokens for user ${userId}`);
+      } catch (tokenRecordError) {
+        console.error('Failed to record token usage (non-blocking):', tokenRecordError);
+      }
+    }
 
     let parsedNotes;
     try {
@@ -149,8 +223,33 @@ serve(async (req) => {
 
     console.log(`Generated ${cornellDocument.totalPages} pages: ${cornellDocument.title}`);
 
+    // Fetch updated token usage to return to client
+    let currentUsage = null;
+    if (userId) {
+      try {
+        const { data: usageData } = await supabase.rpc('get_daily_token_usage', {
+          p_user_id: userId
+        });
+        if (usageData?.[0]) {
+          currentUsage = {
+            used: Number(usageData[0].total_tokens_today),
+            limit: 10000,
+            remaining: Number(usageData[0].remaining_tokens),
+            resets_at: usageData[0].resets_at
+          };
+        }
+      } catch (usageError) {
+        console.log('Failed to fetch updated usage:', usageError);
+      }
+    }
+
     return new Response(
-      JSON.stringify({ success: true, data: cornellDocument }),
+      JSON.stringify({ 
+        success: true, 
+        data: cornellDocument,
+        usage: currentUsage,
+        tokens_used: tokenUsage.total_tokens || 0
+      }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
 

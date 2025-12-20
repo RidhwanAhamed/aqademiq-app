@@ -20,12 +20,20 @@ interface AccessibilitySettings {
   focusOutlines: boolean;
 }
 
+interface TokenUsage {
+  used: number;
+  limit: number;
+  remaining: number;
+  resets_at?: string;
+}
+
 interface AdaChatHeaderProps {
   messageCount: number;
   messageLimit: number;
   isFullScreen: boolean;
   showAccessibility: boolean;
   accessibilitySettings: AccessibilitySettings;
+  tokenUsage?: TokenUsage | null;
   onFullScreenToggle?: () => void;
   onAccessibilityToggle: () => void;
   onAccessibilityChange: (settings: AccessibilitySettings) => void;
@@ -40,12 +48,16 @@ export const AdaChatHeader = memo(function AdaChatHeader({
   isFullScreen,
   showAccessibility,
   accessibilitySettings,
+  tokenUsage,
   onFullScreenToggle,
   onAccessibilityToggle,
   onAccessibilityChange,
   onHistoryToggle,
   isHistoryOpen
 }: AdaChatHeaderProps) {
+  const usagePercent = tokenUsage ? (tokenUsage.used / tokenUsage.limit) * 100 : 0;
+  const isLowTokens = tokenUsage && tokenUsage.remaining < 2000;
+  const isOutOfTokens = tokenUsage && tokenUsage.remaining <= 0;
 
   return (
     <div className="flex-shrink-0">
@@ -116,10 +128,53 @@ export const AdaChatHeader = memo(function AdaChatHeader({
                 <SheetTitle>Settings</SheetTitle>
               </SheetHeader>
               <div className="space-y-6 pb-6">
-                {/* Message counter */}
+                {/* Token usage indicator */}
+                {tokenUsage && (
+                  <div className={cn(
+                    "p-3 rounded-lg",
+                    isOutOfTokens ? "bg-destructive/10 border border-destructive/30" :
+                    isLowTokens ? "bg-yellow-500/10 border border-yellow-500/30" :
+                    "bg-muted/50"
+                  )}>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium">Daily Token Usage</span>
+                      <span className={cn(
+                        "text-sm font-mono",
+                        isOutOfTokens ? "text-destructive" :
+                        isLowTokens ? "text-yellow-600 dark:text-yellow-400" :
+                        "text-muted-foreground"
+                      )}>
+                        {tokenUsage.used.toLocaleString()} / {tokenUsage.limit.toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
+                      <div 
+                        className={cn(
+                          "h-full transition-all duration-300",
+                          isOutOfTokens ? "bg-destructive" :
+                          isLowTokens ? "bg-yellow-500" :
+                          "bg-primary"
+                        )}
+                        style={{ width: `${Math.min(usagePercent, 100)}%` }}
+                      />
+                    </div>
+                    <p className={cn(
+                      "text-xs mt-1",
+                      isOutOfTokens ? "text-destructive" :
+                      isLowTokens ? "text-yellow-600 dark:text-yellow-400" :
+                      "text-muted-foreground"
+                    )}>
+                      {isOutOfTokens 
+                        ? "Limit reached. Resets at midnight UTC." 
+                        : `${tokenUsage.remaining.toLocaleString()} tokens remaining`}
+                    </p>
+                  </div>
+                )}
+                
+                {/* Message counter (legacy) */}
                 <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                  <span className="text-sm font-medium">Messages used</span>
-                  <span className="text-sm text-muted-foreground">{messageCount} / {messageLimit}</span>
+                  <span className="text-sm font-medium">Messages this session</span>
+                  <span className="text-sm text-muted-foreground">{messageCount}</span>
                 </div>
                 
                 <div className="space-y-4">
