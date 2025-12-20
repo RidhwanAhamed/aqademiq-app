@@ -912,7 +912,38 @@ serve(async (req) => {
       }
     }
 
-    // Rate limiting
+    // Parse request body first to check for message
+    const { message, conversation_id, course_id, just_indexed_file_id } = await req.json();
+
+    // Token-based rate limiting (10,000 tokens per day per user)
+    if (userId) {
+      try {
+        const { data: usageData, error: usageError } = await supabase.rpc('get_daily_token_usage', {
+          p_user_id: userId
+        });
+
+        if (!usageError && usageData?.[0]?.is_limit_exceeded) {
+          const usage = usageData[0];
+          console.log(`Token limit exceeded for user ${userId}: ${usage.total_tokens_today}/10000 tokens used`);
+          return new Response(JSON.stringify({ 
+            error: 'Daily token limit reached (10,000 tokens/day). Try again tomorrow.',
+            usage: {
+              used: Number(usage.total_tokens_today),
+              limit: 10000,
+              remaining: 0,
+              resets_at: usage.resets_at
+            }
+          }), {
+            status: 429,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+      } catch (tokenCheckError) {
+        console.log('Token limit check failed (non-blocking):', tokenCheckError);
+      }
+    }
+
+    // Legacy rate limiting (fallback for non-authenticated users)
     const rlKey = userId ? `user:${userId}` : `ip:${ip}`;
     if (!checkRateLimit(rlKey, 20, 60000)) {
       console.log(`Rate limit exceeded for ${rlKey}`);
@@ -921,8 +952,6 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-
-    const { message, conversation_id, course_id, just_indexed_file_id } = await req.json();
 
     if (!message) {
       return new Response(
@@ -1161,8 +1190,31 @@ ${documentContext ? documentContext : ''}
 
     const aiResult = await aiResponse.json();
     const rawContent = aiResult.choices?.[0]?.message?.content ?? '';
+    const tokenUsage = aiResult.usage || {};
 
     console.log('Raw AI response length:', rawContent.length);
+    console.log('Token usage:', tokenUsage);
+
+    // Record token usage to database
+    if (userId && tokenUsage.total_tokens) {
+      try {
+        await supabase.from('ai_token_usage').insert({
+          user_id: userId,
+          prompt_tokens: tokenUsage.prompt_tokens || 0,
+          completion_tokens: tokenUsage.completion_tokens || 0,
+          total_tokens: tokenUsage.total_tokens || 0,
+          function_name: 'ai-chat',
+          request_metadata: { 
+            message_preview: message.substring(0, 100),
+            model,
+            conversation_id
+          }
+        });
+        console.log(`Recorded ${tokenUsage.total_tokens} tokens for user ${userId}`);
+      } catch (tokenRecordError) {
+        console.error('Failed to record token usage (non-blocking):', tokenRecordError);
+      }
+    }
 
     // Parse response for actions
     let parsedResponse = {
@@ -1253,6 +1305,26 @@ ${documentContext ? documentContext : ''}
 
     console.log('Validated actions:', validatedActions.length);
 
+    // Fetch updated token usage to return to client
+    let currentUsage = null;
+    if (userId) {
+      try {
+        const { data: usageData } = await supabase.rpc('get_daily_token_usage', {
+          p_user_id: userId
+        });
+        if (usageData?.[0]) {
+          currentUsage = {
+            used: Number(usageData[0].total_tokens_today),
+            limit: 10000,
+            remaining: Number(usageData[0].remaining_tokens),
+            resets_at: usageData[0].resets_at
+          };
+        }
+      } catch (usageError) {
+        console.log('Failed to fetch updated usage:', usageError);
+      }
+    }
+
     return new Response(
       JSON.stringify({ 
         response: parsedResponse.reply_markdown,
@@ -1265,7 +1337,9 @@ ${documentContext ? documentContext : ''}
           document_context_included: !!documentContext,
           actions: validatedActions,
           has_actions: validatedActions.length > 0
-        }
+        },
+        usage: currentUsage,
+        tokens_used: tokenUsage.total_tokens || 0
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
