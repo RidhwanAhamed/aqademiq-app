@@ -18,7 +18,7 @@ const corsHeaders = {
 interface AgentRequest {
   user_id: string;
   intent: string;
-  entity_type: 'event' | 'assignment' | 'exam' | 'study_session' | 'course';
+  entity_type: 'event' | 'assignment' | 'exam' | 'study_session' | 'course' | 'cornell_notes';
   action: 'create' | 'read' | 'update' | 'delete';
   payload: Record<string, any>;
   request_id: string;
@@ -145,6 +145,8 @@ async function routeToWorker(
         return await handleStudySessionAction(supabase, user_id, action, payload, request);
       case 'course':
         return await handleCourseAction(supabase, user_id, action, payload, request);
+      case 'cornell_notes':
+        return await handleCornellNotesAction(supabase, user_id, action, payload, request);
       default:
         return { success: false, error: `Unknown entity type: ${entity_type}`, error_code: 'UNKNOWN_ENTITY' };
     }
@@ -890,6 +892,81 @@ async function handleCourseAction(
       if (error && error.code !== 'PGRST116') throw error;
 
       return { success: true, data: data || [] };
+    }
+
+    default:
+      return { success: false, error: `Unknown action: ${action}`, error_code: 'UNKNOWN_ACTION' };
+  }
+}
+
+// =============================================================================
+// CORNELL NOTES WORKER
+// =============================================================================
+
+async function handleCornellNotesAction(
+  supabase: any,
+  userId: string,
+  action: string,
+  payload: any,
+  request: AgentRequest
+): Promise<AgentResponse> {
+  console.log(`[CornellNotes Worker] Action: ${action}, User: ${userId}`);
+
+  switch (action) {
+    case 'create': {
+      const { topic, fileContent, fileName, filePrompt, depthLevel } = payload;
+
+      try {
+        const response = await fetch(
+          `${Deno.env.get('SUPABASE_URL')}/functions/v1/generate-notes-orchestrator`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}`,
+            },
+            body: JSON.stringify({
+              topic,
+              fileContent,
+              fileName,
+              filePrompt,
+              depthLevel: depthLevel || 'standard',
+            }),
+          }
+        );
+
+        const result = await response.json();
+
+        if (!result.success) {
+          return { success: false, error: result.error };
+        }
+
+        await createAuditLog(
+          supabase, userId, 'create', 'cornell_notes', null,
+          null, result.data, 'ada-ai', request.request_id,
+          request.transaction_id, request.idempotency_key
+        );
+
+        return {
+          success: true,
+          data: result.data,
+        };
+      } catch (error) {
+        console.error('[CornellNotes Worker] Generation failed:', error);
+        return { success: false, error: 'Failed to generate Cornell Notes' };
+      }
+    }
+
+    case 'read': {
+      return { success: true, data: [], error: 'Cornell Notes history not yet implemented' };
+    }
+
+    case 'update': {
+      return { success: false, error: 'Cornell Notes update not yet implemented' };
+    }
+
+    case 'delete': {
+      return { success: false, error: 'Cornell Notes delete not yet implemented' };
     }
 
     default:

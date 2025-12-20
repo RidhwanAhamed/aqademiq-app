@@ -821,6 +821,22 @@ When the user asks to create, update, delete, or manage their calendar, assignme
   "name": "course name for confirmation"
 }
 
+## CORNELL NOTES ACTIONS:
+
+### CREATE_CORNELL_NOTES - Generate Cornell Notes from a topic
+{
+  "type": "CREATE_CORNELL_NOTES",
+  "topic": "Topic or subject for notes (required)",
+  "depthLevel": "brief | standard | comprehensive (default: standard)"
+}
+
+## WHEN TO USE CORNELL NOTES ACTIONS:
+- User says "create/generate/make notes for X" → CREATE_CORNELL_NOTES
+- User says "study notes for X" or "Cornell notes about X" → CREATE_CORNELL_NOTES
+- User wants "quick notes" or "summary" → depthLevel: "brief"
+- User wants "detailed" or "comprehensive" or "thorough" → depthLevel: "comprehensive"
+- Default request → depthLevel: "standard"
+
 ## WHEN TO USE ACTIONS:
 - User says "schedule/add/create X" → CREATE action
 - User says "move/change/reschedule/update X" → UPDATE action
@@ -1224,6 +1240,10 @@ ${documentContext ? documentContext : ''}
           return action.id;
         case 'DELETE_COURSE':
           return action.id;
+        
+        // Cornell Notes actions
+        case 'CREATE_CORNELL_NOTES':
+          return action.topic;
         
         default:
           console.log('Unknown action type:', action.type);
