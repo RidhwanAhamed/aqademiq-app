@@ -92,32 +92,46 @@ export function useFileAccess(): UseFileAccessReturn {
 
     try {
       const signedUrl = await getSignedUrl(file.id);
-      
+
       if (!signedUrl) {
         throw new Error('Could not get download URL');
       }
 
-      // Create a temporary anchor to trigger download
-      const link = document.createElement('a');
-      link.href = signedUrl;
-      link.download = file.display_name || file.file_name;
-      link.target = '_blank';
-      link.rel = 'noopener noreferrer';
-      
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      // Some browsers ignore the `download` attribute for cross-origin URLs.
+      // To make downloads reliable, fetch as a Blob and download via an object URL.
+      try {
+        const res = await fetch(signedUrl, { method: 'GET' });
+        if (!res.ok) {
+          throw new Error(`Download failed (${res.status})`);
+        }
+
+        const blob = await res.blob();
+        const objectUrl = URL.createObjectURL(blob);
+
+        const link = document.createElement('a');
+        link.href = objectUrl;
+        link.download = file.display_name || file.file_name;
+        link.rel = 'noopener noreferrer';
+
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        URL.revokeObjectURL(objectUrl);
+      } catch (blobErr) {
+        console.warn('Blob download failed, falling back to opening signed URL:', blobErr);
+        window.open(signedUrl, '_blank', 'noopener,noreferrer');
+      }
 
       toast({
         title: 'Download started',
         description: `Downloading ${file.display_name || file.file_name}`,
       });
-
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to download file';
       console.error('Error downloading file:', err);
       setError(message);
-      
+
       toast({
         title: 'Download failed',
         description: message,

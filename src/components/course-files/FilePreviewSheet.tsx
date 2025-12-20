@@ -1,11 +1,16 @@
 /**
  * File Preview Sheet Component
- * Displays file preview in a sheet using secure signed URLs
+ * Displays file preview in a sheet using secure signed URLs.
+ * 
+ * NOTE: Some storage providers set headers that prevent embedding remote PDFs in iframes.
+ * To avoid the "This content is blocked" iframe error, PDFs are fetched as a Blob and
+ * rendered via a same-origin blob: URL.
  */
-import { useState, useEffect } from 'react';
+
+import { useEffect, useMemo, useState } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
-import { Download, FileText, Loader2, AlertCircle, ExternalLink } from 'lucide-react';
+import { AlertCircle, Download, ExternalLink, FileText, Loader2 } from 'lucide-react';
 import { useFileAccess } from '@/hooks/useFileAccess';
 import type { CourseFile } from '@/types/course-files';
 
@@ -15,18 +20,26 @@ interface FilePreviewSheetProps {
   onOpenChange: (open: boolean) => void;
 }
 
-function getPreviewType(fileType: string): 'image' | 'pdf' | 'document' | 'unsupported' {
-  if (fileType.startsWith('image/')) return 'image';
-  if (fileType === 'application/pdf') return 'pdf';
-  if (fileType.includes('document') || fileType === 'text/plain') return 'document';
+type PreviewType = 'image' | 'pdf' | 'text' | 'audio' | 'video' | 'unsupported';
+
+function getPreviewType(file: CourseFile): PreviewType {
+  const mime = file.file_type || '';
+  const name = (file.file_name || '').toLowerCase();
+
+  if (mime.startsWith('image/')) return 'image';
+  if (mime === 'application/pdf' || name.endsWith('.pdf')) return 'pdf';
+  if (mime.startsWith('text/') || name.endsWith('.md') || name.endsWith('.txt') || name.endsWith('.csv') || name.endsWith('.json')) return 'text';
+  if (mime.startsWith('audio/')) return 'audio';
+  if (mime.startsWith('video/')) return 'video';
+
   return 'unsupported';
 }
 
-function LoadingState() {
+function LoadingState({ label }: { label: string }) {
   return (
     <div className="flex flex-col items-center justify-center flex-1 gap-4 text-muted-foreground p-8">
       <Loader2 className="w-12 h-12 animate-spin" />
-      <p className="text-center">Loading file preview...</p>
+      <p className="text-center">{label}</p>
     </div>
   );
 }
@@ -39,46 +52,6 @@ function ErrorState({ error, onRetry }: { error: string; onRetry: () => void }) 
       <Button variant="outline" onClick={onRetry}>
         Try Again
       </Button>
-    </div>
-  );
-}
-
-function ImagePreview({ url, name }: { url: string; name: string }) {
-  return (
-    <div className="flex items-center justify-center flex-1 p-4">
-      <img 
-        src={url} 
-        alt={name} 
-        className="max-w-full max-h-[60vh] object-contain rounded-lg" 
-      />
-    </div>
-  );
-}
-
-function PDFPreview({ url, fileName, onOpenExternal }: { url: string; fileName: string; onOpenExternal: () => void }) {
-  const [loadError, setLoadError] = useState(false);
-
-  if (loadError) {
-    return (
-      <div className="flex flex-col items-center justify-center flex-1 gap-4 text-muted-foreground p-8">
-        <FileText className="w-16 h-16 opacity-50" />
-        <p className="text-center">PDF preview not available in browser</p>
-        <Button variant="outline" onClick={onOpenExternal}>
-          <ExternalLink className="w-4 h-4 mr-2" />
-          Open in New Tab
-        </Button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex-1 flex flex-col min-h-0">
-      <iframe 
-        src={url} 
-        className="w-full flex-1 min-h-[60vh] rounded-lg border-0"
-        title={`PDF Preview - ${fileName}`}
-        onError={() => setLoadError(true)}
-      />
     </div>
   );
 }
@@ -107,58 +80,79 @@ function DocumentFallback({ file, signedUrl }: { file: CourseFile; signedUrl: st
 }
 
 export function FilePreviewSheet({ file, open, onOpenChange }: FilePreviewSheetProps) {
-  const [signedUrl, setSignedUrl] = useState<string | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
   const { getSignedUrl, downloadFile, isLoading } = useFileAccess();
 
+  const [signedUrl, setSignedUrl] = useState<string | null>(null);
+  const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
+  const [textContent, setTextContent] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const previewType = useMemo(() => (file ? getPreviewType(file) : 'unsupported'), [file]);
+  const fileName = useMemo(() => (file ? (file.display_name || file.file_name) : ''), [file]);
+
+  // Cleanup blob URL when file changes / closes
   useEffect(() => {
-    if (file && open) {
-      setSignedUrl(null);
-      setLoadError(null);
-      
-      getSignedUrl(file.id)
-        .then(url => {
-          if (url) {
-            setSignedUrl(url);
-          } else {
-            setLoadError('Could not load file');
-          }
-        })
-        .catch(err => {
-          console.error('Error fetching signed URL:', err);
-          setLoadError(err.message || 'Failed to load file');
-        });
-    }
-  }, [file, open, getSignedUrl]);
+    return () => {
+      if (pdfBlobUrl) URL.revokeObjectURL(pdfBlobUrl);
+    };
+  }, [pdfBlobUrl]);
+
+  useEffect(() => {
+    if (!file || !open) return;
+
+    setSignedUrl(null);
+    setPdfBlobUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
+    setTextContent(null);
+    setLoadError(null);
+
+    (async () => {
+      const url = await getSignedUrl(file.id);
+      if (!url) {
+        setLoadError('Could not load file');
+        return;
+      }
+
+      setSignedUrl(url);
+
+      // For PDFs we avoid embedding the remote URL directly (iframe blocked issue)
+      if (previewType === 'pdf') {
+        try {
+          const res = await fetch(url, { method: 'GET' });
+          if (!res.ok) throw new Error(`Failed to load PDF (${res.status})`);
+          const blob = await res.blob();
+          const blobUrl = URL.createObjectURL(blob);
+          setPdfBlobUrl(blobUrl);
+        } catch (e) {
+          console.error('PDF blob fetch failed:', e);
+          setLoadError('PDF preview is blocked in the browser. Use “Open in New Tab”.');
+        }
+      }
+
+      if (previewType === 'text') {
+        try {
+          const res = await fetch(url, { method: 'GET' });
+          if (!res.ok) throw new Error(`Failed to load file (${res.status})`);
+          const text = await res.text();
+          // cap preview length for performance
+          setTextContent(text.length > 200_000 ? text.slice(0, 200_000) + '\n\n… (truncated)' : text);
+        } catch (e) {
+          console.error('Text fetch failed:', e);
+          setLoadError('Could not preview this text file. Use “Open in New Tab”.');
+        }
+      }
+    })().catch((err) => {
+      console.error('Preview init failed:', err);
+      setLoadError(err?.message || 'Failed to load file');
+    });
+  }, [file, open, getSignedUrl, previewType]);
 
   if (!file) return null;
 
-  const previewType = getPreviewType(file.file_type);
-  const fileName = file.display_name || file.file_name;
-
-  const handleDownload = () => {
-    downloadFile(file);
-  };
-
-  const handleRetry = () => {
-    setLoadError(null);
-    getSignedUrl(file.id)
-      .then(url => {
-        if (url) {
-          setSignedUrl(url);
-        } else {
-          setLoadError('Could not load file');
-        }
-      })
-      .catch(err => {
-        setLoadError(err.message || 'Failed to load file');
-      });
-  };
-
   const handleOpenExternal = () => {
-    if (signedUrl) {
-      window.open(signedUrl, '_blank', 'noopener,noreferrer');
-    }
+    if (signedUrl) window.open(signedUrl, '_blank', 'noopener,noreferrer');
   };
 
   return (
@@ -167,40 +161,86 @@ export function FilePreviewSheet({ file, open, onOpenChange }: FilePreviewSheetP
         <SheetHeader className="flex-shrink-0">
           <div className="flex items-center justify-between gap-4 pr-8">
             <SheetTitle className="truncate">{fileName}</SheetTitle>
-            <Button 
-              size="sm" 
-              onClick={handleDownload} 
-              className="flex-shrink-0"
-              disabled={isLoading || !signedUrl}
-            >
-              {isLoading ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              ) : (
-                <Download className="w-4 h-4 mr-2" />
-              )}
-              Download
-            </Button>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleOpenExternal}
+                disabled={!signedUrl}
+              >
+                <ExternalLink className="w-4 h-4 mr-2" />
+                Open
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => downloadFile(file)}
+                disabled={isLoading || !signedUrl}
+              >
+                {isLoading ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Download className="w-4 h-4 mr-2" />
+                )}
+                Download
+              </Button>
+            </div>
           </div>
         </SheetHeader>
 
         <div className="flex-1 flex flex-col mt-4 min-h-0">
-          {isLoading && !signedUrl && <LoadingState />}
-          
-          {loadError && <ErrorState error={loadError} onRetry={handleRetry} />}
-          
+          {!signedUrl && !loadError && <LoadingState label="Preparing secure preview..." />}
+          {loadError && <ErrorState error={loadError} onRetry={() => setSignedUrl(null)} />}
+
           {signedUrl && !loadError && (
             <>
               {previewType === 'image' && (
-                <ImagePreview url={signedUrl} name={fileName} />
+                <div className="flex items-center justify-center flex-1 p-4">
+                  <img
+                    src={signedUrl}
+                    alt={fileName}
+                    className="max-w-full max-h-[60vh] object-contain rounded-lg"
+                    loading="lazy"
+                  />
+                </div>
               )}
+
               {previewType === 'pdf' && (
-                <PDFPreview 
-                  url={signedUrl} 
-                  fileName={fileName} 
-                  onOpenExternal={handleOpenExternal}
-                />
+                <div className="flex-1 min-h-0">
+                  {pdfBlobUrl ? (
+                    <iframe
+                      src={pdfBlobUrl}
+                      className="w-full h-full min-h-[60vh] rounded-lg border-0"
+                      title={`PDF Preview - ${fileName}`}
+                    />
+                  ) : (
+                    <LoadingState label="Loading PDF..." />
+                  )}
+                </div>
               )}
-              {(previewType === 'document' || previewType === 'unsupported') && (
+
+              {previewType === 'text' && (
+                <div className="flex-1 min-h-0 rounded-lg border border-border overflow-auto bg-background p-4">
+                  <pre className="text-sm whitespace-pre-wrap break-words text-foreground">
+                    {textContent ?? 'Loading...'}
+                  </pre>
+                </div>
+              )}
+
+              {previewType === 'audio' && (
+                <div className="flex flex-col gap-3 p-4">
+                  <audio controls src={signedUrl} className="w-full" />
+                  <p className="text-xs text-muted-foreground">If playback fails, use “Open in New Tab”.</p>
+                </div>
+              )}
+
+              {previewType === 'video' && (
+                <div className="flex flex-col gap-3 p-4">
+                  <video controls src={signedUrl} className="w-full max-h-[60vh] rounded-lg" />
+                  <p className="text-xs text-muted-foreground">If playback fails, use “Open in New Tab”.</p>
+                </div>
+              )}
+
+              {previewType === 'unsupported' && (
                 <DocumentFallback file={file} signedUrl={signedUrl} />
               )}
             </>
