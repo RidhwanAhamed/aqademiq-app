@@ -176,8 +176,7 @@ serve(async (req) => {
     // Trigger OCR processing asynchronously
     const ocrPromise = supabase.functions.invoke('enhanced-ocr-parser', {
       body: {
-        file_upload_id: fileRecord.id,
-        file_url: fileUrl,
+        file_id: fileRecord.id, // Changed from file_upload_id to file_id
         file_type: file_type,
       },
       headers: {
