@@ -407,7 +407,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.get-signed-url]
-verify_jwt = false
+verify_jwt = true
 
 [analytics]
 enabled = true
