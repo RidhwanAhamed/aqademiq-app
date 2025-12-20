@@ -11,7 +11,8 @@ import {
   FileUp, 
   Trash2, 
   RefreshCw, 
-  ExternalLink, 
+  Eye,
+  Download,
   Brain,
   AlertCircle,
   CheckCircle,
@@ -20,6 +21,7 @@ import {
 } from 'lucide-react';
 import { useCourseFiles } from '@/hooks/useCourseFiles';
 import { CourseFileUpload } from './CourseFileUpload';
+import { FilePreviewSheet } from './FilePreviewSheet';
 import { 
   FILE_SOURCE_TYPE_LABELS, 
   FILE_SOURCE_TYPE_ICONS,
@@ -78,6 +80,7 @@ function getStatusVariant(status: FileStatus): 'default' | 'secondary' | 'destru
 
 export function CourseFilesManager({ courseId, courseName }: CourseFilesManagerProps) {
   const [showUpload, setShowUpload] = useState(false);
+  const [previewFile, setPreviewFile] = useState<CourseFile | null>(null);
   const { 
     files, 
     isLoading, 
@@ -141,7 +144,7 @@ export function CourseFilesManager({ courseId, courseName }: CourseFilesManagerP
           <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
         </div>
       ) : files.length === 0 ? (
-        <Card>
+        <Card className="border-0">
           <CardContent className="py-8">
             <div className="text-center text-muted-foreground">
               <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
@@ -159,7 +162,7 @@ export function CourseFilesManager({ courseId, courseName }: CourseFilesManagerP
       ) : (
         <div className="space-y-2">
           {files.map((file) => (
-            <Card key={file.id} className="hover:bg-muted/30 transition-colors">
+            <Card key={file.id} className="hover:bg-muted/30 transition-colors border-0">
               <CardContent className="py-3 px-4">
                 <div className="flex items-center justify-between gap-4">
                   {/* File Info */}
@@ -195,14 +198,28 @@ export function CourseFilesManager({ courseId, courseName }: CourseFilesManagerP
                     </Badge>
                     
                     {file.file_url && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => window.open(file.file_url!, '_blank')}
-                      >
-                        <ExternalLink className="w-4 h-4" />
-                      </Button>
+                      <>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => setPreviewFile(file)}
+                          title="View file"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          asChild
+                          title="Download file"
+                        >
+                          <a href={file.file_url} download={file.display_name || file.file_name} target="_blank" rel="noopener noreferrer">
+                            <Download className="w-4 h-4" />
+                          </a>
+                        </Button>
+                      </>
                     )}
 
                     {(file.status === 'ocr_failed' || file.status === 'embedding_failed') && (
@@ -256,7 +273,7 @@ export function CourseFilesManager({ courseId, courseName }: CourseFilesManagerP
 
       {/* AI Info */}
       {files.length > 0 && indexedCount > 0 && (
-        <Card className="border-primary/20 bg-primary/5">
+        <Card className="border-0 bg-primary/5">
           <CardContent className="py-3 px-4">
             <div className="flex items-start gap-3">
               <Brain className="w-5 h-5 text-primary mt-0.5" />
@@ -271,6 +288,13 @@ export function CourseFilesManager({ courseId, courseName }: CourseFilesManagerP
           </CardContent>
         </Card>
       )}
+
+      {/* File Preview Sheet */}
+      <FilePreviewSheet
+        file={previewFile}
+        open={!!previewFile}
+        onOpenChange={(open) => !open && setPreviewFile(null)}
+      />
     </div>
   );
 }
