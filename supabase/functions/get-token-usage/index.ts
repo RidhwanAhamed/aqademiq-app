@@ -10,6 +10,8 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const DAILY_LIMIT = 50000;
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -51,7 +53,7 @@ serve(async (req) => {
 
     const usage = usageData?.[0] || {
       total_tokens_today: 0,
-      remaining_tokens: 10000,
+      remaining_tokens: DAILY_LIMIT,
       is_limit_exceeded: false,
       resets_at: new Date(new Date().setUTCHours(24, 0, 0, 0)).toISOString()
     };
@@ -59,7 +61,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         used: Number(usage.total_tokens_today),
-        limit: 10000,
+        limit: DAILY_LIMIT,
         remaining: Number(usage.remaining_tokens),
         is_exceeded: usage.is_limit_exceeded,
         resets_at: usage.resets_at
@@ -70,11 +72,11 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error in get-token-usage:', error);
     return new Response(
-      JSON.stringify({ 
+      JSON.stringify({
         error: error instanceof Error ? error.message : 'An error occurred',
         used: 0,
-        limit: 10000,
-        remaining: 10000,
+        limit: DAILY_LIMIT,
+        remaining: DAILY_LIMIT,
         is_exceeded: false
       }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
