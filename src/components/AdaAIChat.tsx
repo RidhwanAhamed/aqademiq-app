@@ -206,8 +206,8 @@ export function AdaAIChat({
       if (!error && data) {
         setTokenUsage({
           used: data.used || 0,
-          limit: data.limit || 10000,
-          remaining: data.remaining || 10000,
+          limit: data.limit || 50000,
+          remaining: data.remaining || 50000,
           resets_at: data.resets_at
         });
       }
@@ -1432,7 +1432,7 @@ export function AdaAIChat({
     if (tokenUsage && tokenUsage.remaining <= 0) {
       toast({
         title: 'Daily limit reached',
-        description: 'You\'ve used all 10,000 tokens for today. Resets at midnight UTC.',
+        description: 'You\'ve used all 50,000 tokens for today. Resets at midnight UTC.',
         variant: 'destructive'
       });
       return;
