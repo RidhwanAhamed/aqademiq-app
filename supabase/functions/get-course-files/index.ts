@@ -39,8 +39,20 @@ serve(async (req) => {
       });
     }
 
-    const url = new URL(req.url);
-    const courseId = url.searchParams.get('course_id');
+    // Get course_id from query params (GET) or body (POST)
+    let courseId: string | null = null;
+    
+    if (req.method === 'GET') {
+      const url = new URL(req.url);
+      courseId = url.searchParams.get('course_id');
+    } else if (req.method === 'POST') {
+      try {
+        const body = await req.json();
+        courseId = body.course_id;
+      } catch {
+        // Body parse failed, continue
+      }
+    }
 
     if (!courseId) {
       return new Response(JSON.stringify({ error: 'course_id is required' }), {
