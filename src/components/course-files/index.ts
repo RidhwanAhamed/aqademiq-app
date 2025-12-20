@@ -3,3 +3,4 @@
  */
 export { CourseFilesManager } from './CourseFilesManager';
 export { CourseFileUpload } from './CourseFileUpload';
+export { FilePreviewSheet } from './FilePreviewSheet';
