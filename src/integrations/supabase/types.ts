@@ -391,6 +391,42 @@ export type Database = {
         }
         Relationships: []
       }
+      cornell_notes: {
+        Row: {
+          created_at: string | null
+          document: Json
+          id: string
+          source_file_name: string | null
+          source_type: string
+          title: string
+          topic: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          document: Json
+          id?: string
+          source_file_name?: string | null
+          source_type: string
+          title: string
+          topic: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          document?: Json
+          id?: string
+          source_file_name?: string | null
+          source_type?: string
+          title?: string
+          topic?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       courses: {
         Row: {
           code: string | null
