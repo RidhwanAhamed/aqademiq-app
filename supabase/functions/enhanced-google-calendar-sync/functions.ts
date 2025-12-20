@@ -107,7 +107,7 @@ export async function setupWebhook(userId: string, supabase: any) {
     console.error('Webhook setup error:', error);
     return new Response(
       JSON.stringify({ 
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown error',
         details: 'Failed to setup real-time sync webhook'
       }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -203,11 +203,11 @@ export async function performFullBidirectionalSync(userId: string, supabase: any
     );
   } catch (error) {
     console.error('Full sync error:', error);
-    await updateSyncOperation(supabase, operationData?.id, 'failed', error.message);
+    await updateSyncOperation(supabase, operationData?.id, 'failed', error instanceof Error ? error.message : 'Unknown error');
     
     return new Response(
       JSON.stringify({ 
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown error',
         details: 'Full bidirectional sync failed'
       }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -345,11 +345,11 @@ export async function performIncrementalSync(userId: string, supabase: any, sync
     );
   } catch (error) {
     console.error('Incremental sync error:', error);
-    await updateSyncOperation(supabase, operationData?.id, 'failed', error.message);
+    await updateSyncOperation(supabase, operationData?.id, 'failed', error instanceof Error ? error.message : 'Unknown error');
     
     return new Response(
       JSON.stringify({ 
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown error',
         details: 'Incremental sync failed'
       }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -432,7 +432,7 @@ export async function resolveConflicts(userId: string, conflictData: any, supaba
   } catch (error) {
     console.error('Conflict resolution error:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
@@ -469,9 +469,9 @@ async function importFromGoogleCalendar(userId: string, accessToken: string, set
     for (const event of data.items || []) {
       try {
         const result = await processGoogleEvent(userId, event, supabase);
-        if (result?.conflict) {
+        if (result && 'conflict' in result && result.conflict) {
           conflicts.push(result.conflict);
-        } else if (result?.imported) {
+        } else if (result && 'imported' in result && result.imported) {
           imported++;
         }
       } catch (eventError) {
@@ -522,7 +522,7 @@ async function processGoogleEvent(userId: string, googleEvent: any, supabase: an
     return { imported: true };
   } catch (error) {
     console.error('Process Google event error:', error);
-    return { error: error.message };
+    return { error: error instanceof Error ? error.message : 'Unknown error' };
   }
 }
 

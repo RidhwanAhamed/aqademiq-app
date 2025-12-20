@@ -54,7 +54,7 @@ serve(async (req) => {
       headers: {
         'Authorization': `Bearer ${openRouterApiKey}`,
         'Content-Type': 'application/json',
-        'HTTP-Referer': Deno.env.get('SUPABASE_URL'),
+        'HTTP-Referer': Deno.env.get('SUPABASE_URL') || '',
         'X-Title': 'Aqademiq AI Schedule Parser'
       },
       body: JSON.stringify({
@@ -166,7 +166,7 @@ Remember: I'm not just parsing data - I'm providing intelligent academic support
       .eq('id', file_id);
 
     // Check for schedule conflicts if we have parsed schedule data
-    let conflicts = [];
+    let conflicts: any[] = [];
     if (parsedData.schedule_data && (parsedData.schedule_data.classes?.length > 0 || parsedData.schedule_data.exams?.length > 0)) {
       // This would require more complex logic to check against existing schedule
       // For now, we'll return empty conflicts
@@ -187,7 +187,7 @@ Remember: I'm not just parsing data - I'm providing intelligent academic support
     console.error('Error in AI schedule parser:', error);
     return new Response(
       JSON.stringify({ 
-        error: error.message || 'Internal server error' 
+        error: error instanceof Error ? error.message : 'Internal server error' 
       }),
       {
         status: 500,

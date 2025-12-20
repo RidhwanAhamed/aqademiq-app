@@ -116,7 +116,10 @@ function getCurrentDate(timezone?: string): Date {
  * Parse time string (HH:MM:SS or HH:MM) and combine with date
  */
 function parseTimeToDate(date: Date, timeStr: string): Date {
-  const [hours, minutes, seconds = '0'] = timeStr.split(':').map(Number);
+  const parts = timeStr.split(':').map(Number);
+  const hours = parts[0] || 0;
+  const minutes = parts[1] || 0;
+  const seconds = parts[2] || 0;
   const result = new Date(date);
   result.setHours(hours, minutes, seconds, 0);
   return result;
@@ -1252,7 +1255,7 @@ ${documentContext ? documentContext : ''}
     return new Response(
       JSON.stringify({ 
         response: "I'm sorry, I encountered an error. Please try again.",
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown error',
         metadata: {
           actions: [],
           has_actions: false
