@@ -43,13 +43,26 @@ export function useCourseFiles({ courseId, autoFetch = true }: UseCourseFilesOpt
       const { data, error: invokeError } = await supabase.functions.invoke<GetCourseFilesResponse>(
         'get-course-files',
         {
-          method: 'GET',
+          body: { course_id: courseId },
           headers: {
             Authorization: `Bearer ${token}`,
           },
-          body: undefined,
         }
       );
+
+      if (invokeError) throw invokeError;
+      if (data?.files) {
+        const enrichedFiles = data.files.map(file => ({
+          ...file,
+          source_type: (file.source_type || 'other') as FileSourceType,
+          status: file.status as FileStatus,
+          chunk_count: file.chunk_count || 0,
+          is_indexed: file.is_indexed || false,
+          display_name: file.display_name || file.file_name,
+        })) as CourseFile[];
+        setFiles(enrichedFiles);
+        return;
+      }
 
       // For GET requests, we need to use query params - fall back to direct DB query
       const { data: filesData, error: dbError } = await supabase
