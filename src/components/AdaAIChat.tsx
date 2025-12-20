@@ -144,6 +144,14 @@ export function AdaAIChat({
   const [chatBadgeUnlock, setChatBadgeUnlock] = useState<Badge | null>(null);
   const [showChatBadgeModal, setShowChatBadgeModal] = useState(false);
   
+  // Token usage state
+  const [tokenUsage, setTokenUsage] = useState<{
+    used: number;
+    limit: number;
+    remaining: number;
+    resets_at?: string;
+  } | null>(null);
+  
   // UI state
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [showAccessibility, setShowAccessibility] = useState(false);
@@ -190,7 +198,30 @@ export function AdaAIChat({
 
   const MESSAGE_LIMIT = 10;
 
-  // Load conversation history
+  // Fetch token usage on mount and after each message
+  const fetchTokenUsage = useCallback(async () => {
+    if (!user) return;
+    try {
+      const { data, error } = await supabase.functions.invoke('get-token-usage');
+      if (!error && data) {
+        setTokenUsage({
+          used: data.used || 0,
+          limit: data.limit || 10000,
+          remaining: data.remaining || 10000,
+          resets_at: data.resets_at
+        });
+      }
+    } catch (e) {
+      console.log('Failed to fetch token usage:', e);
+    }
+  }, [user]);
+
+  // Fetch token usage on mount
+  useEffect(() => {
+    if (user) {
+      fetchTokenUsage();
+    }
+  }, [user, fetchTokenUsage]);
   useEffect(() => {
     const loadConversationHistory = async () => {
       if (!user) return;
@@ -1397,6 +1428,16 @@ export function AdaAIChat({
   const handleSendMessage = useCallback(async (message: string) => {
     if ((!message.trim() && !pendingFile) || !user || isProcessing) return;
 
+    // Check token limit instead of message limit
+    if (tokenUsage && tokenUsage.remaining <= 0) {
+      toast({
+        title: 'Daily limit reached',
+        description: 'You\'ve used all 10,000 tokens for today. Resets at midnight UTC.',
+        variant: 'destructive'
+      });
+      return;
+    }
+
     if (messageCount >= MESSAGE_LIMIT) {
       setShowUpgrade(true);
       return;
@@ -1465,6 +1506,15 @@ export function AdaAIChat({
         setMessages(prev => [...prev, aiMessage]);
         playNotificationSound();
         
+        // Update token usage from response
+        if (aiResponse.usage) {
+          setTokenUsage(aiResponse.usage);
+        } else {
+          // Fetch updated usage if not in response
+          await fetchTokenUsage();
+        }
+        playNotificationSound();
+        
         if (aiResponse.metadata?.has_actions && aiResponse.metadata?.actions?.length > 0) {
           const actions = aiResponse.metadata.actions as AdaAction[];
           
@@ -1500,7 +1550,7 @@ export function AdaAIChat({
       setIsProcessing(false);
       setPendingFileStatus('');
     }
-  }, [user, isProcessing, messageCount, pendingFile, conversationId, uploadAndIndexFile, wantsScheduleParsing, processFileWithAgenticAI, saveChatMessage, playNotificationSound, toast, handleChatBadgeUnlock, executeCreateCornellNotes]);
+  }, [user, isProcessing, messageCount, pendingFile, conversationId, tokenUsage, uploadAndIndexFile, wantsScheduleParsing, processFileWithAgenticAI, saveChatMessage, playNotificationSound, toast, handleChatBadgeUnlock, executeCreateCornellNotes, fetchTokenUsage]);
 
   // Voice toggle
   const handleVoiceToggle = useCallback(async () => {
@@ -1571,6 +1621,7 @@ export function AdaAIChat({
           isFullScreen={isFullScreen}
           showAccessibility={showAccessibility}
           accessibilitySettings={accessibilitySettings}
+          tokenUsage={tokenUsage}
           onFullScreenToggle={onFullScreenToggle}
           onAccessibilityToggle={() => setShowAccessibility(!showAccessibility)}
           onAccessibilityChange={setAccessibilitySettings}

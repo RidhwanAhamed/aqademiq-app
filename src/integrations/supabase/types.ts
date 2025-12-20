@@ -211,6 +211,39 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_token_usage: {
+        Row: {
+          completion_tokens: number
+          created_at: string | null
+          function_name: string
+          id: string
+          prompt_tokens: number
+          request_metadata: Json | null
+          total_tokens: number
+          user_id: string
+        }
+        Insert: {
+          completion_tokens?: number
+          created_at?: string | null
+          function_name: string
+          id?: string
+          prompt_tokens?: number
+          request_metadata?: Json | null
+          total_tokens?: number
+          user_id: string
+        }
+        Update: {
+          completion_tokens?: number
+          created_at?: string | null
+          function_name?: string
+          id?: string
+          prompt_tokens?: number
+          request_metadata?: Json | null
+          total_tokens?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       assignments: {
         Row: {
           ai_generated_tasks: Json | null
@@ -1982,6 +2015,15 @@ export type Database = {
       generate_sync_hash: {
         Args: { entity_data: Json; entity_type: string }
         Returns: string
+      }
+      get_daily_token_usage: {
+        Args: { p_user_id: string }
+        Returns: {
+          is_limit_exceeded: boolean
+          remaining_tokens: number
+          resets_at: string
+          total_tokens_today: number
+        }[]
       }
       get_marketplace_early_access_count: { Args: never; Returns: number }
       get_public_profile: {
