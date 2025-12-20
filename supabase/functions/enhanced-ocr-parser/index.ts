@@ -44,26 +44,41 @@ serve(async (req) => {
       console.log(`Fetching file from storage: ${file_id}`);
       const { data: fileRow, error: fileRowErr } = await supabase
         .from('file_uploads')
-        .select('file_url, file_type')
+        .select('file_url, file_type, file_name')
         .eq('id', file_id)
         .maybeSingle();
       
       if (fileRowErr || !fileRow?.file_url) {
+        console.error('File lookup error:', fileRowErr, 'fileRow:', fileRow);
         throw new Error('File not found or missing storage path');
       }
       
       fileType = fileRow.file_type || fileType;
+      fileName = fileRow.file_name || fileName;
+      
+      // Extract the storage path from the public URL
+      // URL format: https://xxx.supabase.co/storage/v1/object/public/study-files/{path}
+      let storagePath = fileRow.file_url;
+      const storagePathMatch = fileRow.file_url.match(/\/study-files\/(.+)$/);
+      if (storagePathMatch) {
+        storagePath = storagePathMatch[1];
+      }
+      
+      console.log(`Downloading from storage path: ${storagePath}`);
       
       const { data: storageFile, error: dlErr } = await supabase
         .storage
         .from('study-files')
-        .download(fileRow.file_url);
+        .download(storagePath);
       
       if (dlErr || !storageFile) {
+        console.error('Storage download error:', dlErr);
         throw new Error('Could not download file from storage');
       }
       
       fileBuffer = new Uint8Array(await storageFile.arrayBuffer());
+      console.log(`Downloaded ${fileBuffer.length} bytes`);
+    } else if (file_data) {
     } else if (file_data) {
       // Legacy: base64 path (keep for backwards compatibility)
       console.log('Using legacy base64 file data');
