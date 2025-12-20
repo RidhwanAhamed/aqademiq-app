@@ -646,42 +646,62 @@ export type Database = {
       }
       file_uploads: {
         Row: {
+          course_id: string | null
           created_at: string
+          description: string | null
+          display_name: string | null
           file_name: string
           file_type: string
           file_url: string | null
           id: string
           ocr_text: string | null
           parsed_data: Json | null
+          source_type: string | null
           status: string
           updated_at: string
           user_id: string
         }
         Insert: {
+          course_id?: string | null
           created_at?: string
+          description?: string | null
+          display_name?: string | null
           file_name: string
           file_type: string
           file_url?: string | null
           id?: string
           ocr_text?: string | null
           parsed_data?: Json | null
+          source_type?: string | null
           status?: string
           updated_at?: string
           user_id: string
         }
         Update: {
+          course_id?: string | null
           created_at?: string
+          description?: string | null
+          display_name?: string | null
           file_name?: string
           file_type?: string
           file_url?: string | null
           id?: string
           ocr_text?: string | null
           parsed_data?: Json | null
+          source_type?: string | null
           status?: string
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "file_uploads_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       google_calendar_channels: {
         Row: {
