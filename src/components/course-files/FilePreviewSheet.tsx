@@ -1,10 +1,12 @@
 /**
  * File Preview Sheet Component
- * Displays file preview in a sheet with download functionality
+ * Displays file preview in a sheet using secure signed URLs
  */
+import { useState, useEffect } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
-import { Download, FileText, Image as ImageIcon, FileArchive } from 'lucide-react';
+import { Download, FileText, Loader2, AlertCircle, ExternalLink } from 'lucide-react';
+import { useFileAccess } from '@/hooks/useFileAccess';
 import type { CourseFile } from '@/types/course-files';
 
 interface FilePreviewSheetProps {
@@ -20,6 +22,27 @@ function getPreviewType(fileType: string): 'image' | 'pdf' | 'document' | 'unsup
   return 'unsupported';
 }
 
+function LoadingState() {
+  return (
+    <div className="flex flex-col items-center justify-center flex-1 gap-4 text-muted-foreground p-8">
+      <Loader2 className="w-12 h-12 animate-spin" />
+      <p className="text-center">Loading file preview...</p>
+    </div>
+  );
+}
+
+function ErrorState({ error, onRetry }: { error: string; onRetry: () => void }) {
+  return (
+    <div className="flex flex-col items-center justify-center flex-1 gap-4 text-muted-foreground p-8">
+      <AlertCircle className="w-12 h-12 text-destructive" />
+      <p className="text-center text-destructive">{error}</p>
+      <Button variant="outline" onClick={onRetry}>
+        Try Again
+      </Button>
+    </div>
+  );
+}
+
 function ImagePreview({ url, name }: { url: string; name: string }) {
   return (
     <div className="flex items-center justify-center flex-1 p-4">
@@ -32,43 +55,109 @@ function ImagePreview({ url, name }: { url: string; name: string }) {
   );
 }
 
-function PDFPreview({ url }: { url: string }) {
+function PDFPreview({ url, fileName, onOpenExternal }: { url: string; fileName: string; onOpenExternal: () => void }) {
+  const [loadError, setLoadError] = useState(false);
+
+  if (loadError) {
+    return (
+      <div className="flex flex-col items-center justify-center flex-1 gap-4 text-muted-foreground p-8">
+        <FileText className="w-16 h-16 opacity-50" />
+        <p className="text-center">PDF preview not available in browser</p>
+        <Button variant="outline" onClick={onOpenExternal}>
+          <ExternalLink className="w-4 h-4 mr-2" />
+          Open in New Tab
+        </Button>
+      </div>
+    );
+  }
+
   return (
-    <iframe 
-      src={url} 
-      className="w-full flex-1 min-h-[60vh] rounded-lg border-0"
-      title="PDF Preview"
-    />
+    <div className="flex-1 flex flex-col min-h-0">
+      <iframe 
+        src={url} 
+        className="w-full flex-1 min-h-[60vh] rounded-lg border-0"
+        title={`PDF Preview - ${fileName}`}
+        onError={() => setLoadError(true)}
+      />
+    </div>
   );
 }
 
-function DocumentFallback({ file }: { file: CourseFile }) {
+function DocumentFallback({ file, signedUrl }: { file: CourseFile; signedUrl: string | null }) {
+  const handleOpenExternal = () => {
+    if (signedUrl) {
+      window.open(signedUrl, '_blank', 'noopener,noreferrer');
+    }
+  };
+
   return (
     <div className="flex flex-col items-center justify-center flex-1 gap-4 text-muted-foreground p-8">
       <FileText className="w-16 h-16 opacity-50" />
       <p className="text-center">Preview not available for this file type</p>
       <p className="text-sm text-center">{file.file_name}</p>
       <p className="text-xs">{file.file_type}</p>
+      {signedUrl && (
+        <Button variant="outline" onClick={handleOpenExternal}>
+          <ExternalLink className="w-4 h-4 mr-2" />
+          Open in New Tab
+        </Button>
+      )}
     </div>
   );
 }
 
 export function FilePreviewSheet({ file, open, onOpenChange }: FilePreviewSheetProps) {
+  const [signedUrl, setSignedUrl] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const { getSignedUrl, downloadFile, isLoading } = useFileAccess();
+
+  useEffect(() => {
+    if (file && open) {
+      setSignedUrl(null);
+      setLoadError(null);
+      
+      getSignedUrl(file.id)
+        .then(url => {
+          if (url) {
+            setSignedUrl(url);
+          } else {
+            setLoadError('Could not load file');
+          }
+        })
+        .catch(err => {
+          console.error('Error fetching signed URL:', err);
+          setLoadError(err.message || 'Failed to load file');
+        });
+    }
+  }, [file, open, getSignedUrl]);
+
   if (!file) return null;
 
   const previewType = getPreviewType(file.file_type);
   const fileName = file.display_name || file.file_name;
 
   const handleDownload = () => {
-    if (file.file_url) {
-      const link = document.createElement('a');
-      link.href = file.file_url;
-      link.download = fileName;
-      link.target = '_blank';
-      link.rel = 'noopener noreferrer';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+    downloadFile(file);
+  };
+
+  const handleRetry = () => {
+    setLoadError(null);
+    getSignedUrl(file.id)
+      .then(url => {
+        if (url) {
+          setSignedUrl(url);
+        } else {
+          setLoadError('Could not load file');
+        }
+      })
+      .catch(err => {
+        setLoadError(err.message || 'Failed to load file');
+      });
+  };
+
+  const handleOpenExternal = () => {
+    if (signedUrl) {
+      window.open(signedUrl, '_blank', 'noopener,noreferrer');
     }
   };
 
@@ -78,24 +167,43 @@ export function FilePreviewSheet({ file, open, onOpenChange }: FilePreviewSheetP
         <SheetHeader className="flex-shrink-0">
           <div className="flex items-center justify-between gap-4 pr-8">
             <SheetTitle className="truncate">{fileName}</SheetTitle>
-            {file.file_url && (
-              <Button size="sm" onClick={handleDownload} className="flex-shrink-0">
+            <Button 
+              size="sm" 
+              onClick={handleDownload} 
+              className="flex-shrink-0"
+              disabled={isLoading || !signedUrl}
+            >
+              {isLoading ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
                 <Download className="w-4 h-4 mr-2" />
-                Download
-              </Button>
-            )}
+              )}
+              Download
+            </Button>
           </div>
         </SheetHeader>
 
         <div className="flex-1 flex flex-col mt-4 min-h-0">
-          {previewType === 'image' && file.file_url && (
-            <ImagePreview url={file.file_url} name={fileName} />
-          )}
-          {previewType === 'pdf' && file.file_url && (
-            <PDFPreview url={file.file_url} />
-          )}
-          {(previewType === 'document' || previewType === 'unsupported') && (
-            <DocumentFallback file={file} />
+          {isLoading && !signedUrl && <LoadingState />}
+          
+          {loadError && <ErrorState error={loadError} onRetry={handleRetry} />}
+          
+          {signedUrl && !loadError && (
+            <>
+              {previewType === 'image' && (
+                <ImagePreview url={signedUrl} name={fileName} />
+              )}
+              {previewType === 'pdf' && (
+                <PDFPreview 
+                  url={signedUrl} 
+                  fileName={fileName} 
+                  onOpenExternal={handleOpenExternal}
+                />
+              )}
+              {(previewType === 'document' || previewType === 'unsupported') && (
+                <DocumentFallback file={file} signedUrl={signedUrl} />
+              )}
+            </>
           )}
         </div>
       </SheetContent>

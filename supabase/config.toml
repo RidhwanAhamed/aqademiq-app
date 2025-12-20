@@ -406,6 +406,9 @@ verify_jwt = false
 [functions.delete-course-file]
 verify_jwt = false
 
+[functions.get-signed-url]
+verify_jwt = false
+
 [analytics]
 enabled = true
 port = 54327
