@@ -67,7 +67,8 @@ type AdaActionType =
   | 'CREATE_ASSIGNMENT' | 'UPDATE_ASSIGNMENT' | 'DELETE_ASSIGNMENT' | 'COMPLETE_ASSIGNMENT'
   | 'CREATE_EXAM' | 'UPDATE_EXAM' | 'DELETE_EXAM'
   | 'CREATE_STUDY_SESSION' | 'UPDATE_STUDY_SESSION' | 'DELETE_STUDY_SESSION'
-  | 'CREATE_COURSE' | 'UPDATE_COURSE' | 'DELETE_COURSE';
+  | 'CREATE_COURSE' | 'UPDATE_COURSE' | 'DELETE_COURSE'
+  | 'CREATE_CORNELL_NOTES';
 
 interface AdaAction {
   type: AdaActionType;
@@ -97,6 +98,12 @@ interface AdaAction {
   target_grade?: string;
   assignment_type?: string;
   exam_type?: string;
+  // Cornell Notes specific fields
+  topic?: string;
+  depthLevel?: 'brief' | 'standard' | 'comprehensive';
+  fileContent?: string;
+  fileName?: string;
+  filePrompt?: string;
 }
 
 interface ScheduleConflict {
@@ -886,10 +893,101 @@ export function AdaAIChat({
       DELETE_STUDY_SESSION: 'Study Session',
       CREATE_COURSE: 'Course',
       UPDATE_COURSE: 'Course',
-      DELETE_COURSE: 'Course'
+      DELETE_COURSE: 'Course',
+      CREATE_CORNELL_NOTES: 'Cornell Notes'
     };
     return labels[actionType] || 'Item';
   };
+
+  // Auto-execute Cornell Notes generation (no confirmation needed)
+  const executeCreateCornellNotes = useCallback(async (action: AdaAction) => {
+    const topic = action.topic || action.title || 'Untitled';
+    const depthLevel = action.depthLevel || 'standard';
+
+    // Show loading message in chat
+    const loadingMessage: ChatMessage = {
+      id: `loading-cornell-${Date.now()}`,
+      message: `📝 **Generating Cornell Notes...**\n\n📚 Topic: **${topic}**\n📄 Depth: ${depthLevel}\n\n_This may take a moment..._`,
+      is_user: false,
+      created_at: new Date().toISOString(),
+      metadata: { loading: true, cornell_notes_generating: true }
+    };
+    setMessages(prev => [...prev, loadingMessage]);
+
+    try {
+      const { data: result, error } = await supabase.functions.invoke('generate-notes-orchestrator', {
+        body: {
+          topic: action.topic,
+          fileContent: action.fileContent,
+          fileName: action.fileName,
+          filePrompt: action.filePrompt,
+          depthLevel
+        }
+      });
+
+      // Remove loading message
+      setMessages(prev => prev.filter(m => m.id !== loadingMessage.id));
+
+      if (error || !result?.success) {
+        throw new Error(result?.error || 'Failed to generate Cornell Notes');
+      }
+
+      const document = result.data;
+      
+      // Save to database if user is authenticated
+      if (user) {
+        await supabase.from('cornell_notes').insert({
+          user_id: user.id,
+          title: document.title,
+          topic: document.topic,
+          document: document,
+          source_type: document.sourceType,
+          source_file_name: document.sourceFileName
+        });
+      }
+
+      // Show success message with link to view notes
+      const successMessage = await saveChatMessage(
+        `✅ **Cornell Notes Generated!**\n\n📚 **${document.title}**\n📄 ${document.totalPages} page(s) • ${document.sourceType === 'file' ? 'From file' : 'From topic'}\n\n**Summary Preview:**\n> ${document.summary.slice(0, 200)}${document.summary.length > 200 ? '...' : ''}\n\n👉 [View & Edit Notes](/cornell-notes)`,
+        false,
+        undefined,
+        { cornell_notes: document, action_completed: true }
+      );
+
+      if (successMessage) {
+        setMessages(prev => [...prev, successMessage]);
+        playNotificationSound();
+      }
+
+      toast({
+        title: '📝 Cornell Notes Ready!',
+        description: `Generated ${document.totalPages} page(s) for "${document.title}"`
+      });
+
+    } catch (error: any) {
+      // Remove loading message on error
+      setMessages(prev => prev.filter(m => m.id !== loadingMessage.id));
+      
+      console.error('Error generating Cornell Notes:', error);
+      
+      const errorMessage = await saveChatMessage(
+        `❌ **Failed to generate Cornell Notes**\n\n${error.message || 'An unexpected error occurred. Please try again.'}\n\n💡 Tip: Try rephrasing your request or using a more specific topic.`,
+        false,
+        undefined,
+        { error: true }
+      );
+
+      if (errorMessage) {
+        setMessages(prev => [...prev, errorMessage]);
+      }
+
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to generate Cornell Notes',
+        variant: 'destructive'
+      });
+    }
+  }, [user, saveChatMessage, playNotificationSound, toast]);
 
   // Action handlers
   const handleConfirmAction = useCallback(async (actionIndex: number) => {
@@ -1350,12 +1448,26 @@ export function AdaAIChat({
         playNotificationSound();
         
         if (aiResponse.metadata?.has_actions && aiResponse.metadata?.actions?.length > 0) {
-          const newPendingActions: PendingAction[] = aiResponse.metadata.actions.map((action: AdaAction) => ({
-            action,
-            status: 'pending' as const,
-            conflicts: []
-          }));
-          setPendingActions(prev => [...prev, ...newPendingActions]);
+          const actions = aiResponse.metadata.actions as AdaAction[];
+          
+          // Separate Cornell Notes actions (auto-execute) from other actions (need confirmation)
+          const cornellNotesActions = actions.filter(a => a.type === 'CREATE_CORNELL_NOTES');
+          const otherActions = actions.filter(a => a.type !== 'CREATE_CORNELL_NOTES');
+          
+          // Auto-execute Cornell Notes actions immediately (no confirmation needed)
+          for (const action of cornellNotesActions) {
+            await executeCreateCornellNotes(action);
+          }
+          
+          // Add other actions to pending (require user confirmation)
+          if (otherActions.length > 0) {
+            const newPendingActions: PendingAction[] = otherActions.map((action: AdaAction) => ({
+              action,
+              status: 'pending' as const,
+              conflicts: []
+            }));
+            setPendingActions(prev => [...prev, ...newPendingActions]);
+          }
         }
       }
 
@@ -1370,7 +1482,7 @@ export function AdaAIChat({
       setIsProcessing(false);
       setPendingFileStatus('');
     }
-  }, [user, isProcessing, messageCount, pendingFile, conversationId, uploadAndIndexFile, wantsScheduleParsing, processFileWithAgenticAI, saveChatMessage, playNotificationSound, toast, handleChatBadgeUnlock]);
+  }, [user, isProcessing, messageCount, pendingFile, conversationId, uploadAndIndexFile, wantsScheduleParsing, processFileWithAgenticAI, saveChatMessage, playNotificationSound, toast, handleChatBadgeUnlock, executeCreateCornellNotes]);
 
   // Voice toggle
   const handleVoiceToggle = useCallback(async () => {
