@@ -397,6 +397,15 @@ verify_jwt = false
 [functions.get-token-usage]
 verify_jwt = false
 
+[functions.get-course-files]
+verify_jwt = false
+
+[functions.upload-course-file]
+verify_jwt = false
+
+[functions.delete-course-file]
+verify_jwt = false
+
 [analytics]
 enabled = true
 port = 54327
