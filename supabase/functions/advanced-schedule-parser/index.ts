@@ -71,6 +71,9 @@ interface ParseMetadata {
   ai_model_used: string;
   extraction_method: string;
   quality_indicators: any;
+  merged?: boolean;
+  chunks_processed?: number;
+  context_awareness?: boolean;
 }
 
 interface ConflictResult {
@@ -212,7 +215,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: false,
-        error: error.message || 'Advanced parsing failed',
+        error: error instanceof Error ? error.message : 'Advanced parsing failed',
         processing_time_ms: Date.now() - startTime
       }),
       {
@@ -508,6 +511,7 @@ Provide comprehensive analysis with high accuracy and detailed metadata.`;
       
     } catch (parseError) {
       console.error('JSON parsing failed, using fallback parsing...');
+      if (!apiKey) throw new Error('No fallback API key available');
       return await fallbackAIParsing(ocrText, userContext, apiKey);
     }
 
@@ -515,6 +519,7 @@ Provide comprehensive analysis with high accuracy and detailed metadata.`;
 
   } catch (error) {
     console.error('Advanced AI parsing failed:', error);
+    if (!apiKey) throw new Error('No fallback API key available');
     return await fallbackAIParsing(ocrText, userContext, apiKey);
   }
 }
@@ -527,7 +532,7 @@ async function fallbackAIParsing(ocrText: string, userContext: any, apiKey: stri
     headers: {
       'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
-      'HTTP-Referer': Deno.env.get('SUPABASE_URL'),
+      'HTTP-Referer': Deno.env.get('SUPABASE_URL') || '',
       'X-Title': 'Advanced Schedule Parser'
     },
     body: JSON.stringify({
@@ -742,13 +747,14 @@ async function autoAddToCalendar(supabase: any, userId: string, parsedData: Pars
   console.log('Auto-adding schedule to calendar...');
 
   try {
-    const results = {
-      courses_added: 0,
-      classes_added: 0,
-      assignments_added: 0,
-      exams_added: 0,
-      conflicts_skipped: 0,
-      errors: []
+    const results: {
+      courses_added: number;
+      classes_added: number;
+      assignments_added: number;
+      exams_added: number;
+      conflicts_skipped: number;
+      errors: string[];
+    } = {
     };
 
     // Add courses first
@@ -774,7 +780,7 @@ async function autoAddToCalendar(supabase: any, userId: string, parsedData: Pars
           results.courses_added++;
         }
       } catch (error) {
-        results.errors.push(`Course ${course.code}: ${error.message}`);
+        results.errors.push(`Course ${course.code}: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
     }
 
@@ -799,7 +805,7 @@ async function autoAddToCalendar(supabase: any, userId: string, parsedData: Pars
         });
         results.classes_added++;
       } catch (error) {
-        results.errors.push(`Schedule block ${scheduleBlock.title}: ${error.message}`);
+        results.errors.push(`Schedule block ${scheduleBlock.title}: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
     }
 
@@ -817,7 +823,7 @@ async function autoAddToCalendar(supabase: any, userId: string, parsedData: Pars
         });
         results.assignments_added++;
       } catch (error) {
-        results.errors.push(`Assignment ${assignment.title}: ${error.message}`);
+        results.errors.push(`Assignment ${assignment.title}: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
     }
 
@@ -834,14 +840,14 @@ async function autoAddToCalendar(supabase: any, userId: string, parsedData: Pars
         });
         results.exams_added++;
       } catch (error) {
-        results.errors.push(`Exam ${exam.title}: ${error.message}`);
+        results.errors.push(`Exam ${exam.title}: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
     }
 
     return results;
   } catch (error) {
     console.error('Auto-add to calendar failed:', error);
-    return { error: error.message };
+    return { error: error instanceof Error ? error.message : 'Unknown error' };
   }
 }
 

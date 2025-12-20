@@ -215,7 +215,7 @@ Return ONLY valid JSON with the classification result.`;
     return new Response(
       JSON.stringify({
         success: false,
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown error',
         classification: {
           document_type: 'general_document',
           confidence: 0.5,

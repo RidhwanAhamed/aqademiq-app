@@ -150,7 +150,7 @@ async function routeToWorker(
     }
   } catch (error) {
     console.error(`Worker error for ${entity_type}:`, error);
-    return { success: false, error: error.message, error_code: 'WORKER_ERROR' };
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error', error_code: 'WORKER_ERROR' };
   }
 }
 
@@ -983,7 +983,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: error.message, 
+        error: error instanceof Error ? error.message : 'Unknown error', 
         error_code: 'INTERNAL_ERROR' 
       }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
