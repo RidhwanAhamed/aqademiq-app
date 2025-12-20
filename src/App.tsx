@@ -31,6 +31,7 @@ const Ada = offlineLazy(() => import("./pages/Ada"));
 const AboutAdaAI = offlineLazy(() => import("./pages/AboutAdaAI"));
 const Analytics = offlineLazy(() => import("./pages/AdvancedAnalytics"));
 const Marketplace = offlineLazy(() => import("./pages/Marketplace"));
+const CornellNotes = offlineLazy(() => import("./pages/CornellNotes"));
 
 // Import all auth and core page components
 import Index from "./pages/Index";
@@ -127,6 +128,11 @@ const App = () => (
                         <Route path="marketplace" element={
                           <Suspense fallback={<OfflineSuspenseFallback pageName="Marketplace" />}>
                             <Marketplace />
+                          </Suspense>
+                        } />
+                        <Route path="cornell-notes" element={
+                          <Suspense fallback={<OfflineSuspenseFallback pageName="Cornell Notes" />}>
+                            <CornellNotes />
                           </Suspense>
                         } />
                         <Route path="courses" element={<Courses />} />
