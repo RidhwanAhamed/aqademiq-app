@@ -167,7 +167,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: false,
-        error: error.message || 'OCR processing failed',
+        error: error instanceof Error ? error.message : 'OCR processing failed',
         processing_time_ms: Date.now() - startTime
       }),
       {
