@@ -259,7 +259,7 @@ serve(async (req) => {
     console.error('Error in ai-insights function:', error);
     return new Response(
       JSON.stringify({ 
-        error: error.message || 'Internal server error' 
+        error: error instanceof Error ? error.message : 'Internal server error' 
       }),
       {
         status: 500,
