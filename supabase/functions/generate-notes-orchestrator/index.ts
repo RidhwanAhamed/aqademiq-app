@@ -74,7 +74,7 @@ serve(async (req) => {
       }
     }
 
-    // Token-based rate limiting (10,000 tokens per day per user)
+    // Token-based rate limiting (50,000 tokens per day per user)
     if (userId) {
       try {
         const { data: usageData, error: usageError } = await supabase.rpc('get_daily_token_usage', {
@@ -83,13 +83,13 @@ serve(async (req) => {
 
         if (!usageError && usageData?.[0]?.is_limit_exceeded) {
           const usage = usageData[0];
-          console.log(`Token limit exceeded for user ${userId}: ${usage.total_tokens_today}/10000 tokens used`);
+          console.log(`Token limit exceeded for user ${userId}: ${usage.total_tokens_today}/50000 tokens used`);
           return new Response(JSON.stringify({ 
             success: false,
-            error: 'Daily token limit reached (10,000 tokens/day). Try again tomorrow.',
+            error: 'Daily token limit reached (50,000 tokens/day). Try again tomorrow.',
             usage: {
               used: Number(usage.total_tokens_today),
-              limit: 10000,
+              limit: 50000,
               remaining: 0,
               resets_at: usage.resets_at
             }
@@ -233,7 +233,7 @@ serve(async (req) => {
         if (usageData?.[0]) {
           currentUsage = {
             used: Number(usageData[0].total_tokens_today),
-            limit: 10000,
+            limit: 50000,
             remaining: Number(usageData[0].remaining_tokens),
             resets_at: usageData[0].resets_at
           };
