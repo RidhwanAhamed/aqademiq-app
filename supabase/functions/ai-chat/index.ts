@@ -990,16 +990,20 @@ ${calendarData.summary}
 
     // ==========================================================================
     // DOCUMENT RAG - Search uploaded documents
+    // NOTE: Now runs for ALL queries (including calendar) to provide document context
     // ==========================================================================
     let documentContext = '';
     const openaiApiKeyForRAG = Deno.env.get('OPENAI_API_KEY');
     
-    if (userId && openaiApiKeyForRAG && !isCalendarQuery(message)) {
+    // Always attempt document RAG when user has uploaded files
+    if (userId && openaiApiKeyForRAG) {
       try {
+        console.log('Document RAG: Starting search for user documents...');
         const queryEmbedding = await generateQueryEmbedding(message, openaiApiKeyForRAG);
         
         if (queryEmbedding) {
-          const relevantDocs = await searchDocuments(supabase, userId, queryEmbedding, course_id);
+          // Use lower threshold (0.35) for better recall
+          const relevantDocs = await searchDocuments(supabase, userId, queryEmbedding, course_id, 0.35, 8);
           
           if (relevantDocs.length > 0) {
             console.log(`Document RAG: Found ${relevantDocs.length} relevant documents`);
@@ -1011,16 +1015,21 @@ ${calendarData.summary}
             
             documentContext = `
 ## IMPORTANT: User's Uploaded Documents (Use This Information!)
-The following content was extracted from documents the user has uploaded. Use this information to answer their questions accurately.
+The following content was extracted from documents the user has uploaded. When the user asks about their notes, files, or uploaded content, USE THIS INFORMATION to answer accurately.
 
 ${docContextParts.join('\n\n---\n\n')}
 
-When answering, cite the source (e.g., "According to your uploaded document...") if using this information.
+INSTRUCTIONS:
+- If the user asks about content from their files/notes, answer based on the above.
+- Cite the source (e.g., "According to your Cornell notes on Machine Learning...")
+- If the information above doesn't contain what they're asking about, say so.
 `;
+          } else {
+            console.log('Document RAG: No matching documents found');
           }
         }
       } catch (ragError) {
-        console.log('Document RAG retrieval failed:', ragError);
+        console.error('Document RAG retrieval failed:', ragError);
       }
     }
 
