@@ -3,17 +3,18 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { FileAttachmentChip } from '@/components/FileAttachmentChip';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { AdaModeSelector, type AdaMode } from './AdaModeSelector';
 import { cn } from '@/lib/utils';
 import { useKeyboardHeight } from '@/hooks/useKeyboardHeight';
 import {
   Send,
   Loader2,
-  Plus,
   Mic,
   MicOff,
   Camera,
   FileText,
-  Upload
+  Upload,
+  BookOpen
 } from 'lucide-react';
 
 interface AdaInputPanelProps {
@@ -24,6 +25,8 @@ interface AdaInputPanelProps {
   isSpeechSupported: boolean;
   voiceInterimTranscript: string;
   hasVoiceDraft: boolean;
+  currentMode?: AdaMode;
+  onModeChange?: (mode: AdaMode) => void;
   onSend: (message: string) => void;
   onFileSelect: (file: File) => void;
   onRemoveFile: () => void;
@@ -48,6 +51,8 @@ export const AdaInputPanel = forwardRef<AdaInputPanelRef, AdaInputPanelProps>(fu
   isSpeechSupported,
   voiceInterimTranscript,
   hasVoiceDraft,
+  currentMode = 'chat',
+  onModeChange,
   onSend,
   onFileSelect,
   onRemoveFile,
@@ -196,9 +201,16 @@ export const AdaInputPanel = forwardRef<AdaInputPanelRef, AdaInputPanelProps>(fu
           />
         )}
 
-        {/* ChatGPT-style input row: + button | input | mic | send */}
+        {/* ChatGPT-style input row: mode selector | input | mic | send */}
         <div className="flex items-end gap-2">
-          {/* Plus/Attach button */}
+          {/* Mode Selector (replaces simple + button) */}
+          <AdaModeSelector
+            currentMode={currentMode}
+            onModeChange={(mode) => onModeChange?.(mode)}
+            disabled={isProcessing}
+          />
+
+          {/* Attach button for files */}
           <Sheet open={attachSheetOpen} onOpenChange={setAttachSheetOpen}>
             <SheetTrigger asChild>
               <Button
@@ -207,9 +219,9 @@ export const AdaInputPanel = forwardRef<AdaInputPanelRef, AdaInputPanelProps>(fu
                 variant="ghost"
                 className="h-11 w-11 flex-shrink-0 rounded-full bg-muted/50 hover:bg-muted touch-target"
                 disabled={isProcessing}
-                aria-label="Attach"
+                aria-label="Attach file"
               >
-                <Plus className="h-5 w-5" />
+                <Upload className="h-5 w-5" />
               </Button>
             </SheetTrigger>
             <SheetContent side="bottom" className="h-auto rounded-t-2xl">
@@ -240,7 +252,7 @@ export const AdaInputPanel = forwardRef<AdaInputPanelRef, AdaInputPanelProps>(fu
                   className="w-full flex items-center gap-4 p-4 hover:bg-muted rounded-xl transition-colors touch-target"
                 >
                   <div className="w-11 h-11 rounded-full bg-purple-500/10 flex items-center justify-center">
-                    <Upload className="w-5 h-5 text-purple-500" />
+                    <BookOpen className="w-5 h-5 text-purple-500" />
                   </div>
                   <span className="font-medium">Upload Document</span>
                 </button>

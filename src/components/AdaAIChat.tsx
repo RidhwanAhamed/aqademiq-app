@@ -38,7 +38,8 @@ import {
   AdaInputPanel,
   type AdaInputPanelRef,
   type ChatMessage,
-  type PendingAction
+  type PendingAction,
+  type AdaMode
 } from '@/components/ada';
 import {
   Upload,
@@ -160,6 +161,9 @@ export function AdaAIChat({
   // File attachment (ChatGPT style)
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [pendingFileStatus, setPendingFileStatus] = useState('');
+  
+  // Mode selector state
+  const [currentMode, setCurrentMode] = useState<AdaMode>('chat');
   
   // Accessibility
   const [accessibilitySettings, setAccessibilitySettings] = useState<AccessibilitySettings>({
@@ -933,25 +937,39 @@ export function AdaAIChat({
       }
 
       const document = result.data;
+      let savedNoteId: string | null = null;
       
       // Save to database if user is authenticated
       if (user) {
-        await supabase.from('cornell_notes').insert({
-          user_id: user.id,
-          title: document.title,
-          topic: document.topic,
-          document: document,
-          source_type: document.sourceType,
-          source_file_name: document.sourceFileName
-        });
+        const { data: savedNote, error: saveError } = await supabase
+          .from('cornell_notes')
+          .insert({
+            user_id: user.id,
+            title: document.title,
+            topic: document.topic,
+            document: JSON.parse(JSON.stringify(document)),
+            source_type: document.sourceType,
+            source_file_name: document.sourceFileName
+          })
+          .select('id')
+          .single();
+        
+        if (!saveError && savedNote) {
+          savedNoteId = savedNote.id;
+        }
       }
+
+      // Create link with document ID if available
+      const viewLink = savedNoteId 
+        ? `/cornell-notes?id=${savedNoteId}` 
+        : '/cornell-notes';
 
       // Show success message with link to view notes
       const successMessage = await saveChatMessage(
-        `✅ **Cornell Notes Generated!**\n\n📚 **${document.title}**\n📄 ${document.totalPages} page(s) • ${document.sourceType === 'file' ? 'From file' : 'From topic'}\n\n**Summary Preview:**\n> ${document.summary.slice(0, 200)}${document.summary.length > 200 ? '...' : ''}\n\n👉 [View & Edit Notes](/cornell-notes)`,
+        `✅ **Cornell Notes Generated!**\n\n📚 **${document.title}**\n📄 ${document.totalPages} page(s) • ${document.sourceType === 'file' ? 'From file' : 'From topic'}\n\n**Summary Preview:**\n> ${document.summary.slice(0, 200)}${document.summary.length > 200 ? '...' : ''}\n\n👉 [View & Edit Notes](${viewLink})`,
         false,
         undefined,
-        { cornell_notes: document, action_completed: true }
+        { cornell_notes: document, action_completed: true, note_id: savedNoteId }
       );
 
       if (successMessage) {
@@ -1626,6 +1644,8 @@ export function AdaAIChat({
           isSpeechSupported={isSpeechSupported}
           voiceInterimTranscript={voiceInterimTranscript}
           hasVoiceDraft={!!voiceFinalChunk}
+          currentMode={currentMode}
+          onModeChange={setCurrentMode}
           onSend={handleSendMessage}
           onFileSelect={handleFileSelect}
           onRemoveFile={handleRemoveFile}
