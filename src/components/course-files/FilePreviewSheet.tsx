@@ -107,7 +107,7 @@ function DocumentFallback({ file, onDownload, isLoading }: {
   );
 }
 
-/** PDF Preview - uses signed URL for reliable browser viewing */
+/** PDF Preview - uses signed URL in iframe for in-app viewing */
 function PdfPreview({ file }: { file: CourseFile }) {
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -142,8 +142,7 @@ function PdfPreview({ file }: { file: CourseFile }) {
     loadSignedUrl();
   }, [loadSignedUrl]);
 
-  // Sync click handler - opens immediately without async delay
-  const handleOpenPdf = () => {
+  const handleOpenInNewTab = () => {
     if (signedUrl) {
       window.open(signedUrl, '_blank', 'noopener,noreferrer');
     }
@@ -177,23 +176,27 @@ function PdfPreview({ file }: { file: CourseFile }) {
   }
 
   return (
-    <div className="flex flex-col items-center justify-center flex-1 gap-6 p-8">
-      <FileText className="w-16 h-16 text-primary opacity-70" />
-      <div className="text-center space-y-2">
-        <p className="text-lg font-medium text-foreground">{file.display_name || file.file_name}</p>
-        <p className="text-sm text-muted-foreground">
-          Click below to open in your browser's PDF viewer
-        </p>
-      </div>
-      <div className="flex gap-3">
-        <Button onClick={handleOpenPdf} disabled={!signedUrl}>
+    <div className="flex flex-col flex-1 min-h-0 gap-3">
+      {/* Action buttons */}
+      <div className="flex items-center justify-end gap-2 flex-shrink-0">
+        <Button size="sm" variant="outline" onClick={handleOpenInNewTab} disabled={!signedUrl}>
           <ExternalLink className="w-4 h-4 mr-2" />
-          Open PDF
+          Open in New Tab
         </Button>
-        <Button variant="outline" onClick={handleDownload}>
+        <Button size="sm" variant="outline" onClick={handleDownload}>
           <Download className="w-4 h-4 mr-2" />
           Download
         </Button>
+      </div>
+      
+      {/* PDF iframe - uses signed URL directly */}
+      <div className="flex-1 min-h-0 rounded-lg border border-border overflow-hidden bg-muted">
+        <iframe
+          src={signedUrl || ''}
+          title={file.display_name || file.file_name}
+          className="w-full h-full min-h-[60vh]"
+          style={{ border: 'none' }}
+        />
       </div>
     </div>
   );
