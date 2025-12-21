@@ -3,10 +3,9 @@
  * Main component for managing files uploaded to a course
  */
 import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
 import { 
   FileUp, 
   Trash2, 
@@ -20,6 +19,7 @@ import {
   FileText,
 } from 'lucide-react';
 import { useCourseFiles } from '@/hooks/useCourseFiles';
+import { useFileAccess } from '@/hooks/useFileAccess';
 import { CourseFileUpload } from './CourseFileUpload';
 import { FilePreviewSheet } from './FilePreviewSheet';
 import { 
@@ -89,6 +89,7 @@ export function CourseFilesManager({ courseId, courseName }: CourseFilesManagerP
     deleteFile, 
     reindexFile 
   } = useCourseFiles({ courseId });
+  const { downloadFile, isLoading: isDownloading } = useFileAccess();
 
   const indexedCount = files.filter(f => f.is_indexed).length;
   const processingCount = files.filter(f => 
@@ -212,12 +213,15 @@ export function CourseFilesManager({ courseId, courseName }: CourseFilesManagerP
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8"
-                          asChild
+                          onClick={() => downloadFile(file)}
+                          disabled={isDownloading}
                           title="Download file"
                         >
-                          <a href={file.file_url} download={file.display_name || file.file_name} target="_blank" rel="noopener noreferrer">
+                          {isDownloading ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
                             <Download className="w-4 h-4" />
-                          </a>
+                          )}
                         </Button>
                       </>
                     )}
