@@ -98,18 +98,20 @@ export const AdaMessageBubble = memo(function AdaMessageBubble({
                 : "bg-white text-black border-black"
             ),
             // Tap effect
-            "active:scale-[0.98] transition-transform touch-manipulation"
+            "active:scale-[0.98] transition-transform touch-manipulation",
+            // Prevent overflow
+            "overflow-hidden break-words"
           )}
           onClick={handleTap}
         >
-          <div className="text-sm leading-relaxed prose prose-sm max-w-none dark:prose-invert">
+          <div className="text-sm leading-relaxed prose prose-sm max-w-none dark:prose-invert break-words overflow-wrap-anywhere">
             <ReactMarkdown 
               remarkPlugins={[remarkGfm]}
               components={{
                 h1: ({...props}) => <h1 className="text-base sm:text-lg font-bold mb-2 text-foreground" {...props} />,
                 h2: ({...props}) => <h2 className="text-sm sm:text-base font-semibold mb-2 text-foreground" {...props} />,
                 h3: ({...props}) => <h3 className="text-xs sm:text-sm font-medium mb-1 text-foreground" {...props} />,
-                p: ({...props}) => <p className="mb-2 last:mb-0 text-foreground" {...props} />,
+                p: ({...props}) => <p className="mb-2 last:mb-0 text-foreground break-words overflow-wrap-anywhere" {...props} />,
                 ul: ({...props}) => <ul className="list-disc list-inside mb-2 space-y-1 text-foreground" {...props} />,
                 ol: ({...props}) => <ol className="list-decimal list-inside mb-2 space-y-1 text-foreground" {...props} />,
                 li: ({...props}) => <li className="text-foreground text-sm" {...props} />,
@@ -118,10 +120,10 @@ export const AdaMessageBubble = memo(function AdaMessageBubble({
                 code: ({children, className, ...props}) => {
                   const isInline = !className || !className.includes('language-');
                   return isInline 
-                    ? <code className="bg-muted px-1.5 py-0.5 rounded text-xs font-mono text-foreground" {...props}>{children}</code>
-                    : <code className="block bg-muted p-2 sm:p-3 rounded-md text-xs font-mono overflow-x-auto text-foreground" {...props}>{children}</code>;
+                    ? <code className="bg-muted px-1.5 py-0.5 rounded text-xs font-mono text-foreground break-all" {...props}>{children}</code>
+                    : <code className="block bg-muted p-2 sm:p-3 rounded-md text-xs font-mono overflow-x-auto text-foreground break-words" {...props}>{children}</code>;
                 },
-                pre: ({...props}) => <pre className="bg-muted p-2 sm:p-3 rounded-md overflow-x-auto mb-2" {...props} />,
+                pre: ({...props}) => <pre className="bg-muted p-2 sm:p-3 rounded-md overflow-x-auto mb-2 break-words whitespace-pre-wrap" {...props} />,
                 blockquote: ({...props}) => <blockquote className="border-l-4 border-primary pl-3 sm:pl-4 italic text-muted-foreground mb-2" {...props} />,
               }}
             >

@@ -1094,7 +1094,15 @@ export function AdaAIChat({
             user_id: user.id
           });
           resultId = eventResult.id;
-          confirmMessage = `✅ Done! I've added **"${action.title}"** to your calendar on ${specificDate} from ${startTime} to ${endTime}.`;
+          
+          // Format confirmation with better date/time display
+          const dateObj = new Date(startDate);
+          const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
+          const dateStr = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          const startTimeFormatted = startDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+          const endTimeFormatted = endDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+          
+          confirmMessage = `✅ **Added to Calendar!**\n\n📅 **${action.title}**\n📆 ${dayName}, ${dateStr}\n⏰ ${startTimeFormatted} - ${endTimeFormatted}${action.location ? `\n📍 ${action.location}` : ''}${action.notes ? `\n📝 ${action.notes}` : ''}\n\nYour calendar has been updated!`;
           break;
         }
 
@@ -1168,7 +1176,14 @@ export function AdaAIChat({
             assignment_type: action.assignment_type || 'homework'
           });
           resultId = assignmentResult.id;
-          confirmMessage = `✅ Created assignment **"${action.title}"** due ${new Date(action.due_date!).toLocaleDateString()}.`;
+          
+          // Format confirmation with better date/time display
+          const dueDate = new Date(action.due_date!);
+          const dayName = dueDate.toLocaleDateString('en-US', { weekday: 'long' });
+          const dateStr = dueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          const timeStr = dueDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+          
+          confirmMessage = `✅ **Assignment Created!**\n\n📝 **${action.title}**\n📆 Due: ${dayName}, ${dateStr} at ${timeStr}${action.description ? `\n📄 ${action.description}` : ''}\n\nYour calendar has been updated!`;
           break;
         }
 
@@ -1238,7 +1253,18 @@ export function AdaAIChat({
             notes: action.notes
           });
           resultId = examResult.id;
-          confirmMessage = `✅ Created exam **"${action.title}"** on ${new Date(action.exam_date!).toLocaleDateString()}.`;
+          
+          // Format confirmation with better date/time display
+          const examDate = new Date(action.exam_date!);
+          const dayName = examDate.toLocaleDateString('en-US', { weekday: 'long' });
+          const dateStr = examDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          const timeStr = examDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+          const duration = action.duration_minutes || 60;
+          const hours = Math.floor(duration / 60);
+          const minutes = duration % 60;
+          const durationStr = hours > 0 ? `${hours}h ${minutes > 0 ? `${minutes}m` : ''}` : `${minutes}m`;
+          
+          confirmMessage = `✅ **Exam Scheduled!**\n\n📚 **${action.title}**\n📆 ${dayName}, ${dateStr} at ${timeStr}\n⏱️ Duration: ${durationStr}${action.location ? `\n📍 ${action.location}` : ''}${action.notes ? `\n📝 ${action.notes}` : ''}\n\nYour calendar has been updated!`;
           break;
         }
 
@@ -1288,7 +1314,16 @@ export function AdaAIChat({
             notes: action.notes
           });
           resultId = sessionResult.id;
-          confirmMessage = `✅ Created study session **"${action.title}"**.`;
+          
+          // Format confirmation with better date/time display
+          const startDate = new Date(action.scheduled_start || action.start_iso!);
+          const endDate = new Date(action.scheduled_end || action.end_iso!);
+          const dayName = startDate.toLocaleDateString('en-US', { weekday: 'long' });
+          const dateStr = startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          const startTimeFormatted = startDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+          const endTimeFormatted = endDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+          
+          confirmMessage = `✅ **Study Session Scheduled!**\n\n📖 **${action.title}**\n📆 ${dayName}, ${dateStr}\n⏰ ${startTimeFormatted} - ${endTimeFormatted}${action.notes ? `\n📝 ${action.notes}` : ''}\n\nYour calendar has been updated!`;
           break;
         }
 
@@ -1385,6 +1420,14 @@ export function AdaAIChat({
         created_at: new Date().toISOString(),
         metadata: { action_confirmed: true }
       }]);
+
+      // Trigger calendar refresh by dispatching a custom event
+      // This will notify any calendar components to refresh
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('calendar-updated', { 
+          detail: { actionType: action.type, entityId: resultId } 
+        }));
+      }
 
       // Award First Voyage badge for first event creation
       if (action.type === 'CREATE_EVENT') {

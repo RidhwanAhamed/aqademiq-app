@@ -97,6 +97,7 @@ export function EnhancedMonthView({
           {event.type === 'exam' && '📝 '}
           {event.type === 'assignment' && '📋 '}
           {event.type === 'schedule' && '🎓 '}
+          {event.type === 'study_session' && '📖 '}
           {event.title}
         </div>
         {!isAllDay && (

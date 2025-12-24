@@ -6,9 +6,19 @@ import { supabase } from '@/integrations/supabase/client';
 import { useCallback, useEffect, useState } from 'react';
 import { getTodayDayOfWeek, getTodayInTimezone, getUserTimezone } from '@/utils/timezone';
 
+export interface StudySession {
+  id: string;
+  title: string;
+  scheduled_start: string;
+  scheduled_end: string;
+  status: string | null;
+  course_id: string | null;
+  courses?: { name: string; color: string } | null;
+}
+
 export interface CalendarEvent {
   id: string;
-  type: 'schedule' | 'exam' | 'assignment';
+  type: 'schedule' | 'exam' | 'assignment' | 'study_session';
   title: string;
   start: Date;
   end: Date;
@@ -18,7 +28,7 @@ export interface CalendarEvent {
     name: string;
     color: string;
   };
-  data: ScheduleBlock | Exam | Assignment;
+  data: ScheduleBlock | Exam | Assignment | StudySession;
 }
 
 export function useRealtimeCalendar() {
@@ -32,7 +42,8 @@ export function useRealtimeCalendar() {
   const transformToCalendarEvents = useCallback((
     scheduleBlocks: ScheduleBlock[] = [],
     exams: Exam[] = [],
-    assignments: Assignment[] = []
+    assignments: Assignment[] = [],
+    studySessions: StudySession[] = []
   ): CalendarEvent[] => {
     const events: CalendarEvent[] = [];
 
@@ -118,6 +129,23 @@ export function useRealtimeCalendar() {
       });
     });
 
+    // Transform study sessions
+    studySessions.forEach(session => {
+      const start = new Date(session.scheduled_start);
+      const end = new Date(session.scheduled_end);
+
+      events.push({
+        id: `study-session-${session.id}`,
+        type: 'study_session',
+        title: `📖 ${session.title}`,
+        start,
+        end,
+        color: session.courses?.color || 'purple',
+        course: session.courses,
+        data: session
+      });
+    });
+
     return events;
   }, []);
 
@@ -126,7 +154,7 @@ export function useRealtimeCalendar() {
     if (!user) return;
 
     try {
-      const [scheduleResult, examsResult, assignmentsResult] = await Promise.all([
+      const [scheduleResult, examsResult, assignmentsResult, studySessionsResult] = await Promise.all([
         supabase
           .from('schedule_blocks')
           .select(`*, courses(name, color)`)
@@ -140,17 +168,24 @@ export function useRealtimeCalendar() {
           .from('assignments')
           .select(`*, courses(name, color)`)
           .eq('user_id', user.id)
-          .eq('is_completed', false)
+          .eq('is_completed', false),
+        supabase
+          .from('study_sessions')
+          .select(`*, courses(name, color)`)
+          .eq('user_id', user.id)
+          .gte('scheduled_end', new Date().toISOString()) // Only future sessions
       ]);
 
       if (scheduleResult.error) throw scheduleResult.error;
       if (examsResult.error) throw examsResult.error;
       if (assignmentsResult.error) throw assignmentsResult.error;
+      if (studySessionsResult.error) throw studySessionsResult.error;
 
       const calendarEvents = transformToCalendarEvents(
         scheduleResult.data as ScheduleBlock[],
         examsResult.data as Exam[],
-        assignmentsResult.data as Assignment[]
+        assignmentsResult.data as Assignment[],
+        studySessionsResult.data as StudySession[]
       );
 
       setEvents(calendarEvents);
@@ -223,10 +258,28 @@ export function useRealtimeCalendar() {
       )
       .subscribe();
 
+    // Study sessions subscription
+    const studySessionsChannel = supabase
+      .channel('study-sessions-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'study_sessions',
+          filter: `user_id=eq.${user.id}`
+        },
+        () => {
+          fetchCalendarData();
+        }
+      )
+      .subscribe();
+
     return () => {
       supabase.removeChannel(scheduleChannel);
       supabase.removeChannel(examsChannel);
       supabase.removeChannel(assignmentsChannel);
+      supabase.removeChannel(studySessionsChannel);
     };
   }, [user, fetchCalendarData]);
 
