@@ -41,6 +41,8 @@ export function AgendaView({ events, onEventClick, dateRange }: AgendaViewProps)
         return <GraduationCap className="h-4 w-4" />;
       case 'assignment':
         return <FileText className="h-4 w-4" />;
+      case 'study_session':
+        return <BookOpen className="h-4 w-4" />;
       default:
         return <Clock className="h-4 w-4" />;
     }
@@ -62,6 +64,8 @@ export function AgendaView({ events, onEventClick, dateRange }: AgendaViewProps)
         return 'red';
       case 'assignment':
         return 'orange';
+      case 'study_session':
+        return 'purple';
       default:
         return 'gray';
     }

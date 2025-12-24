@@ -8,9 +8,19 @@ import { debounce } from 'lodash-es';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getTodayDayOfWeek, getTodayInTimezone, getUserTimezone } from '@/utils/timezone';
 
+export interface StudySession {
+  id: string;
+  title: string;
+  scheduled_start: string;
+  scheduled_end: string;
+  status: string | null;
+  course_id: string | null;
+  courses?: { name: string; color: string } | null;
+}
+
 export interface CalendarEvent {
   id: string;
-  type: 'schedule' | 'exam' | 'assignment';
+  type: 'schedule' | 'exam' | 'assignment' | 'study_session';
   title: string;
   start: Date;
   end: Date;
@@ -20,7 +30,7 @@ export interface CalendarEvent {
     name: string;
     color: string;
   };
-  data: ScheduleBlock | Exam | Assignment;
+  data: ScheduleBlock | Exam | Assignment | StudySession;
 }
 
 interface OptimisticUpdate {
@@ -41,7 +51,8 @@ export function useOptimizedRealtimeCalendar() {
   const transformToCalendarEvents = useMemo(() => (
     scheduleBlocks: ScheduleBlock[] = [],
     exams: Exam[] = [],
-    assignments: any[] = [] // Use any[] for partial assignment data
+    assignments: any[] = [], // Use any[] for partial assignment data
+    studySessions: StudySession[] = []
   ): CalendarEvent[] => {
     const events: CalendarEvent[] = [];
     const now = Date.now();
@@ -131,6 +142,23 @@ export function useOptimizedRealtimeCalendar() {
       });
     });
 
+    // Transform study sessions
+    studySessions.forEach(session => {
+      const start = new Date(session.scheduled_start);
+      const end = new Date(session.scheduled_end);
+
+      events.push({
+        id: `study-session-${session.id}`,
+        type: 'study_session',
+        title: `📖 ${session.title}`,
+        start,
+        end,
+        color: session.courses?.color || 'purple',
+        course: session.courses,
+        data: session
+      });
+    });
+
     return events;
   }, []);
 
@@ -148,7 +176,7 @@ export function useOptimizedRealtimeCalendar() {
       logger.info('Fetching calendar data', { userId: user.id, force });
 
       const fetchData = async () => {
-        const [scheduleResult, examsResult, assignmentsResult] = await Promise.all([
+        const [scheduleResult, examsResult, assignmentsResult, studySessionsResult] = await Promise.all([
           supabase
             .from('schedule_blocks')
             .select(`*, courses(name, color)`)
@@ -166,23 +194,31 @@ export function useOptimizedRealtimeCalendar() {
             .eq('user_id', user.id)
             .eq('is_completed', false)
             .gte('due_date', new Date().toISOString()) // Only future assignments
+            .limit(100), // Limit to prevent large payloads
+          supabase
+            .from('study_sessions')
+            .select(`*, courses(name, color)`)
+            .eq('user_id', user.id)
+            .gte('scheduled_end', new Date().toISOString()) // Only future sessions
             .limit(100) // Limit to prevent large payloads
         ]);
 
         if (scheduleResult.error) throw scheduleResult.error;
         if (examsResult.error) throw examsResult.error;
         if (assignmentsResult.error) throw assignmentsResult.error;
+        if (studySessionsResult.error) throw studySessionsResult.error;
 
         return {
           scheduleBlocks: (scheduleResult.data || []) as ScheduleBlock[],
           exams: (examsResult.data || []) as Exam[],
-          assignments: (assignmentsResult.data || []) as any[] // Use any[] since we're only selecting specific fields
+          assignments: (assignmentsResult.data || []) as any[], // Use any[] since we're only selecting specific fields
+          studySessions: (studySessionsResult.data || []) as StudySession[]
         };
       };
 
-      const { scheduleBlocks, exams, assignments } = await fetchData();
+      const { scheduleBlocks, exams, assignments, studySessions } = await fetchData();
 
-      const calendarEvents = transformToCalendarEvents(scheduleBlocks, exams, assignments);
+      const calendarEvents = transformToCalendarEvents(scheduleBlocks, exams, assignments, studySessions);
       setEvents(calendarEvents);
       setLastFetch(now);
       
@@ -190,7 +226,8 @@ export function useOptimizedRealtimeCalendar() {
         eventCount: calendarEvents.length,
         scheduleCount: scheduleBlocks.length,
         examCount: exams.length,
-        assignmentCount: assignments.length
+        assignmentCount: assignments.length,
+        studySessionCount: studySessions.length
       });
 
     } catch (error) {
@@ -258,6 +295,19 @@ export function useOptimizedRealtimeCalendar() {
         },
         (payload) => {
           logger.debug('Assignment change detected', { payload });
+          debouncedRefetch();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'study_sessions',
+          filter: `user_id=eq.${user.id}`
+        },
+        (payload) => {
+          logger.debug('Study session change detected', { payload });
           debouncedRefetch();
         }
       )

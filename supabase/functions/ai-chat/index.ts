@@ -617,6 +617,215 @@ function isCalendarQuery(query: string): boolean {
 }
 
 // =============================================================================
+// RESPONSE FORMATTING
+// =============================================================================
+
+/**
+ * Format raw JSON schedule responses into readable markdown
+ * Detects if the response contains raw JSON and converts it to a formatted schedule
+ */
+function formatScheduleResponse(response: string): string {
+  // Skip if response is empty or already well-formatted
+  if (!response || response.trim().length === 0) {
+    return response;
+  }
+
+  // Check if response contains code blocks - if so, don't format (user might be showing code)
+  if (response.includes('```')) {
+    return response;
+  }
+
+  let formatted = response;
+
+  // Check if the entire response is just raw JSON (most common case)
+  const trimmed = formatted.trim();
+  if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      
+      // If it has actions array, format those
+      if (parsed.actions && Array.isArray(parsed.actions) && parsed.actions.length > 0) {
+        const formattedSchedule = formatScheduleItems(parsed.actions);
+        if (formattedSchedule) {
+          // If there's also a reply_markdown, prepend it
+          if (parsed.reply_markdown && parsed.reply_markdown !== trimmed) {
+            return parsed.reply_markdown + '\n\n' + formattedSchedule;
+          }
+          return formattedSchedule;
+        }
+      }
+      
+      // If it's a single action object
+      if (parsed.type && (parsed.type.startsWith('CREATE_') || parsed.type.startsWith('UPDATE_'))) {
+        const formattedAction = formatActionAsSchedule(parsed);
+        if (formattedAction) {
+          return formattedAction;
+        }
+      }
+    } catch (e) {
+      // Not valid JSON, continue with other checks
+    }
+  }
+
+  // Look for JSON objects in the response that look like schedule actions
+  // Match JSON objects that are not inside code blocks
+  const jsonObjectPattern = /\{[^{}]*"(?:type|start_iso|end_iso|scheduled_start|scheduled_end|title|due_date|exam_date)"[^{}]*\}/g;
+  const matches = formatted.match(jsonObjectPattern);
+  
+  if (matches) {
+    for (const match of matches) {
+      try {
+        const parsed = JSON.parse(match);
+        
+        // Only format if it looks like a schedule action
+        if (parsed.type && (
+          parsed.type.includes('EVENT') || 
+          parsed.type.includes('SESSION') || 
+          parsed.type.includes('ASSIGNMENT') || 
+          parsed.type.includes('EXAM')
+        )) {
+          const formattedAction = formatActionAsSchedule(parsed);
+          if (formattedAction) {
+            // Replace the JSON with formatted version
+            formatted = formatted.replace(match, formattedAction);
+          }
+        }
+      } catch (e) {
+        // Not valid JSON, skip
+        continue;
+      }
+    }
+  }
+
+  return formatted;
+}
+
+/**
+ * Format a single action as a schedule item
+ */
+function formatActionAsSchedule(action: any): string | null {
+  if (!action.type) return null;
+
+  const lines: string[] = [];
+
+  switch (action.type) {
+    case 'CREATE_EVENT':
+    case 'UPDATE_EVENT': {
+      if (action.start_iso && action.end_iso) {
+        const start = new Date(action.start_iso);
+        const end = new Date(action.end_iso);
+        const dateStr = start.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+        const timeStr = `${formatTimeForDisplay(start)} - ${formatTimeForDisplay(end)}`;
+        lines.push(`📅 **${action.title || 'Event'}**`);
+        lines.push(`   ${dateStr} at ${timeStr}`);
+        if (action.location) lines.push(`   📍 ${action.location}`);
+        if (action.notes) lines.push(`   📝 ${action.notes}`);
+      }
+      break;
+    }
+    case 'CREATE_STUDY_SESSION':
+    case 'UPDATE_STUDY_SESSION': {
+      if (action.scheduled_start && action.scheduled_end) {
+        const start = new Date(action.scheduled_start);
+        const end = new Date(action.scheduled_end);
+        const dateStr = start.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+        const timeStr = `${formatTimeForDisplay(start)} - ${formatTimeForDisplay(end)}`;
+        lines.push(`📖 **${action.title || 'Study Session'}**`);
+        lines.push(`   ${dateStr} at ${timeStr}`);
+        if (action.notes) lines.push(`   📝 ${action.notes}`);
+      }
+      break;
+    }
+    case 'CREATE_ASSIGNMENT':
+    case 'UPDATE_ASSIGNMENT': {
+      if (action.due_date) {
+        const due = new Date(action.due_date);
+        const dateStr = due.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+        const timeStr = formatTimeForDisplay(due);
+        lines.push(`📝 **${action.title || 'Assignment'}**`);
+        lines.push(`   Due: ${dateStr} at ${timeStr}`);
+        if (action.description) lines.push(`   📄 ${action.description}`);
+      }
+      break;
+    }
+    case 'CREATE_EXAM':
+    case 'UPDATE_EXAM': {
+      if (action.exam_date) {
+        const examDate = new Date(action.exam_date);
+        const dateStr = examDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+        const timeStr = formatTimeForDisplay(examDate);
+        lines.push(`📚 **${action.title || 'Exam'}**`);
+        lines.push(`   ${dateStr} at ${timeStr}`);
+        if (action.location) lines.push(`   📍 ${action.location}`);
+        if (action.duration_minutes) lines.push(`   ⏱️ ${action.duration_minutes} minutes`);
+      }
+      break;
+    }
+  }
+
+  return lines.length > 0 ? lines.join('\n') : null;
+}
+
+/**
+ * Format an array of schedule items/actions into a readable schedule
+ */
+function formatScheduleItems(items: any[]): string | null {
+  if (!Array.isArray(items) || items.length === 0) return null;
+
+  const lines: string[] = [];
+  lines.push('## 📅 Schedule\n');
+
+  // Group items by date
+  const itemsByDate = new Map<string, any[]>();
+  
+  for (const item of items) {
+    let dateKey: string;
+    let date: Date;
+
+    if (item.start_iso || item.scheduled_start) {
+      date = new Date(item.start_iso || item.scheduled_start);
+    } else if (item.due_date || item.exam_date) {
+      date = new Date(item.due_date || item.exam_date);
+    } else if (item.end_iso) {
+      date = new Date(item.end_iso);
+    } else {
+      continue;
+    }
+
+    dateKey = date.toDateString();
+    if (!itemsByDate.has(dateKey)) {
+      itemsByDate.set(dateKey, []);
+    }
+    itemsByDate.get(dateKey)!.push({ ...item, _date: date });
+  }
+
+  // Sort dates
+  const sortedDates = Array.from(itemsByDate.keys()).sort((a, b) => 
+    new Date(a).getTime() - new Date(b).getTime()
+  );
+
+  // Format each day
+  for (const dateKey of sortedDates) {
+    const dayItems = itemsByDate.get(dateKey)!;
+    const dayDate = dayItems[0]._date;
+    const isToday = dayDate.toDateString() === new Date().toDateString();
+    
+    lines.push(`### ${isToday ? '📍 Today' : getDayName(dayDate.getDay())}, ${dayDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`);
+    lines.push('');
+
+    for (const item of dayItems) {
+      const formatted = formatActionAsSchedule(item);
+      if (formatted) {
+        lines.push(formatted);
+        lines.push('');
+      }
+    }
+  }
+
+  return lines.join('\n');
+}
+
+// =============================================================================
 // RATE LIMITING
 // =============================================================================
 
@@ -842,6 +1051,15 @@ When the user asks to create, update, delete, or manage their calendar, assignme
 - User says "move/change/reschedule/update X" → UPDATE action
 - User says "delete/remove/cancel X" → DELETE action
 - User says "complete/finish/done with X" → COMPLETE action (for assignments)
+
+## STUDY SESSION SCHEDULING:
+When the user asks to schedule, plan, or create a study session (e.g., "schedule a study session", "I need to study", "plan my study time", "create a study session for X"), you MUST:
+1. Use CREATE_STUDY_SESSION action with proper scheduled_start and scheduled_end times
+2. If the user mentions a specific time, use that time
+3. If the user mentions a course, assignment, or exam, link the study session using course_id, assignment_id, or exam_id
+4. If no specific time is mentioned, suggest reasonable times based on the user's free time slots from their calendar
+5. Default duration: 1-2 hours unless specified otherwise
+6. Always schedule study sessions in the calendar - they should appear as calendar events
 
 ## WHEN NOT TO USE ACTIONS:
 - User is asking questions about their calendar/schedule
@@ -1116,6 +1334,7 @@ When creating assignments, exams, or study sessions that reference a course:
 ## Your Role:
 - Help students manage their academic schedules
 - Create calendar events when requested
+- **Schedule study sessions in the calendar when users ask for them** - this is critical!
 - Provide study tips and academic advice
 - Answer questions using the user's uploaded documents and course materials
 - Answer questions about the user's calendar using REAL calendar data from the database
@@ -1133,11 +1352,25 @@ ${documentContext ? documentContext : ''}
 1. Start with a **bolded summary** when helpful
 2. Use markdown formatting (headers, bullets, bold)
 3. For scheduling requests, ALWAYS return the JSON format with actions
-4. For calendar questions, use the calendar data provided above - do NOT make up events
-5. Be conversational but efficient
-6. When using information from user documents, reference the source
-7. Current datetime for reference: ${new Date().toISOString()}
-8. If asked about calendar/schedule/events, ALWAYS check the "USER'S ACTUAL CALENDAR DATA" section first
+4. **When users ask to schedule/plan/create a study session, you MUST use CREATE_STUDY_SESSION action** - don't just suggest, actually schedule it!
+5. For calendar questions, use the calendar data provided above - do NOT make up events
+6. Be conversational but efficient
+7. When using information from user documents, reference the source
+8. Current datetime for reference: ${new Date().toISOString()}
+9. If asked about calendar/schedule/events, ALWAYS check the "USER'S ACTUAL CALENDAR DATA" section first
+
+## CRITICAL: Schedule Response Formatting
+- When showing a schedule or list of events, ALWAYS format it as readable markdown with dates, times, and descriptions
+- NEVER return raw JSON code blocks in your reply_markdown field
+- Use markdown formatting like:
+  - Headers (## Schedule)
+  - Bullet points with emojis (📅 Event name)
+  - Date/time formatting (Monday, Dec 1 at 10:00 AM)
+- If you need to return actions, put them in the "actions" array, but the reply_markdown should be human-readable text, NOT JSON
+- Example of GOOD format:
+  "## 📅 Your Schedule\n\n### Monday, Dec 1\n- 📅 Math Class at 10:00 AM - 11:30 AM\n- 📝 Assignment due at 11:59 PM\n\n### Tuesday, Dec 2\n..."
+- Example of BAD format (DO NOT DO THIS):
+  "{\"type\":\"CREATE_EVENT\",\"title\":\"Math Class\",\"start_iso\":\"2025-12-01T10:00:00\"}"
 `;
 
     // ==========================================================================
@@ -1256,6 +1489,9 @@ ${documentContext ? documentContext : ''}
     } catch (parseError) {
       console.log('Response is plain markdown (no actions)');
     }
+
+    // Post-process: Format raw JSON schedules in reply_markdown
+    parsedResponse.reply_markdown = formatScheduleResponse(parsedResponse.reply_markdown);
 
     // Validate actions - support all CRUD action types
     const validatedActions = parsedResponse.actions.filter(action => {

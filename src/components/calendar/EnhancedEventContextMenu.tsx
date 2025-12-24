@@ -78,6 +78,8 @@ export function EnhancedEventContextMenu({
         return <GraduationCap className="h-4 w-4" />;
       case 'assignment':
         return <FileText className="h-4 w-4" />;
+      case 'study_session':
+        return <BookOpen className="h-4 w-4" />;
       default:
         return <Calendar className="h-4 w-4" />;
     }
@@ -91,6 +93,8 @@ export function EnhancedEventContextMenu({
         return 'Exam';
       case 'assignment':
         return 'Assignment';
+      case 'study_session':
+        return 'Study Session';
       default:
         return 'Event';
     }
