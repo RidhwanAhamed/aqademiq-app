@@ -1220,8 +1220,8 @@ ${calendarData.summary}
         const queryEmbedding = await generateQueryEmbedding(message, openaiApiKeyForRAG);
         
         if (queryEmbedding) {
-          // Use lower threshold (0.35) for better recall
-          const relevantDocs = await searchDocuments(supabase, userId, queryEmbedding, course_id, 0.35, 8);
+          // Use lower threshold (0.35) for better recall - searchDocuments only takes 4 params
+          const relevantDocs = await searchDocuments(supabase, userId, queryEmbedding, course_id);
           
           if (relevantDocs.length > 0) {
             console.log(`Document RAG: Found ${relevantDocs.length} relevant documents`);

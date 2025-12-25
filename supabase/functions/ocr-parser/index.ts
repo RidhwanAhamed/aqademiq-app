@@ -81,7 +81,9 @@ serve(async (req) => {
 
     // Create blob for OCR Space API
     const formData = new FormData();
-    const blob = new Blob([fileBuffer], { type: fileType });
+    // Cast to ArrayBuffer first to avoid TypeScript error
+    const arrayBuffer = fileBuffer.buffer.slice(fileBuffer.byteOffset, fileBuffer.byteOffset + fileBuffer.byteLength);
+    const blob = new Blob([arrayBuffer], { type: fileType });
     formData.append('file', blob, fileName);
     formData.append('apikey', ocrApiKey);
     formData.append('language', 'eng');
@@ -127,7 +129,7 @@ serve(async (req) => {
     console.error('Error in OCR parser:', error);
     return new Response(
       JSON.stringify({ 
-        error: error.message || 'Internal server error' 
+        error: error instanceof Error ? error.message : 'Internal server error' 
       }),
       {
         status: 500,

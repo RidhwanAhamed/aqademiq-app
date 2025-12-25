@@ -254,7 +254,17 @@ export function getDragFeedbackClass(validation: DragValidationResult): string {
 }
 
 /**
+ * Escape HTML to prevent XSS attacks
+ */
+function escapeHtml(text: string): string {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+/**
  * Create ghost element for drag preview
+ * Uses safe DOM methods to prevent XSS
  */
 export function createDragGhost(event: CalendarEvent): HTMLElement {
   const ghost = document.createElement('div');
@@ -262,15 +272,35 @@ export function createDragGhost(event: CalendarEvent): HTMLElement {
   ghost.style.borderLeftColor = `hsl(var(--${event.color || 'primary'}))`;
   ghost.style.minWidth = '200px';
   
-  ghost.innerHTML = `
-    <div class="font-medium text-foreground text-sm">${event.title}</div>
-    <div class="text-xs text-muted-foreground flex items-center gap-1">
-      <span>⏰</span>
-      ${event.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - 
-      ${event.end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-    </div>
-    ${event.location ? `<div class="text-xs text-muted-foreground flex items-center gap-1"><span>📍</span>${event.location}</div>` : ''}
-  `;
+  // Create title element safely using textContent
+  const titleDiv = document.createElement('div');
+  titleDiv.className = 'font-medium text-foreground text-sm';
+  titleDiv.textContent = event.title;
+  ghost.appendChild(titleDiv);
+  
+  // Create time element safely
+  const timeDiv = document.createElement('div');
+  timeDiv.className = 'text-xs text-muted-foreground flex items-center gap-1';
+  const timeIcon = document.createElement('span');
+  timeIcon.textContent = '⏰';
+  timeDiv.appendChild(timeIcon);
+  const timeText = document.createTextNode(
+    ` ${event.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - ${event.end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+  );
+  timeDiv.appendChild(timeText);
+  ghost.appendChild(timeDiv);
+  
+  // Create location element safely if present
+  if (event.location) {
+    const locationDiv = document.createElement('div');
+    locationDiv.className = 'text-xs text-muted-foreground flex items-center gap-1';
+    const locationIcon = document.createElement('span');
+    locationIcon.textContent = '📍';
+    locationDiv.appendChild(locationIcon);
+    const locationText = document.createTextNode(event.location);
+    locationDiv.appendChild(locationText);
+    ghost.appendChild(locationDiv);
+  }
   
   return ghost;
 }

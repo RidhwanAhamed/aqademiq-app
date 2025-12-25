@@ -188,7 +188,7 @@ CONFLICT DETECTION:
     console.error('Enhanced schedule parser error:', error);
     return new Response(JSON.stringify({
       success: false,
-      error: error.message,
+      error: error instanceof Error ? error.message : 'Internal server error',
       response: "I encountered an error while parsing your schedule. Please check the file format and try again. Supported formats include PDFs, images, and text documents with clear schedule information."
     }), {
       status: 500,
@@ -407,7 +407,9 @@ function timeToMinutes(timeStr: string): number {
 
 async function addScheduleToCalendar(scheduleData: any, userId: string): Promise<any> {
   try {
-    const results = { courses: 0, classes: 0, assignments: 0, exams: 0, errors: [] };
+    const results: { courses: number; classes: number; assignments: number; exams: number; errors: string[] } = { 
+      courses: 0, classes: 0, assignments: 0, exams: 0, errors: [] 
+    };
     
     // Add courses first
     const courseMap = new Map();
@@ -442,8 +444,9 @@ async function addScheduleToCalendar(scheduleData: any, userId: string): Promise
         } else {
           courseMap.set(course.code, existingCourse.id);
         }
-      } catch (error) {
-        results.errors.push(`Course ${course.code}: ${error.message}`);
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+        results.errors.push(`Course ${course.code}: ${errorMessage}`);
       }
     }
 
@@ -465,8 +468,9 @@ async function addScheduleToCalendar(scheduleData: any, userId: string): Promise
             recurrence_pattern: classItem.recurrence
           });
         results.classes++;
-      } catch (error) {
-        results.errors.push(`Class ${classItem.title}: ${error.message}`);
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+        results.errors.push(`Class ${classItem.title}: ${errorMessage}`);
       }
     }
 
@@ -485,8 +489,9 @@ async function addScheduleToCalendar(scheduleData: any, userId: string): Promise
             assignment_type: assignment.type
           });
         results.assignments++;
-      } catch (error) {
-        results.errors.push(`Assignment ${assignment.title}: ${error.message}`);
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+        results.errors.push(`Assignment ${assignment.title}: ${errorMessage}`);
       }
     }
 
@@ -506,8 +511,9 @@ async function addScheduleToCalendar(scheduleData: any, userId: string): Promise
             notes: exam.notes
           });
         results.exams++;
-      } catch (error) {
-        results.errors.push(`Exam ${exam.title}: ${error.message}`);
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+        results.errors.push(`Exam ${exam.title}: ${errorMessage}`);
       }
     }
 
@@ -556,7 +562,7 @@ async function syncToGoogleCalendar(scheduleData: any, userId: string): Promise<
     return syncResult;
   } catch (error) {
     console.error('Error syncing to Google Calendar:', error);
-    return { success: false, error: error.message };
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 }
 
