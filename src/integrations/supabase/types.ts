@@ -1934,6 +1934,33 @@ export type Database = {
           },
         ]
       }
+      token_whitelist: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          email: string
+          id: string
+          reason: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          email: string
+          id?: string
+          reason?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          email?: string
+          id?: string
+          reason?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_stats: {
         Row: {
           average_grade_points: number | null
