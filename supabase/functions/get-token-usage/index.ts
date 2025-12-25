@@ -58,13 +58,17 @@ serve(async (req) => {
       resets_at: new Date(new Date().setUTCHours(24, 0, 0, 0)).toISOString()
     };
 
+    // Check if user has unlimited access (remaining_tokens = 999999999)
+    const isUnlimited = Number(usage.remaining_tokens) >= 999999999;
+    
     return new Response(
       JSON.stringify({
         used: Number(usage.total_tokens_today),
-        limit: DAILY_LIMIT,
-        remaining: Number(usage.remaining_tokens),
+        limit: isUnlimited ? 'unlimited' : DAILY_LIMIT,
+        remaining: isUnlimited ? 'unlimited' : Number(usage.remaining_tokens),
         is_exceeded: usage.is_limit_exceeded,
-        resets_at: usage.resets_at
+        resets_at: usage.resets_at,
+        is_unlimited: isUnlimited
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

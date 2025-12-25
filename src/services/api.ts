@@ -360,9 +360,14 @@ export const updateAssignment = async (
     .eq('id', assignmentId)
     .eq('user_id', userId)
     .select()
-    .single();
+    .maybeSingle();
 
   if (error) throw error;
+  
+  if (!data) {
+    throw new Error(`Assignment not found with id: ${assignmentId}`);
+  }
+  
   return data;
 };
 
