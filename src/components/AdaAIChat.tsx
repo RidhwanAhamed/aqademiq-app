@@ -212,9 +212,25 @@ export function AdaAIChat({
           resets_at: data.resets_at,
           is_unlimited: data.is_unlimited || false
         });
+      } else if (error) {
+        // On error, set default values that allow chat to work
+        console.log('Token usage fetch failed, using defaults:', error);
+        setTokenUsage({
+          used: 0,
+          limit: 50000,
+          remaining: 50000,
+          is_unlimited: false
+        });
       }
     } catch (e) {
       console.log('Failed to fetch token usage:', e);
+      // On exception, set default values that allow chat to work
+      setTokenUsage({
+        used: 0,
+        limit: 50000,
+        remaining: 50000,
+        is_unlimited: false
+      });
     }
   }, [user]);
 
