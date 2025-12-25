@@ -1072,6 +1072,39 @@ export type Database = {
         }
         Relationships: []
       }
+      oauth_state_tokens: {
+        Row: {
+          created_at: string
+          expires_at: string
+          id: string
+          ip_address: unknown
+          state_token: string
+          used: boolean | null
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at: string
+          id?: string
+          ip_address?: unknown
+          state_token: string
+          used?: boolean | null
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          ip_address?: unknown
+          state_token?: string
+          used?: boolean | null
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       performance_analytics: {
         Row: {
           calculation_date: string
@@ -1983,6 +2016,15 @@ export type Database = {
         }
         Returns: boolean
       }
+      cleanup_expired_oauth_tokens: { Args: never; Returns: number }
+      create_oauth_state_token: {
+        Args: {
+          p_ip_address?: unknown
+          p_user_agent?: string
+          p_user_id: string
+        }
+        Returns: string
+      }
       decrypt_token: { Args: { p_encrypted_token: string }; Returns: string }
       delete_user_google_tokens: {
         Args: { p_user_id: string }
@@ -2162,14 +2204,23 @@ export type Database = {
         Args: { p_user_id?: string }
         Returns: boolean
       }
-      validate_oauth_state: {
-        Args: {
-          p_max_age_minutes?: number
-          p_state_token: string
-          p_user_id: string
-        }
-        Returns: boolean
-      }
+      validate_oauth_state:
+        | {
+            Args: {
+              p_max_age_minutes?: number
+              p_state_token: string
+              p_user_id: string
+            }
+            Returns: boolean
+          }
+        | {
+            Args: {
+              p_max_age_minutes?: number
+              p_state_token: string
+              p_user_id: string
+            }
+            Returns: boolean
+          }
       validate_redirect_uri: {
         Args: { p_allowed_domains?: string[]; p_redirect_uri: string }
         Returns: boolean
