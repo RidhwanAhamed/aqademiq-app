@@ -1125,7 +1125,24 @@ export function AdaAIChat({
         }
 
         case 'UPDATE_EVENT': {
-          if (!action.id) throw new Error('Missing event ID for update');
+          if (!action.id) throw new Error('Missing event ID for update. The AI must provide the entity ID from the calendar data.');
+          
+          console.log(`[Ada Action] UPDATE_EVENT: id=${action.id}, title=${action.title}`);
+          
+          // Verify the event exists before attempting update
+          const { data: existingEvent, error: checkError } = await supabase
+            .from('schedule_blocks')
+            .select('id, title')
+            .eq('id', action.id)
+            .eq('user_id', user.id)
+            .eq('is_active', true)
+            .maybeSingle();
+          
+          if (checkError || !existingEvent) {
+            console.error(`Event not found for update: ${action.id}`, checkError);
+            throw new Error(`Event not found: "${entityName}". Please check the event name and try again.`);
+          }
+          
           const updates: any = {};
           if (action.title) updates.title = action.title;
           if (action.start_iso) {
@@ -1148,7 +1165,24 @@ export function AdaAIChat({
         }
 
         case 'DELETE_EVENT': {
-          if (!action.id) throw new Error('Missing event ID for delete');
+          if (!action.id) throw new Error('Missing event ID for delete. The AI must provide the entity ID from the calendar data.');
+          
+          console.log(`[Ada Action] DELETE_EVENT: id=${action.id}, title=${action.title}`);
+          
+          // Verify the event exists before attempting delete
+          const { data: existingEvent, error: checkError } = await supabase
+            .from('schedule_blocks')
+            .select('id, title')
+            .eq('id', action.id)
+            .eq('user_id', user.id)
+            .eq('is_active', true)
+            .maybeSingle();
+          
+          if (checkError || !existingEvent) {
+            console.error(`Event not found for delete: ${action.id}`, checkError);
+            throw new Error(`Event not found: "${entityName}". It may have already been deleted.`);
+          }
+          
           await deleteScheduleBlock(action.id, user.id);
           resultId = action.id;
           confirmMessage = `🗑️ Deleted **"${entityName}"** from your calendar.`;
@@ -1206,7 +1240,10 @@ export function AdaAIChat({
         }
 
         case 'UPDATE_ASSIGNMENT': {
-          if (!action.id) throw new Error('Missing assignment ID for update');
+          if (!action.id) throw new Error('Missing assignment ID for update. The AI must provide the entity ID from the calendar data.');
+          
+          console.log(`[Ada Action] UPDATE_ASSIGNMENT: id=${action.id}, title=${action.title}`);
+          
           const updates: any = {};
           if (action.title) updates.title = action.title;
           if (action.due_date) updates.due_date = action.due_date;
@@ -1220,7 +1257,10 @@ export function AdaAIChat({
         }
 
         case 'DELETE_ASSIGNMENT': {
-          if (!action.id) throw new Error('Missing assignment ID for delete');
+          if (!action.id) throw new Error('Missing assignment ID for delete. The AI must provide the entity ID from the calendar data.');
+          
+          console.log(`[Ada Action] DELETE_ASSIGNMENT: id=${action.id}, title=${action.title}`);
+          
           await deleteAssignment(action.id, user.id);
           resultId = action.id;
           confirmMessage = `🗑️ Deleted assignment **"${entityName}"**.`;
@@ -1228,7 +1268,10 @@ export function AdaAIChat({
         }
 
         case 'COMPLETE_ASSIGNMENT': {
-          if (!action.id) throw new Error('Missing assignment ID for complete');
+          if (!action.id) throw new Error('Missing assignment ID for complete. The AI must provide the entity ID from the calendar data.');
+          
+          console.log(`[Ada Action] COMPLETE_ASSIGNMENT: id=${action.id}, title=${action.title}`);
+          
           await completeAssignment(action.id, user.id);
           resultId = action.id;
           confirmMessage = `✅ Marked **"${entityName}"** as complete!`;
@@ -1287,7 +1330,10 @@ export function AdaAIChat({
         }
 
         case 'UPDATE_EXAM': {
-          if (!action.id) throw new Error('Missing exam ID for update');
+          if (!action.id) throw new Error('Missing exam ID for update. The AI must provide the entity ID from the calendar data.');
+          
+          console.log(`[Ada Action] UPDATE_EXAM: id=${action.id}, title=${action.title}`);
+          
           const updates: any = {};
           if (action.title) updates.title = action.title;
           if (action.exam_date) updates.exam_date = action.exam_date;
@@ -1301,7 +1347,10 @@ export function AdaAIChat({
         }
 
         case 'DELETE_EXAM': {
-          if (!action.id) throw new Error('Missing exam ID for delete');
+          if (!action.id) throw new Error('Missing exam ID for delete. The AI must provide the entity ID from the calendar data.');
+          
+          console.log(`[Ada Action] DELETE_EXAM: id=${action.id}, title=${action.title}`);
+          
           await deleteExam(action.id, user.id);
           resultId = action.id;
           confirmMessage = `🗑️ Deleted exam **"${entityName}"**.`;
@@ -1346,7 +1395,10 @@ export function AdaAIChat({
         }
 
         case 'UPDATE_STUDY_SESSION': {
-          if (!action.id) throw new Error('Missing study session ID for update');
+          if (!action.id) throw new Error('Missing study session ID for update. The AI must provide the entity ID from the calendar data.');
+          
+          console.log(`[Ada Action] UPDATE_STUDY_SESSION: id=${action.id}, title=${action.title}`);
+          
           const updates: any = {};
           if (action.title) updates.title = action.title;
           if (action.scheduled_start) updates.scheduled_start = action.scheduled_start;
@@ -1361,7 +1413,10 @@ export function AdaAIChat({
         }
 
         case 'DELETE_STUDY_SESSION': {
-          if (!action.id) throw new Error('Missing study session ID for delete');
+          if (!action.id) throw new Error('Missing study session ID for delete. The AI must provide the entity ID from the calendar data.');
+          
+          console.log(`[Ada Action] DELETE_STUDY_SESSION: id=${action.id}, title=${action.title}`);
+          
           await deleteStudySession(action.id, user.id);
           resultId = action.id;
           confirmMessage = `🗑️ Deleted study session **"${entityName}"**.`;
@@ -1385,7 +1440,10 @@ export function AdaAIChat({
         }
 
         case 'UPDATE_COURSE': {
-          if (!action.id) throw new Error('Missing course ID for update');
+          if (!action.id) throw new Error('Missing course ID for update. The AI must provide the entity ID from the calendar data.');
+          
+          console.log(`[Ada Action] UPDATE_COURSE: id=${action.id}, name=${action.name}`);
+          
           const updates: any = {};
           if (action.name) updates.name = action.name;
           if (action.code) updates.code = action.code;
@@ -1401,7 +1459,10 @@ export function AdaAIChat({
         }
 
         case 'DELETE_COURSE': {
-          if (!action.id) throw new Error('Missing course ID for delete');
+          if (!action.id) throw new Error('Missing course ID for delete. The AI must provide the entity ID from the calendar data.');
+          
+          console.log(`[Ada Action] DELETE_COURSE: id=${action.id}, name=${action.name}`);
+          
           await deleteCourse(action.id, user.id);
           resultId = action.id;
           confirmMessage = `🗑️ Deleted course **"${entityName}"**.`;

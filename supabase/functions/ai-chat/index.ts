@@ -64,6 +64,7 @@ interface StudySession {
 }
 
 interface CalendarEvent {
+  id: string;  // Entity ID for updates/deletes
   type: 'class' | 'assignment' | 'exam' | 'study_session';
   title: string;
   start: Date;
@@ -312,6 +313,7 @@ async function fetchCalendarContext(
         const endTime = parseTimeToDate(currentDate, block.end_time);
         
         events.push({
+          id: block.id,
           type: 'class',
           title: block.title,
           start: startTime,
@@ -333,6 +335,7 @@ async function fetchCalendarContext(
     endDate.setHours(endDate.getHours() + 1);
     
     events.push({
+      id: assignment.id,
       type: 'assignment',
       title: `📝 ${assignment.title} (Due)`,
       start: dueDate,
@@ -348,6 +351,7 @@ async function fetchCalendarContext(
     endDate.setMinutes(endDate.getMinutes() + (exam.duration_minutes || 60));
     
     events.push({
+      id: exam.id,
       type: 'exam',
       title: `📚 ${exam.title} (Exam)`,
       start: examDate,
@@ -360,6 +364,7 @@ async function fetchCalendarContext(
   // Process study sessions
   for (const session of studySessions) {
     events.push({
+      id: session.id,
       type: 'study_session',
       title: `📖 ${session.title}`,
       start: new Date(session.scheduled_start),
@@ -482,7 +487,7 @@ function generateCalendarSummary(
         const timeRange = `${formatTimeForDisplay(event.start)} - ${formatTimeForDisplay(event.end)}`;
         const course = event.courseName ? ` (${event.courseName})` : '';
         const location = event.location ? ` @ ${event.location}` : '';
-        lines.push(`- ${timeRange}: ${event.title}${course}${location}`);
+        lines.push(`- ${timeRange}: ${event.title}${course}${location} [ID: ${event.id}]`);
       }
       lines.push('');
     }
@@ -520,6 +525,17 @@ function generateCalendarSummary(
     }
   } else if (events.length > 0) {
     lines.push(`\n⚠️ **No free time slots available ${dateRange.label}** (fully booked)`);
+  }
+  
+  // Add entity reference section for updates/deletes
+  if (events.length > 0) {
+    lines.push('\n### 🔑 Entity Reference (for updates/deletes):');
+    for (const event of events) {
+      const typeLabel = event.type === 'class' ? 'Event' : 
+                        event.type === 'assignment' ? 'Assignment' :
+                        event.type === 'exam' ? 'Exam' : 'Study Session';
+      lines.push(`- "${event.title.replace(/^(📝|📚|📖)\s*/, '')}" (${typeLabel}): ID=${event.id}`);
+    }
   }
   
   return lines.join('\n');
@@ -1068,9 +1084,13 @@ When the user asks to schedule, plan, or create a study session (e.g., "schedule
 
 ## FINDING ENTITY IDs:
 When user refers to an entity by name (e.g., "delete my Physics exam"), you MUST:
-1. Look in the calendar context provided to find the matching entity
-2. Use the exact UUID/ID from the calendar data
-3. If you cannot find the exact entity, ask the user to clarify which one they mean
+1. Look in the "Entity Reference" section of the calendar context to find the matching entity
+2. Use the EXACT UUID/ID from the calendar data (format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
+3. NEVER generate, guess, or fabricate UUIDs - only use IDs that appear in the provided calendar data
+4. If you cannot find the exact entity ID, ask the user to clarify which one they mean
+5. The ID field is REQUIRED for UPDATE_* and DELETE_* actions - the operation will fail without it
+
+CRITICAL: Entity IDs are 36-character UUIDs with dashes. Example: "4b53bc13-817d-4186-8a11-cf1d86820aec"
 
 Always include reply_markdown even when returning actions. If no actions are needed, omit the actions array entirely and just respond normally.
 `;
