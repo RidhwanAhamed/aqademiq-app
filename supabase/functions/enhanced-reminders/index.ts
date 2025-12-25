@@ -123,7 +123,7 @@ serve(async (req) => {
     }
   } catch (error) {
     console.error('Error in enhanced-reminders function:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : 'Internal server error' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -357,7 +357,7 @@ async function processNotificationQueue(supabase: any) {
         .update({ 
           retry_count: notification.retry_count + 1,
           failed_at: now.toISOString(),
-          error_message: error.message
+          error_message: error instanceof Error ? error.message : 'Unknown error'
         })
         .eq('id', notification.id);
     }

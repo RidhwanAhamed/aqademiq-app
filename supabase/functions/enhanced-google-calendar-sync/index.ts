@@ -19,6 +19,26 @@ interface SyncRequest {
   conflictData?: any;
 }
 
+/**
+ * Verify that the authenticated user matches the requested userId
+ * Returns the authenticated user ID if valid, throws an error otherwise
+ */
+async function verifyAuthenticatedUser(req: Request, supabase: any): Promise<string> {
+  const authHeader = req.headers.get('Authorization');
+  if (!authHeader) {
+    throw new Error('Missing authorization header');
+  }
+
+  const token = authHeader.replace('Bearer ', '');
+  const { data: { user }, error } = await supabase.auth.getUser(token);
+  
+  if (error || !user) {
+    throw new Error('Invalid or expired authentication token');
+  }
+
+  return user.id;
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -31,13 +51,11 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     console.log('Enhanced Google Calendar sync request received');
-    console.log('Method:', req.method);
-    console.log('Headers:', Object.fromEntries(req.headers.entries()));
 
     let body: SyncRequest;
     try {
       body = await req.json() as SyncRequest;
-      console.log('Request body:', body);
+      console.log('Request body action:', body.action);
     } catch (parseError) {
       console.error('Failed to parse request body:', parseError);
       return new Response(
@@ -54,45 +72,53 @@ serve(async (req) => {
       );
     }
 
+    // Webhook action is called by Google, doesn't need user auth
+    if (body.action === 'webhook') {
+      return await handleWebhook(req, supabase);
+    }
+
+    // All other actions require authentication
+    let authenticatedUserId: string;
+    try {
+      authenticatedUserId = await verifyAuthenticatedUser(req, supabase);
+    } catch (authError) {
+      console.error('Authentication failed:', authError);
+      return new Response(
+        JSON.stringify({ error: 'Authentication required' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Verify the requested userId matches the authenticated user
+    if (body.userId && body.userId !== authenticatedUserId) {
+      console.warn(`Unauthorized access attempt: User ${authenticatedUserId} tried to access data for ${body.userId}`);
+      return new Response(
+        JSON.stringify({ error: 'Access denied: You can only sync your own calendar' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Use authenticated user ID for all operations
+    const userId = authenticatedUserId;
+
     switch (body.action) {
-      case 'webhook':
-        return await handleWebhook(req, supabase);
-      
       case 'setup-webhook':
-        if (!body.userId) {
-          return new Response(
-            JSON.stringify({ error: 'Missing required field: userId' }),
-            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-        return await setupWebhook(body.userId, supabase);
+        return await setupWebhook(userId, supabase);
       
       case 'full-sync':
-        if (!body.userId) {
-          return new Response(
-            JSON.stringify({ error: 'Missing required field: userId' }),
-            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-        return await performFullBidirectionalSync(body.userId, supabase);
+        return await performFullBidirectionalSync(userId, supabase);
       
       case 'incremental-sync':
-        if (!body.userId) {
-          return new Response(
-            JSON.stringify({ error: 'Missing required field: userId' }),
-            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-        return await performIncrementalSync(body.userId, supabase);
+        return await performIncrementalSync(userId, supabase);
       
       case 'conflict-resolution':
-        if (!body.userId || !body.conflictData) {
+        if (!body.conflictData) {
           return new Response(
-            JSON.stringify({ error: 'Missing required fields: userId and conflictData' }),
+            JSON.stringify({ error: 'Missing required field: conflictData' }),
             { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
-        return await resolveConflicts(body.userId, body.conflictData, supabase);
+        return await resolveConflicts(userId, body.conflictData, supabase);
       
       default:
         return new Response(
@@ -107,8 +133,7 @@ serve(async (req) => {
     console.error('Enhanced sync error:', error);
     return new Response(
       JSON.stringify({ 
-        error: error instanceof Error ? error.message : 'Internal server error',
-        details: 'An unexpected error occurred during sync operation'
+        error: 'Internal server error'
       }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

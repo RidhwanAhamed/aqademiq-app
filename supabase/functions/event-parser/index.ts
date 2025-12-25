@@ -139,7 +139,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: false,
-        error: error.message || 'Event parsing failed',
+        error: error instanceof Error ? error.message : 'Event parsing failed',
         processing_time_ms: Date.now() - startTime
       }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -280,7 +280,7 @@ Return valid JSON with all extracted events.`;
 
   } catch (error) {
     console.error('AI parsing error:', error);
-    throw new Error(`Failed to parse events: ${error.message}`);
+    throw new Error(`Failed to parse events: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
 
