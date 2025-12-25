@@ -81,6 +81,7 @@ serve(async (req) => {
       case 'signin-authorize': {
         // OAuth Authorization for Sign-In (openid, email, profile only)
         const redirectUri = requestBody?.redirectUri;
+        const userId = requestBody?.userId;
         
         if (!redirectUri) {
           throw new Error('Missing redirectUri');
@@ -88,11 +89,29 @@ serve(async (req) => {
 
         console.log('Sign-in OAuth authorization requested for:', redirectUri);
         
-        // Generate cryptographically secure state parameter with signin prefix
-        const state = 'signin_' + Array.from(
-          crypto.getRandomValues(new Uint8Array(32)), 
-          b => b.toString(16).padStart(2, '0')
-        ).join('');
+        // Generate and store state token if user is authenticated
+        let state: string;
+        if (userId) {
+          // Use secure database function to create and store state token
+          const { data: stateToken, error: stateError } = await supabase
+            .rpc('create_oauth_state_token', { 
+              p_user_id: userId,
+              p_ip_address: req.headers.get('x-forwarded-for') || null,
+              p_user_agent: req.headers.get('user-agent') || null
+            });
+          
+          if (stateError || !stateToken) {
+            console.error('Error creating state token:', stateError);
+            throw new Error('Failed to create OAuth state token');
+          }
+          state = 'signin_' + stateToken;
+        } else {
+          // For unauthenticated sign-in flows, generate a temporary state
+          state = 'signin_' + Array.from(
+            crypto.getRandomValues(new Uint8Array(32)), 
+            b => b.toString(16).padStart(2, '0')
+          ).join('');
+        }
         
         const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
         authUrl.searchParams.set('client_id', googleClientId);
@@ -114,9 +133,14 @@ serve(async (req) => {
       case 'authorize': {
         // Enhanced OAuth Authorization with Security Validations
         const redirectUri = requestBody?.redirectUri;
+        const userId = requestBody?.userId;
         
         if (!redirectUri) {
           throw new Error('Missing redirectUri');
+        }
+
+        if (!userId) {
+          throw new Error('Missing userId - authentication required');
         }
 
         // Validate redirect URI for security
@@ -128,11 +152,18 @@ serve(async (req) => {
           throw new Error('Invalid redirect URI provided');
         }
 
-        // Generate cryptographically secure state parameter for CSRF protection
-        const state = Array.from(
-          crypto.getRandomValues(new Uint8Array(32)), 
-          b => b.toString(16).padStart(2, '0')
-        ).join('');
+        // Generate and store state token using secure database function
+        const { data: stateToken, error: stateError } = await supabase
+          .rpc('create_oauth_state_token', { 
+            p_user_id: userId,
+            p_ip_address: req.headers.get('x-forwarded-for') || null,
+            p_user_agent: req.headers.get('user-agent') || null
+          });
+        
+        if (stateError || !stateToken) {
+          console.error('Error creating state token:', stateError);
+          throw new Error('Failed to create OAuth state token');
+        }
 
         // Log OAuth initiation for security monitoring
         await supabase.rpc('log_security_event', {
@@ -140,7 +171,7 @@ serve(async (req) => {
           p_resource_type: 'oauth_flow',
           p_details: {
             redirect_uri: redirectUri,
-            state_generated: true,
+            state_stored: true,
             client_ip: req.headers.get('x-forwarded-for') || 'unknown',
             user_agent: req.headers.get('user-agent') || 'unknown',
             timestamp: new Date().toISOString()
@@ -154,11 +185,11 @@ serve(async (req) => {
         authUrl.searchParams.set('scope', 'https://www.googleapis.com/auth/calendar email profile');
         authUrl.searchParams.set('access_type', 'offline');
         authUrl.searchParams.set('prompt', 'consent');
-        authUrl.searchParams.set('state', state); // Add CSRF protection
+        authUrl.searchParams.set('state', stateToken); // Use stored state token
 
         return new Response(JSON.stringify({ 
           authUrl: authUrl.toString(),
-          state // Return state for client-side validation
+          state: stateToken // Return state for client-side validation
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
