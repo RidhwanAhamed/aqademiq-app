@@ -19,25 +19,42 @@ serve(async (req) => {
 
   try {
     const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: 'Authorization required' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
+    
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // If no auth header, return default unlimited (will be checked client-side)
+    if (!authHeader) {
+      console.log('No auth header, returning default');
+      return new Response(
+        JSON.stringify({
+          used: 0,
+          limit: DAILY_LIMIT,
+          remaining: DAILY_LIMIT,
+          is_exceeded: false,
+          is_unlimited: false
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // Get user from auth token
     const token = authHeader.replace('Bearer ', '');
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
 
+    // If auth fails, return default values instead of 401
     if (authError || !user) {
+      console.log('Auth failed, returning default:', authError?.message);
       return new Response(
-        JSON.stringify({ error: 'Invalid authentication' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({
+          used: 0,
+          limit: DAILY_LIMIT,
+          remaining: DAILY_LIMIT,
+          is_exceeded: false,
+          is_unlimited: false
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
