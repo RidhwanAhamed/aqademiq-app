@@ -94,7 +94,7 @@ serve(async (req) => {
             file_owner: file.user_id,
             timestamp: new Date().toISOString()
           }
-        }).catch(err => console.error('Failed to log security event:', err));
+        }).then(() => {}).catch((err: Error) => console.error('Failed to log security event:', err));
 
         return new Response(
           JSON.stringify({ error: 'Access denied' }),
@@ -172,7 +172,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('Unexpected error in get-signed-url:', error);
     return new Response(
-      JSON.stringify({ error: 'Internal server error', details: error.message }),
+      JSON.stringify({ error: 'Internal server error' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
