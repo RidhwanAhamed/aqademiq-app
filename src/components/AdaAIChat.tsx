@@ -1499,8 +1499,8 @@ export function AdaAIChat({
       return;
     }
 
-    // Skip message limit check for unlimited users
-    if (!tokenUsage?.is_unlimited && messageCount >= MESSAGE_LIMIT) {
+    // Skip message limit check for unlimited users OR if tokenUsage hasn't loaded yet
+    if (tokenUsage && !tokenUsage.is_unlimited && messageCount >= MESSAGE_LIMIT) {
       setShowUpgrade(true);
       return;
     }
