@@ -22,9 +22,10 @@ interface AccessibilitySettings {
 
 interface TokenUsage {
   used: number;
-  limit: number;
-  remaining: number;
+  limit: number | string;
+  remaining: number | string;
   resets_at?: string;
+  is_unlimited?: boolean;
 }
 
 interface AdaChatHeaderProps {
@@ -55,9 +56,12 @@ export const AdaChatHeader = memo(function AdaChatHeader({
   onHistoryToggle,
   isHistoryOpen
 }: AdaChatHeaderProps) {
-  const usagePercent = tokenUsage ? (tokenUsage.used / tokenUsage.limit) * 100 : 0;
-  const isLowTokens = tokenUsage && tokenUsage.remaining < 2000;
-  const isOutOfTokens = tokenUsage && tokenUsage.remaining <= 0;
+  const isUnlimited = tokenUsage?.is_unlimited;
+  const numericLimit = typeof tokenUsage?.limit === 'number' ? tokenUsage.limit : 50000;
+  const numericRemaining = typeof tokenUsage?.remaining === 'number' ? tokenUsage.remaining : 0;
+  const usagePercent = tokenUsage && !isUnlimited ? (tokenUsage.used / numericLimit) * 100 : 0;
+  const isLowTokens = tokenUsage && !isUnlimited && numericRemaining < 2000;
+  const isOutOfTokens = tokenUsage && !isUnlimited && numericRemaining <= 0;
 
   return (
     <div className="flex-shrink-0">
@@ -140,33 +144,38 @@ export const AdaChatHeader = memo(function AdaChatHeader({
                       <span className="text-sm font-medium">Daily Token Usage</span>
                       <span className={cn(
                         "text-sm font-mono",
+                        isUnlimited ? "text-primary" :
                         isOutOfTokens ? "text-destructive" :
                         isLowTokens ? "text-yellow-600 dark:text-yellow-400" :
                         "text-muted-foreground"
                       )}>
-                        {tokenUsage.used.toLocaleString()} / {tokenUsage.limit.toLocaleString()}
+                        {tokenUsage.used.toLocaleString()} / {isUnlimited ? 'unlimited' : numericLimit.toLocaleString()}
                       </span>
                     </div>
                     <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
                       <div 
                         className={cn(
                           "h-full transition-all duration-300",
+                          isUnlimited ? "bg-primary" :
                           isOutOfTokens ? "bg-destructive" :
                           isLowTokens ? "bg-yellow-500" :
                           "bg-primary"
                         )}
-                        style={{ width: `${Math.min(usagePercent, 100)}%` }}
+                        style={{ width: isUnlimited ? '100%' : `${Math.min(usagePercent, 100)}%` }}
                       />
                     </div>
                     <p className={cn(
                       "text-xs mt-1",
+                      isUnlimited ? "text-primary" :
                       isOutOfTokens ? "text-destructive" :
                       isLowTokens ? "text-yellow-600 dark:text-yellow-400" :
                       "text-muted-foreground"
                     )}>
-                      {isOutOfTokens 
-                        ? "Limit reached. Resets at midnight UTC." 
-                        : `${tokenUsage.remaining.toLocaleString()} tokens remaining`}
+                      {isUnlimited 
+                        ? "unlimited tokens remaining"
+                        : isOutOfTokens 
+                          ? "Limit reached. Resets at midnight UTC." 
+                          : `${numericRemaining.toLocaleString()} tokens remaining`}
                     </p>
                   </div>
                 )}
