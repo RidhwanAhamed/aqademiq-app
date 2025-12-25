@@ -105,6 +105,11 @@ serve(async (req) => {
     // Multi-layered OCR processing
     let ocrResult: OCRResult;
 
+    // Ensure we have file data
+    if (!fileBuffer) {
+      throw new Error('No file data available for OCR processing');
+    }
+
     try {
       // Primary OCR using OCR Space API (high accuracy for printed text)
       ocrResult = await primaryOCR(fileBuffer, fileType, fileName, ocrSpaceApiKey);
@@ -123,6 +128,11 @@ serve(async (req) => {
       
     } catch (primaryError) {
       console.error('Primary OCR failed, using fallback:', primaryError);
+      
+      // Ensure fileBuffer is not null for fallback
+      if (!fileBuffer) {
+        throw new Error('No file data available for fallback OCR');
+      }
       
       // Fallback OCR processing
       ocrResult = await fallbackOCR(fileBuffer, fileType);
@@ -205,7 +215,9 @@ async function primaryOCR(
   
   // Enhanced OCR Space API request with optimized settings
   const formData = new FormData();
-  const blob = new Blob([fileBuffer], { type: fileType });
+  // Cast to ArrayBuffer first to avoid TypeScript error
+  const arrayBuffer = fileBuffer.buffer.slice(fileBuffer.byteOffset, fileBuffer.byteOffset + fileBuffer.byteLength);
+  const blob = new Blob([arrayBuffer], { type: fileType });
   formData.append('file', blob, fileName);
   formData.append('apikey', apiKey);
   formData.append('language', 'eng');

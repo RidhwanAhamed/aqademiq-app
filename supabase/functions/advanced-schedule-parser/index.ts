@@ -755,6 +755,12 @@ async function autoAddToCalendar(supabase: any, userId: string, parsedData: Pars
       conflicts_skipped: number;
       errors: string[];
     } = {
+      courses_added: 0,
+      classes_added: 0,
+      assignments_added: 0,
+      exams_added: 0,
+      conflicts_skipped: 0,
+      errors: []
     };
 
     // Add courses first
