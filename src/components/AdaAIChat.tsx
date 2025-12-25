@@ -1568,9 +1568,17 @@ export function AdaAIChat({
         setMessages(prev => [...prev, aiMessage]);
         playNotificationSound();
         
-        // Update token usage from response
+        // Update token usage from response (don't clobber unlimited flag)
         if (aiResponse.usage) {
-          setTokenUsage(aiResponse.usage);
+          setTokenUsage(prev => {
+            const prevUnlimited = prev?.is_unlimited === true;
+            const nextUnlimited = (aiResponse.usage as any)?.is_unlimited === true;
+            return {
+              ...(prev ?? { used: 0, limit: 50000, remaining: 50000 }),
+              ...aiResponse.usage,
+              is_unlimited: prevUnlimited || nextUnlimited,
+            };
+          });
         } else {
           // Fetch updated usage if not in response
           await fetchTokenUsage();
