@@ -147,9 +147,10 @@ export function AdaAIChat({
   // Token usage state
   const [tokenUsage, setTokenUsage] = useState<{
     used: number;
-    limit: number;
-    remaining: number;
+    limit: number | string;
+    remaining: number | string;
     resets_at?: string;
+    is_unlimited?: boolean;
   } | null>(null);
   
   // UI state
@@ -208,7 +209,8 @@ export function AdaAIChat({
           used: data.used || 0,
           limit: data.limit || 50000,
           remaining: data.remaining || 50000,
-          resets_at: data.resets_at
+          resets_at: data.resets_at,
+          is_unlimited: data.is_unlimited || false
         });
       }
     } catch (e) {
@@ -1471,8 +1473,8 @@ export function AdaAIChat({
   const handleSendMessage = useCallback(async (message: string) => {
     if ((!message.trim() && !pendingFile) || !user || isProcessing) return;
 
-    // Check token limit instead of message limit
-    if (tokenUsage && tokenUsage.remaining <= 0) {
+    // Check token limit - skip if user has unlimited access
+    if (tokenUsage && !tokenUsage.is_unlimited && typeof tokenUsage.remaining === 'number' && tokenUsage.remaining <= 0) {
       toast({
         title: 'Daily limit reached',
         description: 'You\'ve used all 50,000 tokens for today. Resets at midnight UTC.',
@@ -1481,7 +1483,8 @@ export function AdaAIChat({
       return;
     }
 
-    if (messageCount >= MESSAGE_LIMIT) {
+    // Skip message limit check for unlimited users
+    if (!tokenUsage?.is_unlimited && messageCount >= MESSAGE_LIMIT) {
       setShowUpgrade(true);
       return;
     }
