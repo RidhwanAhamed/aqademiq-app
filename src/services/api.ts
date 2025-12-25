@@ -237,17 +237,26 @@ export const deleteScheduleBlock = async (
   blockId: string,
   userId: string
 ): Promise<boolean> => {
-  const { error } = await supabase
+  console.log(`[API] deleteScheduleBlock: blockId=${blockId}, userId=${userId}`);
+  
+  const { data, error, count } = await supabase
     .from('schedule_blocks')
     .update({ is_active: false })
     .eq('id', blockId)
-    .eq('user_id', userId);
+    .eq('user_id', userId)
+    .select();
 
   if (error) {
     console.error('Error deleting schedule block:', error);
-    return false;
+    throw new Error(`Failed to delete schedule block: ${error.message}`);
   }
 
+  if (!data || data.length === 0) {
+    console.error(`Schedule block not found: ${blockId}`);
+    throw new Error(`Schedule block not found with ID: ${blockId}`);
+  }
+
+  console.log(`[API] deleteScheduleBlock success: affected ${data.length} row(s)`);
   return true;
 };
 
@@ -280,7 +289,9 @@ export const updateScheduleBlock = async (
   userId: string,
   updates: Partial<ScheduleBlockPayload>
 ): Promise<boolean> => {
-  const { error } = await supabase
+  console.log(`[API] updateScheduleBlock: blockId=${blockId}, userId=${userId}, updates=`, updates);
+  
+  const { data, error } = await supabase
     .from('schedule_blocks')
     .update({
       ...(updates.title && { title: updates.title }),
@@ -291,13 +302,20 @@ export const updateScheduleBlock = async (
       ...(updates.notes && { description: updates.notes }),
     })
     .eq('id', blockId)
-    .eq('user_id', userId);
+    .eq('user_id', userId)
+    .select();
 
   if (error) {
     console.error('Error updating schedule block:', error);
-    return false;
+    throw new Error(`Failed to update schedule block: ${error.message}`);
   }
 
+  if (!data || data.length === 0) {
+    console.error(`Schedule block not found: ${blockId}`);
+    throw new Error(`Schedule block not found with ID: ${blockId}`);
+  }
+
+  console.log(`[API] updateScheduleBlock success: affected ${data.length} row(s)`);
   return true;
 };
 
