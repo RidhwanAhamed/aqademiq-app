@@ -5,6 +5,7 @@ import { Exam, ScheduleBlock } from '@/hooks/useSchedule';
 import { supabase } from '@/integrations/supabase/client';
 import { useCallback, useEffect, useState } from 'react';
 import { getTodayDayOfWeek, getTodayInTimezone, getUserTimezone } from '@/utils/timezone';
+import * as CalendarService from '@/services/calendarEventService';
 
 export interface StudySession {
   id: string;
@@ -34,7 +35,6 @@ export interface CalendarEvent {
 export function useRealtimeCalendar() {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(true);
-  const [optimisticUpdates, setOptimisticUpdates] = useState<Map<string, CalendarEvent>>(new Map());
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -55,18 +55,15 @@ export function useRealtimeCalendar() {
       
       // Check if this is a non-recurring event with a specific date
       if (block.specific_date && !block.is_recurring) {
-        // Use the specific date directly for non-recurring events
         startDate = new Date(block.specific_date + 'T00:00:00');
       } else if (block.day_of_week !== undefined && block.day_of_week !== null) {
-        // Calculate next occurrence for recurring events using timezone-aware day calculation
         const userTimezone = getUserTimezone();
         const zonedToday = getTodayInTimezone(userTimezone);
         const todayDayOfWeek = getTodayDayOfWeek(userTimezone);
         startDate = new Date(zonedToday);
         startDate.setDate(zonedToday.getDate() + (block.day_of_week - todayDayOfWeek + 7) % 7);
       } else {
-        // Fallback: skip blocks with no valid date info
-        console.warn('Schedule block has no valid date information:', block.id);
+        console.warn('[useRealtimeCalendar] Schedule block has no valid date:', block.id);
         return;
       }
       
@@ -109,12 +106,12 @@ export function useRealtimeCalendar() {
       });
     });
 
-    // Transform assignments (show as due date events)
+    // Transform assignments
     assignments.forEach(assignment => {
       if (assignment.is_completed) return;
       
       const dueDate = new Date(assignment.due_date);
-      const start = new Date(dueDate.getTime() - (60 * 60 * 1000)); // 1 hour before
+      const start = new Date(dueDate.getTime() - (60 * 60 * 1000));
       const end = dueDate;
 
       events.push({
@@ -154,6 +151,8 @@ export function useRealtimeCalendar() {
     if (!user) return;
 
     try {
+      console.log('[useRealtimeCalendar] Fetching calendar data...');
+      
       const [scheduleResult, examsResult, assignmentsResult, studySessionsResult] = await Promise.all([
         supabase
           .from('schedule_blocks')
@@ -173,7 +172,7 @@ export function useRealtimeCalendar() {
           .from('study_sessions')
           .select(`*, courses(name, color)`)
           .eq('user_id', user.id)
-          .gte('scheduled_end', new Date().toISOString()) // Only future sessions
+          .gte('scheduled_end', new Date().toISOString())
       ]);
 
       if (scheduleResult.error) throw scheduleResult.error;
@@ -188,9 +187,10 @@ export function useRealtimeCalendar() {
         studySessionsResult.data as StudySession[]
       );
 
+      console.log('[useRealtimeCalendar] Loaded events:', calendarEvents.length);
       setEvents(calendarEvents);
     } catch (error) {
-      console.error('Error fetching calendar data:', error);
+      console.error('[useRealtimeCalendar] Error fetching data:', error);
       toast({
         title: "Error",
         description: "Failed to load calendar events",
@@ -207,72 +207,24 @@ export function useRealtimeCalendar() {
 
     fetchCalendarData();
 
-    // Schedule blocks subscription
     const scheduleChannel = supabase
       .channel('schedule-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'schedule_blocks',
-          filter: `user_id=eq.${user.id}`
-        },
-        () => {
-          fetchCalendarData();
-        }
-      )
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'schedule_blocks', filter: `user_id=eq.${user.id}` }, fetchCalendarData)
       .subscribe();
 
-    // Exams subscription
     const examsChannel = supabase
       .channel('exams-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'exams',
-          filter: `user_id=eq.${user.id}`
-        },
-        () => {
-          fetchCalendarData();
-        }
-      )
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'exams', filter: `user_id=eq.${user.id}` }, fetchCalendarData)
       .subscribe();
 
-    // Assignments subscription
     const assignmentsChannel = supabase
       .channel('assignments-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'assignments',
-          filter: `user_id=eq.${user.id}`
-        },
-        () => {
-          fetchCalendarData();
-        }
-      )
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'assignments', filter: `user_id=eq.${user.id}` }, fetchCalendarData)
       .subscribe();
 
-    // Study sessions subscription
     const studySessionsChannel = supabase
       .channel('study-sessions-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'study_sessions',
-          filter: `user_id=eq.${user.id}`
-        },
-        () => {
-          fetchCalendarData();
-        }
-      )
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'study_sessions', filter: `user_id=eq.${user.id}` }, fetchCalendarData)
       .subscribe();
 
     return () => {
@@ -283,263 +235,126 @@ export function useRealtimeCalendar() {
     };
   }, [user, fetchCalendarData]);
 
-  // Optimistic update for immediate UI feedback
-  const applyOptimisticUpdate = useCallback((eventId: string, updates: Partial<CalendarEvent>) => {
-    setOptimisticUpdates(prev => {
-      const current = events.find(e => e.id === eventId);
-      if (current) {
-        const updated = { ...current, ...updates };
-        return new Map(prev).set(eventId, updated);
-      }
-      return prev;
-    });
-  }, [events]);
+  // ============================================
+  // CRUD OPERATIONS - Using CalendarService
+  // ============================================
 
-  // Clear optimistic update
-  const clearOptimisticUpdate = useCallback((eventId: string) => {
-    setOptimisticUpdates(prev => {
-      const newMap = new Map(prev);
-      newMap.delete(eventId);
-      return newMap;
-    });
-  }, []);
-
-  // Update schedule block
   const updateScheduleBlock = useCallback(async (
     id: string, 
-    updates: { start_time?: string; end_time?: string; day_of_week?: number; location?: string; title?: string }
+    updates: CalendarService.ScheduleBlockUpdate
   ) => {
-    try {
-      const { error } = await supabase
-        .from('schedule_blocks')
-        .update(updates)
-        .eq('id', id);
-
-      if (error) throw error;
-
-      toast({
-        title: "Success",
-        description: "Schedule updated",
-      });
-    } catch (error) {
-      console.error('Error updating schedule block:', error);
-      toast({
-        title: "Error",
-        description: "Failed to update schedule",
-        variant: "destructive"
-      });
+    const result = await CalendarService.updateScheduleBlock(id, updates);
+    if (result.success) {
+      toast({ title: "Success", description: "Schedule updated" });
+      fetchCalendarData();
+    } else {
+      toast({ title: "Error", description: result.error || "Failed to update", variant: "destructive" });
     }
-  }, [toast]);
+    return result.success;
+  }, [toast, fetchCalendarData]);
 
-  // Update exam
   const updateExam = useCallback(async (
     id: string,
-    updates: { exam_date?: string; duration_minutes?: number; location?: string; title?: string }
+    updates: CalendarService.ExamUpdate
   ) => {
-    try {
-      const { error } = await supabase
-        .from('exams')
-        .update(updates)
-        .eq('id', id);
-
-      if (error) throw error;
-
-      toast({
-        title: "Success", 
-        description: "Exam updated",
-      });
-    } catch (error) {
-      console.error('Error updating exam:', error);
-      toast({
-        title: "Error",
-        description: "Failed to update exam",
-        variant: "destructive"
-      });
+    const result = await CalendarService.updateExam(id, updates);
+    if (result.success) {
+      toast({ title: "Success", description: "Exam updated" });
+      fetchCalendarData();
+    } else {
+      toast({ title: "Error", description: result.error || "Failed to update", variant: "destructive" });
     }
-  }, [toast]);
+    return result.success;
+  }, [toast, fetchCalendarData]);
 
-  // Update assignment
   const updateAssignment = useCallback(async (
     id: string,
-    updates: { due_date?: string; title?: string }
+    updates: CalendarService.AssignmentUpdate
   ) => {
-    try {
-      const { error } = await supabase
-        .from('assignments')
-        .update(updates)
-        .eq('id', id);
-
-      if (error) throw error;
-
-      toast({
-        title: "Success",
-        description: "Assignment updated",
-      });
-    } catch (error) {
-      console.error('Error updating assignment:', error);
-      toast({
-        title: "Error", 
-        description: "Failed to update assignment",
-        variant: "destructive"
-      });
-    }
-  }, [toast]);
-
-  // Delete schedule block
-  const deleteScheduleBlock = useCallback(async (id: string) => {
-    try {
-      const { error } = await supabase
-        .from('schedule_blocks')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
-
-      toast({
-        title: "Deleted",
-        description: "Class removed from schedule",
-      });
+    const result = await CalendarService.updateAssignment(id, updates);
+    if (result.success) {
+      toast({ title: "Success", description: "Assignment updated" });
       fetchCalendarData();
-      return true;
-    } catch (error) {
-      console.error('Error deleting schedule block:', error);
-      toast({
-        title: "Error",
-        description: "Failed to delete class",
-        variant: "destructive"
-      });
-      return false;
+    } else {
+      toast({ title: "Error", description: result.error || "Failed to update", variant: "destructive" });
     }
+    return result.success;
   }, [toast, fetchCalendarData]);
 
-  // Delete exam
-  const deleteExam = useCallback(async (id: string) => {
-    try {
-      const { error } = await supabase
-        .from('exams')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
-
-      toast({
-        title: "Deleted",
-        description: "Exam removed from calendar",
-      });
-      fetchCalendarData();
-      return true;
-    } catch (error) {
-      console.error('Error deleting exam:', error);
-      toast({
-        title: "Error",
-        description: "Failed to delete exam",
-        variant: "destructive"
-      });
-      return false;
-    }
-  }, [toast, fetchCalendarData]);
-
-  // Delete assignment
-  const deleteAssignment = useCallback(async (id: string) => {
-    try {
-      const { error } = await supabase
-        .from('assignments')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
-
-      toast({
-        title: "Deleted",
-        description: "Assignment removed",
-      });
-      fetchCalendarData();
-      return true;
-    } catch (error) {
-      console.error('Error deleting assignment:', error);
-      toast({
-        title: "Error",
-        description: "Failed to delete assignment",
-        variant: "destructive"
-      });
-      return false;
-    }
-  }, [toast, fetchCalendarData]);
-
-  // Delete study session
-  const deleteStudySession = useCallback(async (id: string) => {
-    try {
-      const { error } = await supabase
-        .from('study_sessions')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
-
-      toast({
-        title: "Deleted",
-        description: "Study session removed",
-      });
-      fetchCalendarData();
-      return true;
-    } catch (error) {
-      console.error('Error deleting study session:', error);
-      toast({
-        title: "Error",
-        description: "Failed to delete study session",
-        variant: "destructive"
-      });
-      return false;
-    }
-  }, [toast, fetchCalendarData]);
-
-  // Update study session
   const updateStudySession = useCallback(async (
     id: string,
-    updates: { scheduled_start?: string; scheduled_end?: string; title?: string }
+    updates: CalendarService.StudySessionUpdate
   ) => {
-    try {
-      const { error } = await supabase
-        .from('study_sessions')
-        .update(updates)
-        .eq('id', id);
-
-      if (error) throw error;
-
-      toast({
-        title: "Success",
-        description: "Study session updated",
-      });
+    const result = await CalendarService.updateStudySession(id, updates);
+    if (result.success) {
+      toast({ title: "Success", description: "Study session updated" });
       fetchCalendarData();
-    } catch (error) {
-      console.error('Error updating study session:', error);
-      toast({
-        title: "Error",
-        description: "Failed to update study session",
-        variant: "destructive"
-      });
+    } else {
+      toast({ title: "Error", description: result.error || "Failed to update", variant: "destructive" });
     }
+    return result.success;
   }, [toast, fetchCalendarData]);
 
-  // Get events with optimistic updates applied
-  const eventsWithOptimistic = events.map(event => {
-    const optimistic = optimisticUpdates.get(event.id);
-    return optimistic || event;
-  });
+  const deleteScheduleBlock = useCallback(async (id: string) => {
+    const result = await CalendarService.deleteScheduleBlock(id);
+    if (result.success) {
+      toast({ title: "Deleted", description: "Event removed from schedule" });
+      fetchCalendarData();
+    } else {
+      toast({ title: "Error", description: result.error || "Failed to delete", variant: "destructive" });
+    }
+    return result.success;
+  }, [toast, fetchCalendarData]);
+
+  const deleteExam = useCallback(async (id: string) => {
+    const result = await CalendarService.deleteExam(id);
+    if (result.success) {
+      toast({ title: "Deleted", description: "Exam removed from calendar" });
+      fetchCalendarData();
+    } else {
+      toast({ title: "Error", description: result.error || "Failed to delete", variant: "destructive" });
+    }
+    return result.success;
+  }, [toast, fetchCalendarData]);
+
+  const deleteAssignment = useCallback(async (id: string) => {
+    const result = await CalendarService.deleteAssignment(id);
+    if (result.success) {
+      toast({ title: "Deleted", description: "Assignment removed" });
+      fetchCalendarData();
+    } else {
+      toast({ title: "Error", description: result.error || "Failed to delete", variant: "destructive" });
+    }
+    return result.success;
+  }, [toast, fetchCalendarData]);
+
+  const deleteStudySession = useCallback(async (id: string) => {
+    const result = await CalendarService.deleteStudySession(id);
+    if (result.success) {
+      toast({ title: "Deleted", description: "Study session removed" });
+      fetchCalendarData();
+    } else {
+      toast({ title: "Error", description: result.error || "Failed to delete", variant: "destructive" });
+    }
+    return result.success;
+  }, [toast, fetchCalendarData]);
+
+  // Merge events (no optimistic updates in this simplified version)
+  const mergedEvents = events;
 
   return {
-    events: eventsWithOptimistic,
+    events: mergedEvents,
     loading,
+    refetch: fetchCalendarData,
+    // Update operations
     updateScheduleBlock,
     updateExam,
     updateAssignment,
     updateStudySession,
+    // Delete operations
     deleteScheduleBlock,
     deleteExam,
     deleteAssignment,
     deleteStudySession,
-    applyOptimisticUpdate,
-    clearOptimisticUpdate,
-    refetch: fetchCalendarData
   };
 }
