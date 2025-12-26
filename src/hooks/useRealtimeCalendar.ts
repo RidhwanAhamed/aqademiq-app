@@ -493,6 +493,34 @@ export function useRealtimeCalendar() {
     }
   }, [toast, fetchCalendarData]);
 
+  // Update study session
+  const updateStudySession = useCallback(async (
+    id: string,
+    updates: { scheduled_start?: string; scheduled_end?: string; title?: string }
+  ) => {
+    try {
+      const { error } = await supabase
+        .from('study_sessions')
+        .update(updates)
+        .eq('id', id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Study session updated",
+      });
+      fetchCalendarData();
+    } catch (error) {
+      console.error('Error updating study session:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update study session",
+        variant: "destructive"
+      });
+    }
+  }, [toast, fetchCalendarData]);
+
   // Get events with optimistic updates applied
   const eventsWithOptimistic = events.map(event => {
     const optimistic = optimisticUpdates.get(event.id);
@@ -505,6 +533,7 @@ export function useRealtimeCalendar() {
     updateScheduleBlock,
     updateExam,
     updateAssignment,
+    updateStudySession,
     deleteScheduleBlock,
     deleteExam,
     deleteAssignment,

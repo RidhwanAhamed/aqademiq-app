@@ -57,12 +57,27 @@ export function NativeCalendarView({ selectedDate, onDateChange }: NativeCalenda
     updateScheduleBlock, 
     updateExam, 
     updateAssignment,
+    updateStudySession,
     deleteScheduleBlock,
     deleteExam,
     deleteAssignment,
     deleteStudySession,
     refetch 
   } = useRealtimeCalendar();
+
+  // Helper to parse event ID into type and actual ID
+  // Handles formats: "schedule-{uuid}", "exam-{uuid}", "assignment-{uuid}", "study-session-{uuid}"
+  const parseEventId = useCallback((eventId: string): { type: string; id: string } | null => {
+    if (eventId.startsWith('study-session-')) {
+      return { type: 'study_session', id: eventId.replace('study-session-', '') };
+    }
+    const firstDash = eventId.indexOf('-');
+    if (firstDash === -1) return null;
+    return { 
+      type: eventId.substring(0, firstDash), 
+      id: eventId.substring(firstDash + 1) 
+    };
+  }, []);
 
   const { 
     conflicts, 
@@ -71,15 +86,17 @@ export function NativeCalendarView({ selectedDate, onDateChange }: NativeCalenda
 
   const handleEventUpdate = useCallback(async (event: CalendarEvent, updates: Partial<CalendarEvent>) => {
     try {
-      const [type, id] = event.id.split('-');
+      const parsed = parseEventId(event.id);
       
-      if (!type || !id) {
+      if (!parsed) {
         throw new Error('Invalid event ID format');
       }
       
+      const { type, id } = parsed;
+      
       switch (type) {
         case 'schedule':
-          if (updates.start || updates.end) {
+          if (updates.start || updates.end || updates.title || updates.location) {
             const start_time = updates.start ? format(updates.start, 'HH:mm:ss') : undefined;
             const end_time = updates.end ? format(updates.end, 'HH:mm:ss') : undefined;
             const day_of_week = updates.start ? updates.start.getDay() : undefined;
@@ -95,28 +112,32 @@ export function NativeCalendarView({ selectedDate, onDateChange }: NativeCalenda
           break;
           
         case 'exam':
-          if (updates.start) {
-            await updateExam(id, {
-              exam_date: updates.start.toISOString(),
-              title: updates.title,
-              location: updates.location
-            });
-          }
+          await updateExam(id, {
+            exam_date: updates.start?.toISOString(),
+            title: updates.title,
+            location: updates.location
+          });
           break;
           
         case 'assignment':
-          if (updates.end) {
-            await updateAssignment(id, {
-              due_date: updates.end.toISOString(),
-              title: updates.title
-            });
-          }
+          await updateAssignment(id, {
+            due_date: updates.end?.toISOString(),
+            title: updates.title
+          });
+          break;
+          
+        case 'study_session':
+          await updateStudySession(id, {
+            scheduled_start: updates.start?.toISOString(),
+            scheduled_end: updates.end?.toISOString(),
+            title: updates.title
+          });
           break;
       }
       
       toast({
         title: "Event Updated",
-        description: `${event.title} has been updated successfully.`,
+        description: `${updates.title || event.title} has been updated successfully.`,
       });
       
       refetch();
@@ -199,9 +220,9 @@ export function NativeCalendarView({ selectedDate, onDateChange }: NativeCalenda
   }, []);
 
   const handleEventDelete = useCallback(async (event: CalendarEvent): Promise<boolean> => {
-    const [type, id] = event.id.split('-');
+    const parsed = parseEventId(event.id);
     
-    if (!type || !id) {
+    if (!parsed) {
       toast({
         title: "Error",
         description: "Invalid event ID",
@@ -210,7 +231,9 @@ export function NativeCalendarView({ selectedDate, onDateChange }: NativeCalenda
       return false;
     }
 
+    const { type, id } = parsed;
     let success = false;
+    
     switch (type) {
       case 'schedule':
         success = await deleteScheduleBlock(id);
@@ -221,16 +244,14 @@ export function NativeCalendarView({ selectedDate, onDateChange }: NativeCalenda
       case 'assignment':
         success = await deleteAssignment(id);
         break;
-      case 'study':
-        // study-session-{id} format
-        const sessionId = event.id.replace('study-session-', '');
-        success = await deleteStudySession(sessionId);
+      case 'study_session':
+        success = await deleteStudySession(id);
         break;
     }
 
     setContextMenu(null);
     return success;
-  }, [deleteScheduleBlock, deleteExam, deleteAssignment, deleteStudySession, toast]);
+  }, [parseEventId, deleteScheduleBlock, deleteExam, deleteAssignment, deleteStudySession, toast]);
 
   const handleEventDuplicate = useCallback((event: CalendarEvent) => {
     toast({
