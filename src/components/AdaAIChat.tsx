@@ -36,10 +36,12 @@ import {
   AdaChatHeader,
   AdaMessagesPanel,
   AdaInputPanel,
+  AdaActionConfirmDialog,
   type AdaInputPanelRef,
   type ChatMessage,
   type PendingAction,
-  type AdaMode
+  type AdaMode,
+  type AdaActionData
 } from '@/components/ada';
 import {
   Upload,
@@ -168,6 +170,13 @@ export function AdaAIChat({
   // Pending actions from AI
   const [pendingActions, setPendingActions] = useState<PendingAction[]>([]);
   
+  // Confirmation dialog state
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+  const [pendingConfirmAction, setPendingConfirmAction] = useState<AdaActionData | null>(null);
+  const [actionQueue, setActionQueue] = useState<AdaActionData[]>([]);
+  const [isExecutingAction, setIsExecutingAction] = useState(false);
+  const [userCourses, setUserCourses] = useState<Array<{ id: string; name: string; code?: string }>>([]);
+  
   // File attachment (ChatGPT style)
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [pendingFileStatus, setPendingFileStatus] = useState('');
@@ -241,6 +250,24 @@ export function AdaAIChat({
       fetchTokenUsage();
     }
   }, [user, fetchTokenUsage]);
+
+  // Fetch user courses for confirmation dialog
+  useEffect(() => {
+    const fetchCourses = async () => {
+      if (!user) return;
+      try {
+        const { data } = await supabase
+          .from('courses')
+          .select('id, name, code')
+          .eq('user_id', user.id)
+          .eq('is_active', true);
+        setUserCourses(data || []);
+      } catch (error) {
+        console.error('Failed to fetch courses:', error);
+      }
+    };
+    fetchCourses();
+  }, [user]);
   useEffect(() => {
     const loadConversationHistory = async () => {
       if (!user) return;
@@ -1486,6 +1513,75 @@ export function AdaAIChat({
     }
   }, [user, toast]);
 
+  // Handle confirmation dialog confirm
+  const handleConfirmDialogConfirm = useCallback(async (editedAction: AdaActionData) => {
+    if (!user) return;
+    
+    setIsExecutingAction(true);
+    try {
+      const { confirmMessage } = await executeAdaAction(editedAction as AdaAction);
+      
+      // Add confirmation message
+      setMessages(prev => [...prev, {
+        id: `action-confirm-${Date.now()}-${Math.random()}`,
+        message: confirmMessage,
+        is_user: false,
+        created_at: new Date().toISOString(),
+        metadata: { action_confirmed: true }
+      }]);
+      
+      toast({
+        title: 'Success',
+        description: confirmMessage.split('\n')[0].replace(/[*#]/g, ''),
+      });
+      
+      // Award badge for first event creation
+      if (editedAction.type === 'CREATE_EVENT') {
+        await handleFirstVoyageUnlock();
+      }
+      
+      // Process next action in queue
+      const currentIndex = actionQueue.findIndex(a => a === pendingConfirmAction);
+      if (currentIndex >= 0 && currentIndex < actionQueue.length - 1) {
+        setPendingConfirmAction(actionQueue[currentIndex + 1]);
+      } else {
+        // All actions processed
+        setConfirmDialogOpen(false);
+        setPendingConfirmAction(null);
+        setActionQueue([]);
+      }
+    } catch (error: any) {
+      console.error('Action execution failed:', error);
+      toast({
+        title: 'Action Failed',
+        description: error.message || 'Failed to execute action. Please try again.',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsExecutingAction(false);
+    }
+  }, [user, executeAdaAction, actionQueue, pendingConfirmAction, toast, handleFirstVoyageUnlock]);
+
+  // Handle confirmation dialog cancel
+  const handleConfirmDialogCancel = useCallback(() => {
+    // Skip current action, move to next
+    const currentIndex = actionQueue.findIndex(a => a === pendingConfirmAction);
+    
+    toast({
+      title: 'Action Skipped',
+      description: `"${pendingConfirmAction?.title || pendingConfirmAction?.name || 'Action'}" was not executed.`
+    });
+    
+    if (currentIndex >= 0 && currentIndex < actionQueue.length - 1) {
+      setPendingConfirmAction(actionQueue[currentIndex + 1]);
+    } else {
+      // All actions processed
+      setConfirmDialogOpen(false);
+      setPendingConfirmAction(null);
+      setActionQueue([]);
+    }
+  }, [actionQueue, pendingConfirmAction, toast]);
+
   // Send message
   const handleSendMessage = useCallback(async (message: string) => {
     if ((!message.trim() && !pendingFile) || !user || isProcessing) return;
@@ -1589,55 +1685,21 @@ export function AdaAIChat({
         if (aiResponse.metadata?.has_actions && aiResponse.metadata?.actions?.length > 0) {
           const actions = aiResponse.metadata.actions as AdaAction[];
           
-          // Define action types that should auto-execute vs require confirmation
-          const autoExecuteTypes: AdaActionType[] = [
-            'CREATE_CORNELL_NOTES',
-            // Auto-execute all CRUD operations since user explicitly asked for them
-            'CREATE_EVENT', 'UPDATE_EVENT', 'DELETE_EVENT',
-            'CREATE_ASSIGNMENT', 'UPDATE_ASSIGNMENT', 'DELETE_ASSIGNMENT', 'COMPLETE_ASSIGNMENT',
-            'CREATE_EXAM', 'UPDATE_EXAM', 'DELETE_EXAM',
-            'CREATE_STUDY_SESSION', 'UPDATE_STUDY_SESSION', 'DELETE_STUDY_SESSION',
-            'CREATE_COURSE', 'UPDATE_COURSE', 'DELETE_COURSE'
-          ];
+          // Cornell Notes auto-execute (doesn't need confirmation)
+          const cornellActions = actions.filter(a => a.type === 'CREATE_CORNELL_NOTES');
+          const crudActions = actions.filter(a => a.type !== 'CREATE_CORNELL_NOTES');
           
-          const autoExecuteActions = actions.filter(a => autoExecuteTypes.includes(a.type));
-          const confirmActions = actions.filter(a => !autoExecuteTypes.includes(a.type));
-          
-          // Auto-execute actions immediately
-          for (const action of autoExecuteActions) {
-            if (action.type === 'CREATE_CORNELL_NOTES') {
-              await executeCreateCornellNotes(action);
-            } else {
-              // Execute CRUD action directly using executeAdaAction
-              try {
-                const { confirmMessage } = await executeAdaAction(action);
-                // Save confirmation as a message
-                setMessages(prev => [...prev, {
-                  id: `action-confirm-${Date.now()}-${Math.random()}`,
-                  message: confirmMessage,
-                  is_user: false,
-                  created_at: new Date().toISOString(),
-                  metadata: { action_confirmed: true }
-                }]);
-              } catch (actionError: any) {
-                console.error('Auto-execute action failed:', actionError);
-                toast({
-                  title: 'Action Failed',
-                  description: actionError.message || 'Failed to execute action',
-                  variant: 'destructive'
-                });
-              }
-            }
+          // Auto-execute Cornell Notes
+          for (const action of cornellActions) {
+            await executeCreateCornellNotes(action);
           }
           
-          // Add confirmation-required actions to pending
-          if (confirmActions.length > 0) {
-            const newPendingActions: PendingAction[] = confirmActions.map((action: AdaAction) => ({
-              action,
-              status: 'pending' as const,
-              conflicts: []
-            }));
-            setPendingActions(prev => [...prev, ...newPendingActions]);
+          // Queue CRUD actions for confirmation
+          if (crudActions.length > 0) {
+            setActionQueue(crudActions as AdaActionData[]);
+            // Show first action in confirmation dialog
+            setPendingConfirmAction(crudActions[0] as AdaActionData);
+            setConfirmDialogOpen(true);
           }
         }
       }
@@ -1888,6 +1950,16 @@ export function AdaAIChat({
           setShowChatBadgeModal(false);
           setChatBadgeUnlock(null);
         }}
+      />
+
+      {/* Action Confirmation Dialog */}
+      <AdaActionConfirmDialog
+        open={confirmDialogOpen}
+        action={pendingConfirmAction}
+        courses={userCourses}
+        onConfirm={handleConfirmDialogConfirm}
+        onCancel={handleConfirmDialogCancel}
+        isLoading={isExecutingAction}
       />
     </>
   );
