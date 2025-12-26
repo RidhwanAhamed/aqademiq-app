@@ -8,6 +8,7 @@ import { Separator } from '@/components/ui/separator';
 import { CalendarEvent } from '@/hooks/useRealtimeCalendar';
 import { cn } from '@/lib/utils';
 import { ChevronLeft, ChevronRight, Calendar, Clock, MapPin, AlertCircle, CheckCircle } from 'lucide-react';
+import { EnhancedEventContextMenu } from './EnhancedEventContextMenu';
 
 interface EnhancedAgendaViewProps {
   selectedDate: Date;
@@ -16,6 +17,10 @@ interface EnhancedAgendaViewProps {
   onEventClick: (event: CalendarEvent) => void;
   conflicts?: string[];
   onOpenConflictPanel?: () => void;
+  onEventEdit?: (event: CalendarEvent) => void;
+  onEventDelete?: (event: CalendarEvent) => Promise<boolean>;
+  onEventDuplicate?: (event: CalendarEvent) => void;
+  onEventReschedule?: (event: CalendarEvent) => void;
 }
 
 export function EnhancedAgendaView({
@@ -24,7 +29,11 @@ export function EnhancedAgendaView({
   events,
   onEventClick,
   conflicts = [],
-  onOpenConflictPanel
+  onOpenConflictPanel,
+  onEventEdit,
+  onEventDelete,
+  onEventDuplicate,
+  onEventReschedule
 }: EnhancedAgendaViewProps) {
   const currentWeek = useMemo(() => 
     startOfWeek(selectedDate, { weekStartsOn: 1 }), 
@@ -90,7 +99,7 @@ export function EnhancedAgendaView({
     const isCompleted = event.type === 'assignment' && (event as any).isCompleted;
     const isPast = event.end < new Date();
 
-    return (
+    const eventCard = (
       <div
         key={event.id}
         className={cn(
@@ -168,6 +177,24 @@ export function EnhancedAgendaView({
         </div>
       </div>
     );
+
+    // Wrap with context menu if handlers are provided
+    if (onEventEdit && onEventDelete && onEventDuplicate && onEventReschedule) {
+      return (
+        <EnhancedEventContextMenu
+          key={event.id}
+          event={event}
+          onEdit={onEventEdit}
+          onDelete={onEventDelete}
+          onDuplicate={onEventDuplicate}
+          onReschedule={onEventReschedule}
+        >
+          {eventCard}
+        </EnhancedEventContextMenu>
+      );
+    }
+
+    return eventCard;
   };
 
   const upcomingEvents = useMemo(() => {

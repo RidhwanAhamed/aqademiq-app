@@ -385,6 +385,114 @@ export function useRealtimeCalendar() {
     }
   }, [toast]);
 
+  // Delete schedule block
+  const deleteScheduleBlock = useCallback(async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('schedule_blocks')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Deleted",
+        description: "Class removed from schedule",
+      });
+      fetchCalendarData();
+      return true;
+    } catch (error) {
+      console.error('Error deleting schedule block:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete class",
+        variant: "destructive"
+      });
+      return false;
+    }
+  }, [toast, fetchCalendarData]);
+
+  // Delete exam
+  const deleteExam = useCallback(async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('exams')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Deleted",
+        description: "Exam removed from calendar",
+      });
+      fetchCalendarData();
+      return true;
+    } catch (error) {
+      console.error('Error deleting exam:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete exam",
+        variant: "destructive"
+      });
+      return false;
+    }
+  }, [toast, fetchCalendarData]);
+
+  // Delete assignment
+  const deleteAssignment = useCallback(async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('assignments')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Deleted",
+        description: "Assignment removed",
+      });
+      fetchCalendarData();
+      return true;
+    } catch (error) {
+      console.error('Error deleting assignment:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete assignment",
+        variant: "destructive"
+      });
+      return false;
+    }
+  }, [toast, fetchCalendarData]);
+
+  // Delete study session
+  const deleteStudySession = useCallback(async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('study_sessions')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Deleted",
+        description: "Study session removed",
+      });
+      fetchCalendarData();
+      return true;
+    } catch (error) {
+      console.error('Error deleting study session:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete study session",
+        variant: "destructive"
+      });
+      return false;
+    }
+  }, [toast, fetchCalendarData]);
+
   // Get events with optimistic updates applied
   const eventsWithOptimistic = events.map(event => {
     const optimistic = optimisticUpdates.get(event.id);
@@ -397,6 +505,10 @@ export function useRealtimeCalendar() {
     updateScheduleBlock,
     updateExam,
     updateAssignment,
+    deleteScheduleBlock,
+    deleteExam,
+    deleteAssignment,
+    deleteStudySession,
     applyOptimisticUpdate,
     clearOptimisticUpdate,
     refetch: fetchCalendarData
