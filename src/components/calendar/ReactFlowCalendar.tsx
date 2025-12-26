@@ -142,8 +142,6 @@ export function ReactFlowCalendar({ selectedDate, onDateChange }: ReactFlowCalen
     updateScheduleBlock, 
     updateExam, 
     updateAssignment,
-    applyOptimisticUpdate,
-    clearOptimisticUpdate 
   } = useRealtimeCalendar();
 
   const { 
@@ -232,7 +230,7 @@ export function ReactFlowCalendar({ selectedDate, onDateChange }: ReactFlowCalen
           break;
       }
       
-      clearOptimisticUpdate(event.id);
+      // Refresh data after update
     } catch (error) {
       console.error('Error updating event:', error);
       toast({
@@ -240,9 +238,9 @@ export function ReactFlowCalendar({ selectedDate, onDateChange }: ReactFlowCalen
         description: error instanceof Error ? error.message : "Failed to update event",
         variant: "destructive"
       });
-      clearOptimisticUpdate(event.id);
+      // Error already logged
     }
-  }, [updateScheduleBlock, updateExam, updateAssignment, clearOptimisticUpdate, toast]);
+  }, [updateScheduleBlock, updateExam, updateAssignment, toast]);
 
   // Stable callback for event resizing
   const stableHandleEventResize = useCallback((event: CalendarEvent, newHeight: number) => {
@@ -340,7 +338,6 @@ export function ReactFlowCalendar({ selectedDate, onDateChange }: ReactFlowCalen
             hasConflict: hasConflict(event.id),
             conflictSeverity: getConflictInfo(event.id)?.severity,
             onUpdate: (updates: Partial<CalendarEvent>) => {
-              applyOptimisticUpdate(event.id, updates);
               if (handleEventUpdateRef.current) {
                 handleEventUpdateRef.current(event, updates);
               }
@@ -364,7 +361,7 @@ export function ReactFlowCalendar({ selectedDate, onDateChange }: ReactFlowCalen
 
     const newNodes = generateNodes();
     setNodes(newNodes);
-  }, [weekDays, timeSlots, events, hasConflict, getConflictInfo, applyOptimisticUpdate, setNodes]);
+  }, [weekDays, timeSlots, events, hasConflict, getConflictInfo, setNodes]);
 
   const [edges] = useEdgesState([]);
 
