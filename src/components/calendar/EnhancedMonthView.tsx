@@ -8,6 +8,7 @@ import { CalendarEvent } from '@/hooks/useRealtimeCalendar';
 import { cn } from '@/lib/utils';
 import { ChevronLeft, ChevronRight, Plus, Calendar, Clock, MapPin } from 'lucide-react';
 import { AddCalendarEventDialog } from './AddCalendarEventDialog';
+import { EnhancedEventContextMenu } from './EnhancedEventContextMenu';
 
 interface EnhancedMonthViewProps {
   selectedDate: Date;
@@ -16,6 +17,10 @@ interface EnhancedMonthViewProps {
   onEventClick: (event: CalendarEvent) => void;
   onDayClick: (date: Date) => void;
   conflicts?: string[];
+  onEventEdit?: (event: CalendarEvent) => void;
+  onEventDelete?: (event: CalendarEvent) => Promise<boolean>;
+  onEventDuplicate?: (event: CalendarEvent) => void;
+  onEventReschedule?: (event: CalendarEvent) => void;
 }
 
 export function EnhancedMonthView({
@@ -24,7 +29,11 @@ export function EnhancedMonthView({
   events,
   onEventClick,
   onDayClick,
-  conflicts = []
+  conflicts = [],
+  onEventEdit,
+  onEventDelete,
+  onEventDuplicate,
+  onEventReschedule
 }: EnhancedMonthViewProps) {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [selectedDayForEvent, setSelectedDayForEvent] = useState<Date | null>(null);
@@ -75,7 +84,7 @@ export function EnhancedMonthView({
     const hasConflict = conflicts.includes(event.id);
     const isAllDay = event.end.getTime() - event.start.getTime() >= 24 * 60 * 60 * 1000;
 
-    return (
+    const eventCard = (
       <div
         key={event.id}
         className={cn(
@@ -107,6 +116,24 @@ export function EnhancedMonthView({
         )}
       </div>
     );
+
+    // Wrap with context menu if handlers are provided
+    if (onEventEdit && onEventDelete && onEventDuplicate && onEventReschedule) {
+      return (
+        <EnhancedEventContextMenu
+          key={event.id}
+          event={event}
+          onEdit={onEventEdit}
+          onDelete={onEventDelete}
+          onDuplicate={onEventDuplicate}
+          onReschedule={onEventReschedule}
+        >
+          {eventCard}
+        </EnhancedEventContextMenu>
+      );
+    }
+
+    return eventCard;
   };
 
   const renderDayAgenda = (day: Date, dayEvents: CalendarEvent[]) => (
