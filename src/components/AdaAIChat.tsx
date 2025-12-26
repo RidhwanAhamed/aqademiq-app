@@ -99,6 +99,7 @@ interface AdaAction {
   target_grade?: string;
   assignment_type?: string;
   exam_type?: string;
+  estimated_hours?: number;
   // Cornell Notes specific fields
   topic?: string;
   depthLevel?: 'brief' | 'standard' | 'comprehensive';
@@ -1056,7 +1057,357 @@ export function AdaAIChat({
     }
   }, [user, saveChatMessage, playNotificationSound, toast]);
 
-  // Action handlers
+  // Execute a single Ada action - returns { success, resultId, confirmMessage } or throws
+  const executeAdaAction = useCallback(async (action: AdaAction): Promise<{ resultId: string | null; confirmMessage: string }> => {
+    if (!user) throw new Error('User not authenticated');
+    
+    const entityName = action.title || action.name || 'item';
+    let resultId: string | null = null;
+    let confirmMessage = '';
+
+    switch (action.type) {
+      // ========== EVENTS ==========
+      case 'CREATE_EVENT': {
+        const startDate = new Date(action.start_iso!);
+        const endDate = new Date(action.end_iso!);
+        const specificDate = startDate.toISOString().split('T')[0];
+        const startTime = startDate.toTimeString().slice(0, 5);
+        const endTime = endDate.toTimeString().slice(0, 5);
+
+        // Check conflicts for events
+        const conflictResult = await detectScheduleConflicts({
+          user_id: user.id,
+          start_time: startTime,
+          end_time: endTime,
+          specific_date: specificDate
+        });
+
+        if (conflictResult?.conflicts?.length > 0) {
+          throw new Error(`Schedule conflict with ${conflictResult.conflicts[0].conflict_title}`);
+        }
+
+        const eventResult = await createScheduleBlock({
+          title: action.title!,
+          specific_date: specificDate,
+          start_time: startTime,
+          end_time: endTime,
+          location: action.location,
+          notes: action.notes,
+          is_recurring: false,
+          source: 'ada-ai',
+          user_id: user.id
+        });
+        resultId = eventResult.id;
+        
+        const dateObj = new Date(startDate);
+        const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
+        const dateStr = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        const startTimeFormatted = startDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+        const endTimeFormatted = endDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+        
+        confirmMessage = `✅ **Added to Calendar!**\n\n📅 **${action.title}**\n📆 ${dayName}, ${dateStr}\n⏰ ${startTimeFormatted} - ${endTimeFormatted}${action.location ? `\n📍 ${action.location}` : ''}${action.notes ? `\n📝 ${action.notes}` : ''}\n\nYour calendar has been updated!`;
+        break;
+      }
+
+      case 'UPDATE_EVENT': {
+        if (!action.id) throw new Error('Missing event ID for update.');
+        
+        console.log(`[Ada Action] UPDATE_EVENT: id=${action.id}, title=${action.title}`);
+        
+        const updates: any = {};
+        if (action.title) updates.title = action.title;
+        if (action.start_iso) {
+          const startDate = new Date(action.start_iso);
+          updates.specific_date = startDate.toISOString().split('T')[0];
+          updates.start_time = startDate.toTimeString().slice(0, 5);
+        }
+        if (action.end_iso) {
+          const endDate = new Date(action.end_iso);
+          updates.end_time = endDate.toTimeString().slice(0, 5);
+        }
+        if (action.location) updates.location = action.location;
+        if (action.notes) updates.notes = action.notes;
+        
+        const { updateScheduleBlock } = await import('@/services/api');
+        await updateScheduleBlock(action.id, user.id, updates);
+        resultId = action.id;
+        confirmMessage = `✅ Updated **"${entityName}"** successfully.`;
+        break;
+      }
+
+      case 'DELETE_EVENT': {
+        if (!action.id) throw new Error('Missing event ID for delete.');
+        
+        console.log(`[Ada Action] DELETE_EVENT: id=${action.id}, title=${action.title}`);
+        await deleteScheduleBlock(action.id, user.id);
+        resultId = action.id;
+        confirmMessage = `🗑️ Deleted **"${entityName}"** from your calendar.`;
+        break;
+      }
+
+      // ========== ASSIGNMENTS ==========
+      case 'CREATE_ASSIGNMENT': {
+        let courseId = action.course_id;
+        const isValidUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(courseId || '');
+        
+        if (!isValidUUID && courseId) {
+          courseId = await resolveCourseId(courseId) || undefined;
+        }
+        
+        if (!courseId) {
+          const { data: courses } = await supabase
+            .from('courses')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('is_active', true)
+            .limit(1);
+          courseId = courses?.[0]?.id;
+        }
+        
+        if (!courseId) throw new Error('No course found. Please create a course first.');
+
+        const assignmentResult = await createAssignment({
+          user_id: user.id,
+          course_id: courseId,
+          title: action.title!,
+          due_date: action.due_date!,
+          description: action.description || action.notes,
+          priority: action.priority ?? 2,
+          estimated_hours: action.estimated_hours,
+          assignment_type: action.assignment_type || 'homework'
+        });
+        resultId = assignmentResult.id;
+        
+        const dueDate = new Date(action.due_date!);
+        const dayName = dueDate.toLocaleDateString('en-US', { weekday: 'long' });
+        const dateStr = dueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        const timeStr = dueDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+        
+        confirmMessage = `✅ **Assignment Created!**\n\n📝 **${action.title}**\n📆 Due: ${dayName}, ${dateStr} at ${timeStr}${action.description ? `\n📄 ${action.description}` : ''}\n\nYour calendar has been updated!`;
+        break;
+      }
+
+      case 'UPDATE_ASSIGNMENT': {
+        if (!action.id) throw new Error('Missing assignment ID for update.');
+        console.log(`[Ada Action] UPDATE_ASSIGNMENT: id=${action.id}, title=${action.title}`);
+        
+        const updates: any = {};
+        if (action.title) updates.title = action.title;
+        if (action.due_date) updates.due_date = action.due_date;
+        if (action.priority !== undefined) updates.priority = action.priority;
+        if (action.description) updates.description = action.description;
+        
+        await updateAssignment(action.id, user.id, updates);
+        resultId = action.id;
+        confirmMessage = `✅ Updated assignment **"${entityName}"**.`;
+        break;
+      }
+
+      case 'DELETE_ASSIGNMENT': {
+        if (!action.id) throw new Error('Missing assignment ID for delete.');
+        console.log(`[Ada Action] DELETE_ASSIGNMENT: id=${action.id}, title=${action.title}`);
+        await deleteAssignment(action.id, user.id);
+        resultId = action.id;
+        confirmMessage = `🗑️ Deleted assignment **"${entityName}"**.`;
+        break;
+      }
+
+      case 'COMPLETE_ASSIGNMENT': {
+        if (!action.id) throw new Error('Missing assignment ID for complete.');
+        console.log(`[Ada Action] COMPLETE_ASSIGNMENT: id=${action.id}, title=${action.title}`);
+        await completeAssignment(action.id, user.id);
+        resultId = action.id;
+        confirmMessage = `✅ Marked **"${entityName}"** as complete!`;
+        break;
+      }
+
+      // ========== EXAMS ==========
+      case 'CREATE_EXAM': {
+        let courseId = action.course_id;
+        const isValidUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(courseId || '');
+        
+        if (!isValidUUID && courseId) {
+          courseId = await resolveCourseId(courseId) || undefined;
+        }
+        
+        if (!courseId) {
+          const { data: courses } = await supabase
+            .from('courses')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('is_active', true)
+            .limit(1);
+          courseId = courses?.[0]?.id;
+        }
+        if (!courseId) throw new Error('No course found. Please create a course first.');
+
+        const examResult = await createExam({
+          user_id: user.id,
+          course_id: courseId,
+          title: action.title!,
+          exam_date: action.exam_date!,
+          duration_minutes: action.duration_minutes || 60,
+          location: action.location,
+          exam_type: action.exam_type || 'midterm',
+          notes: action.notes
+        });
+        resultId = examResult.id;
+        
+        const examDate = new Date(action.exam_date!);
+        const dayName = examDate.toLocaleDateString('en-US', { weekday: 'long' });
+        const dateStr = examDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        const timeStr = examDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+        const duration = action.duration_minutes || 60;
+        const hours = Math.floor(duration / 60);
+        const minutes = duration % 60;
+        const durationStr = hours > 0 ? `${hours}h ${minutes > 0 ? `${minutes}m` : ''}` : `${minutes}m`;
+        
+        confirmMessage = `✅ **Exam Scheduled!**\n\n📚 **${action.title}**\n📆 ${dayName}, ${dateStr} at ${timeStr}\n⏱️ Duration: ${durationStr}${action.location ? `\n📍 ${action.location}` : ''}${action.notes ? `\n📝 ${action.notes}` : ''}\n\nYour calendar has been updated!`;
+        break;
+      }
+
+      case 'UPDATE_EXAM': {
+        if (!action.id) throw new Error('Missing exam ID for update.');
+        console.log(`[Ada Action] UPDATE_EXAM: id=${action.id}, title=${action.title}`);
+        
+        const updates: any = {};
+        if (action.title) updates.title = action.title;
+        if (action.exam_date) updates.exam_date = action.exam_date;
+        if (action.location) updates.location = action.location;
+        if (action.duration_minutes) updates.duration_minutes = action.duration_minutes;
+        
+        await updateExam(action.id, user.id, updates);
+        resultId = action.id;
+        confirmMessage = `✅ Updated exam **"${entityName}"**.`;
+        break;
+      }
+
+      case 'DELETE_EXAM': {
+        if (!action.id) throw new Error('Missing exam ID for delete.');
+        console.log(`[Ada Action] DELETE_EXAM: id=${action.id}, title=${action.title}`);
+        await deleteExam(action.id, user.id);
+        resultId = action.id;
+        confirmMessage = `🗑️ Deleted exam **"${entityName}"**.`;
+        break;
+      }
+
+      // ========== STUDY SESSIONS ==========
+      case 'CREATE_STUDY_SESSION': {
+        let courseId = action.course_id;
+        if (courseId) {
+          const isValidUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(courseId);
+          if (!isValidUUID) {
+            courseId = await resolveCourseId(courseId) || undefined;
+          }
+        }
+        
+        const sessionResult = await createStudySession({
+          user_id: user.id,
+          title: action.title!,
+          scheduled_start: action.scheduled_start || action.start_iso!,
+          scheduled_end: action.scheduled_end || action.end_iso!,
+          course_id: courseId,
+          assignment_id: action.assignment_id,
+          exam_id: action.exam_id,
+          notes: action.notes
+        });
+        resultId = sessionResult.id;
+        
+        const startDate = new Date(action.scheduled_start || action.start_iso!);
+        const endDate = new Date(action.scheduled_end || action.end_iso!);
+        const dayName = startDate.toLocaleDateString('en-US', { weekday: 'long' });
+        const dateStr = startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        const startTimeFormatted = startDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+        const endTimeFormatted = endDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+        
+        confirmMessage = `✅ **Study Session Scheduled!**\n\n📖 **${action.title}**\n📆 ${dayName}, ${dateStr}\n⏰ ${startTimeFormatted} - ${endTimeFormatted}${action.notes ? `\n📝 ${action.notes}` : ''}\n\nYour calendar has been updated!`;
+        break;
+      }
+
+      case 'UPDATE_STUDY_SESSION': {
+        if (!action.id) throw new Error('Missing study session ID for update.');
+        console.log(`[Ada Action] UPDATE_STUDY_SESSION: id=${action.id}, title=${action.title}`);
+        
+        const updates: any = {};
+        if (action.title) updates.title = action.title;
+        if (action.scheduled_start) updates.scheduled_start = action.scheduled_start;
+        if (action.scheduled_end) updates.scheduled_end = action.scheduled_end;
+        if (action.notes) updates.notes = action.notes;
+        if (action.status) updates.status = action.status;
+        
+        await updateStudySession(action.id, user.id, updates);
+        resultId = action.id;
+        confirmMessage = `✅ Updated study session **"${entityName}"**.`;
+        break;
+      }
+
+      case 'DELETE_STUDY_SESSION': {
+        if (!action.id) throw new Error('Missing study session ID for delete.');
+        console.log(`[Ada Action] DELETE_STUDY_SESSION: id=${action.id}, title=${action.title}`);
+        await deleteStudySession(action.id, user.id);
+        resultId = action.id;
+        confirmMessage = `🗑️ Deleted study session **"${entityName}"**.`;
+        break;
+      }
+
+      // ========== COURSES ==========
+      case 'CREATE_COURSE': {
+        const courseResult = await createCourse({
+          user_id: user.id,
+          name: action.name || action.title!,
+          code: action.code,
+          credits: action.credits,
+          instructor: action.instructor,
+          color: action.color,
+          target_grade: action.target_grade
+        });
+        resultId = courseResult.id;
+        confirmMessage = `✅ Created course **"${action.name || action.title}"**.`;
+        break;
+      }
+
+      case 'UPDATE_COURSE': {
+        if (!action.id) throw new Error('Missing course ID for update.');
+        console.log(`[Ada Action] UPDATE_COURSE: id=${action.id}, name=${action.name}`);
+        
+        const updates: any = {};
+        if (action.name) updates.name = action.name;
+        if (action.code) updates.code = action.code;
+        if (action.credits !== undefined) updates.credits = action.credits;
+        if (action.instructor) updates.instructor = action.instructor;
+        if (action.color) updates.color = action.color;
+        if (action.target_grade) updates.target_grade = action.target_grade;
+        
+        await updateCourse(action.id, user.id, updates);
+        resultId = action.id;
+        confirmMessage = `✅ Updated course **"${entityName}"**.`;
+        break;
+      }
+
+      case 'DELETE_COURSE': {
+        if (!action.id) throw new Error('Missing course ID for delete.');
+        console.log(`[Ada Action] DELETE_COURSE: id=${action.id}, name=${action.name}`);
+        await deleteCourse(action.id, user.id);
+        resultId = action.id;
+        confirmMessage = `🗑️ Deleted course **"${entityName}"**.`;
+        break;
+      }
+
+      default:
+        throw new Error(`Unknown action type: ${action.type}`);
+    }
+
+    // Trigger calendar refresh
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('calendar-updated', { 
+        detail: { actionType: action.type, entityId: resultId } 
+      }));
+    }
+
+    return { resultId, confirmMessage };
+  }, [user, resolveCourseId]);
+
+  // Action handlers - wraps executeAdaAction for pending actions with UI updates
   const handleConfirmAction = useCallback(async (actionIndex: number) => {
     if (!user) return;
     
@@ -1068,410 +1419,7 @@ export function AdaAIChat({
     const entityName = action.title || action.name || 'item';
 
     try {
-      let resultId: string | null = null;
-      let confirmMessage = '';
-
-      switch (action.type) {
-        // ========== EVENTS ==========
-        case 'CREATE_EVENT': {
-          const startDate = new Date(action.start_iso!);
-          const endDate = new Date(action.end_iso!);
-          const specificDate = startDate.toISOString().split('T')[0];
-          const startTime = startDate.toTimeString().slice(0, 5);
-          const endTime = endDate.toTimeString().slice(0, 5);
-
-          // Check conflicts for events
-          const conflictResult = await detectScheduleConflicts({
-            user_id: user.id,
-            start_time: startTime,
-            end_time: endTime,
-            specific_date: specificDate
-          });
-
-          if (conflictResult?.conflicts?.length > 0) {
-            setPendingActions(prev => prev.map((p, i) => 
-              i === actionIndex ? { ...p, conflicts: conflictResult.conflicts } : p
-            ));
-            toast({
-              title: 'Schedule Conflict Detected',
-              description: `This overlaps with ${conflictResult.conflicts[0].conflict_title}.`,
-              variant: 'destructive'
-            });
-            return;
-          }
-
-          const eventResult = await createScheduleBlock({
-            title: action.title!,
-            specific_date: specificDate,
-            start_time: startTime,
-            end_time: endTime,
-            location: action.location,
-            notes: action.notes,
-            is_recurring: false,
-            source: 'ada-ai',
-            user_id: user.id
-          });
-          resultId = eventResult.id;
-          
-          // Format confirmation with better date/time display
-          const dateObj = new Date(startDate);
-          const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
-          const dateStr = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-          const startTimeFormatted = startDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-          const endTimeFormatted = endDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-          
-          confirmMessage = `✅ **Added to Calendar!**\n\n📅 **${action.title}**\n📆 ${dayName}, ${dateStr}\n⏰ ${startTimeFormatted} - ${endTimeFormatted}${action.location ? `\n📍 ${action.location}` : ''}${action.notes ? `\n📝 ${action.notes}` : ''}\n\nYour calendar has been updated!`;
-          break;
-        }
-
-        case 'UPDATE_EVENT': {
-          if (!action.id) throw new Error('Missing event ID for update. The AI must provide the entity ID from the calendar data.');
-          
-          console.log(`[Ada Action] UPDATE_EVENT: id=${action.id}, title=${action.title}`);
-          
-          // Verify the event exists before attempting update
-          const { data: existingEvent, error: checkError } = await supabase
-            .from('schedule_blocks')
-            .select('id, title')
-            .eq('id', action.id)
-            .eq('user_id', user.id)
-            .eq('is_active', true)
-            .maybeSingle();
-          
-          if (checkError || !existingEvent) {
-            console.error(`Event not found for update: ${action.id}`, checkError);
-            throw new Error(`Event not found: "${entityName}". Please check the event name and try again.`);
-          }
-          
-          const updates: any = {};
-          if (action.title) updates.title = action.title;
-          if (action.start_iso) {
-            const startDate = new Date(action.start_iso);
-            updates.specific_date = startDate.toISOString().split('T')[0];
-            updates.start_time = startDate.toTimeString().slice(0, 5);
-          }
-          if (action.end_iso) {
-            const endDate = new Date(action.end_iso);
-            updates.end_time = endDate.toTimeString().slice(0, 5);
-          }
-          if (action.location) updates.location = action.location;
-          if (action.notes) updates.notes = action.notes;
-          
-          const { updateScheduleBlock } = await import('@/services/api');
-          await updateScheduleBlock(action.id, user.id, updates);
-          resultId = action.id;
-          confirmMessage = `✅ Updated **"${entityName}"** successfully.`;
-          break;
-        }
-
-        case 'DELETE_EVENT': {
-          if (!action.id) throw new Error('Missing event ID for delete. The AI must provide the entity ID from the calendar data.');
-          
-          console.log(`[Ada Action] DELETE_EVENT: id=${action.id}, title=${action.title}`);
-          
-          // Verify the event exists before attempting delete
-          const { data: existingEvent, error: checkError } = await supabase
-            .from('schedule_blocks')
-            .select('id, title')
-            .eq('id', action.id)
-            .eq('user_id', user.id)
-            .eq('is_active', true)
-            .maybeSingle();
-          
-          if (checkError || !existingEvent) {
-            console.error(`Event not found for delete: ${action.id}`, checkError);
-            throw new Error(`Event not found: "${entityName}". It may have already been deleted.`);
-          }
-          
-          await deleteScheduleBlock(action.id, user.id);
-          resultId = action.id;
-          confirmMessage = `🗑️ Deleted **"${entityName}"** from your calendar.`;
-          break;
-        }
-
-        // ========== ASSIGNMENTS ==========
-        case 'CREATE_ASSIGNMENT': {
-          let courseId = action.course_id;
-          
-          // Check if courseId is a valid UUID
-          const isValidUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(courseId || '');
-          
-          if (!isValidUUID && courseId) {
-            // AI sent a name or placeholder instead of UUID - try to resolve
-            console.log('Course ID is not a valid UUID, attempting resolution:', courseId);
-            courseId = await resolveCourseId(courseId) || undefined;
-          }
-          
-          if (!courseId) {
-            // Try to find any active course as fallback
-            const { data: courses } = await supabase
-              .from('courses')
-              .select('id')
-              .eq('user_id', user.id)
-              .eq('is_active', true)
-              .limit(1);
-            courseId = courses?.[0]?.id;
-          }
-          
-          if (!courseId) {
-            throw new Error('No course found. Please create a course first.');
-          }
-
-          const assignmentResult = await createAssignment({
-            user_id: user.id,
-            course_id: courseId,
-            title: action.title!,
-            due_date: action.due_date!,
-            description: action.description || action.notes,
-            priority: action.priority ?? 2,
-            estimated_hours: action.estimated_hours,
-            assignment_type: action.assignment_type || 'homework'
-          });
-          resultId = assignmentResult.id;
-          
-          // Format confirmation with better date/time display
-          const dueDate = new Date(action.due_date!);
-          const dayName = dueDate.toLocaleDateString('en-US', { weekday: 'long' });
-          const dateStr = dueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-          const timeStr = dueDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-          
-          confirmMessage = `✅ **Assignment Created!**\n\n📝 **${action.title}**\n📆 Due: ${dayName}, ${dateStr} at ${timeStr}${action.description ? `\n📄 ${action.description}` : ''}\n\nYour calendar has been updated!`;
-          break;
-        }
-
-        case 'UPDATE_ASSIGNMENT': {
-          if (!action.id) throw new Error('Missing assignment ID for update. The AI must provide the entity ID from the calendar data.');
-          
-          console.log(`[Ada Action] UPDATE_ASSIGNMENT: id=${action.id}, title=${action.title}`);
-          
-          const updates: any = {};
-          if (action.title) updates.title = action.title;
-          if (action.due_date) updates.due_date = action.due_date;
-          if (action.priority !== undefined) updates.priority = action.priority;
-          if (action.description) updates.description = action.description;
-          
-          await updateAssignment(action.id, user.id, updates);
-          resultId = action.id;
-          confirmMessage = `✅ Updated assignment **"${entityName}"**.`;
-          break;
-        }
-
-        case 'DELETE_ASSIGNMENT': {
-          if (!action.id) throw new Error('Missing assignment ID for delete. The AI must provide the entity ID from the calendar data.');
-          
-          console.log(`[Ada Action] DELETE_ASSIGNMENT: id=${action.id}, title=${action.title}`);
-          
-          await deleteAssignment(action.id, user.id);
-          resultId = action.id;
-          confirmMessage = `🗑️ Deleted assignment **"${entityName}"**.`;
-          break;
-        }
-
-        case 'COMPLETE_ASSIGNMENT': {
-          if (!action.id) throw new Error('Missing assignment ID for complete. The AI must provide the entity ID from the calendar data.');
-          
-          console.log(`[Ada Action] COMPLETE_ASSIGNMENT: id=${action.id}, title=${action.title}`);
-          
-          await completeAssignment(action.id, user.id);
-          resultId = action.id;
-          confirmMessage = `✅ Marked **"${entityName}"** as complete!`;
-          break;
-        }
-
-        // ========== EXAMS ==========
-        case 'CREATE_EXAM': {
-          let courseId = action.course_id;
-          
-          // Check if courseId is a valid UUID
-          const isValidUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(courseId || '');
-          
-          if (!isValidUUID && courseId) {
-            console.log('Exam course ID is not a valid UUID, attempting resolution:', courseId);
-            courseId = await resolveCourseId(courseId) || undefined;
-          }
-          
-          if (!courseId) {
-            const { data: courses } = await supabase
-              .from('courses')
-              .select('id')
-              .eq('user_id', user.id)
-              .eq('is_active', true)
-              .limit(1);
-            courseId = courses?.[0]?.id;
-          }
-          if (!courseId) {
-            throw new Error('No course found. Please create a course first.');
-          }
-
-          const examResult = await createExam({
-            user_id: user.id,
-            course_id: courseId,
-            title: action.title!,
-            exam_date: action.exam_date!,
-            duration_minutes: action.duration_minutes || 60,
-            location: action.location,
-            exam_type: action.exam_type || 'midterm',
-            notes: action.notes
-          });
-          resultId = examResult.id;
-          
-          // Format confirmation with better date/time display
-          const examDate = new Date(action.exam_date!);
-          const dayName = examDate.toLocaleDateString('en-US', { weekday: 'long' });
-          const dateStr = examDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-          const timeStr = examDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-          const duration = action.duration_minutes || 60;
-          const hours = Math.floor(duration / 60);
-          const minutes = duration % 60;
-          const durationStr = hours > 0 ? `${hours}h ${minutes > 0 ? `${minutes}m` : ''}` : `${minutes}m`;
-          
-          confirmMessage = `✅ **Exam Scheduled!**\n\n📚 **${action.title}**\n📆 ${dayName}, ${dateStr} at ${timeStr}\n⏱️ Duration: ${durationStr}${action.location ? `\n📍 ${action.location}` : ''}${action.notes ? `\n📝 ${action.notes}` : ''}\n\nYour calendar has been updated!`;
-          break;
-        }
-
-        case 'UPDATE_EXAM': {
-          if (!action.id) throw new Error('Missing exam ID for update. The AI must provide the entity ID from the calendar data.');
-          
-          console.log(`[Ada Action] UPDATE_EXAM: id=${action.id}, title=${action.title}`);
-          
-          const updates: any = {};
-          if (action.title) updates.title = action.title;
-          if (action.exam_date) updates.exam_date = action.exam_date;
-          if (action.location) updates.location = action.location;
-          if (action.duration_minutes) updates.duration_minutes = action.duration_minutes;
-          
-          await updateExam(action.id, user.id, updates);
-          resultId = action.id;
-          confirmMessage = `✅ Updated exam **"${entityName}"**.`;
-          break;
-        }
-
-        case 'DELETE_EXAM': {
-          if (!action.id) throw new Error('Missing exam ID for delete. The AI must provide the entity ID from the calendar data.');
-          
-          console.log(`[Ada Action] DELETE_EXAM: id=${action.id}, title=${action.title}`);
-          
-          await deleteExam(action.id, user.id);
-          resultId = action.id;
-          confirmMessage = `🗑️ Deleted exam **"${entityName}"**.`;
-          break;
-        }
-
-        // ========== STUDY SESSIONS ==========
-        case 'CREATE_STUDY_SESSION': {
-          let courseId = action.course_id;
-          
-          // Check if courseId is a valid UUID (optional for study sessions)
-          if (courseId) {
-            const isValidUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(courseId);
-            if (!isValidUUID) {
-              console.log('Study session course ID is not a valid UUID, attempting resolution:', courseId);
-              courseId = await resolveCourseId(courseId) || undefined;
-            }
-          }
-          
-          const sessionResult = await createStudySession({
-            user_id: user.id,
-            title: action.title!,
-            scheduled_start: action.scheduled_start || action.start_iso!,
-            scheduled_end: action.scheduled_end || action.end_iso!,
-            course_id: courseId,
-            assignment_id: action.assignment_id,
-            exam_id: action.exam_id,
-            notes: action.notes
-          });
-          resultId = sessionResult.id;
-          
-          // Format confirmation with better date/time display
-          const startDate = new Date(action.scheduled_start || action.start_iso!);
-          const endDate = new Date(action.scheduled_end || action.end_iso!);
-          const dayName = startDate.toLocaleDateString('en-US', { weekday: 'long' });
-          const dateStr = startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-          const startTimeFormatted = startDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-          const endTimeFormatted = endDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-          
-          confirmMessage = `✅ **Study Session Scheduled!**\n\n📖 **${action.title}**\n📆 ${dayName}, ${dateStr}\n⏰ ${startTimeFormatted} - ${endTimeFormatted}${action.notes ? `\n📝 ${action.notes}` : ''}\n\nYour calendar has been updated!`;
-          break;
-        }
-
-        case 'UPDATE_STUDY_SESSION': {
-          if (!action.id) throw new Error('Missing study session ID for update. The AI must provide the entity ID from the calendar data.');
-          
-          console.log(`[Ada Action] UPDATE_STUDY_SESSION: id=${action.id}, title=${action.title}`);
-          
-          const updates: any = {};
-          if (action.title) updates.title = action.title;
-          if (action.scheduled_start) updates.scheduled_start = action.scheduled_start;
-          if (action.scheduled_end) updates.scheduled_end = action.scheduled_end;
-          if (action.notes) updates.notes = action.notes;
-          if (action.status) updates.status = action.status;
-          
-          await updateStudySession(action.id, user.id, updates);
-          resultId = action.id;
-          confirmMessage = `✅ Updated study session **"${entityName}"**.`;
-          break;
-        }
-
-        case 'DELETE_STUDY_SESSION': {
-          if (!action.id) throw new Error('Missing study session ID for delete. The AI must provide the entity ID from the calendar data.');
-          
-          console.log(`[Ada Action] DELETE_STUDY_SESSION: id=${action.id}, title=${action.title}`);
-          
-          await deleteStudySession(action.id, user.id);
-          resultId = action.id;
-          confirmMessage = `🗑️ Deleted study session **"${entityName}"**.`;
-          break;
-        }
-
-        // ========== COURSES ==========
-        case 'CREATE_COURSE': {
-          const courseResult = await createCourse({
-            user_id: user.id,
-            name: action.name || action.title!,
-            code: action.code,
-            credits: action.credits,
-            instructor: action.instructor,
-            color: action.color,
-            target_grade: action.target_grade
-          });
-          resultId = courseResult.id;
-          confirmMessage = `✅ Created course **"${action.name || action.title}"**.`;
-          break;
-        }
-
-        case 'UPDATE_COURSE': {
-          if (!action.id) throw new Error('Missing course ID for update. The AI must provide the entity ID from the calendar data.');
-          
-          console.log(`[Ada Action] UPDATE_COURSE: id=${action.id}, name=${action.name}`);
-          
-          const updates: any = {};
-          if (action.name) updates.name = action.name;
-          if (action.code) updates.code = action.code;
-          if (action.credits) updates.credits = action.credits;
-          if (action.instructor) updates.instructor = action.instructor;
-          if (action.color) updates.color = action.color;
-          if (action.target_grade) updates.target_grade = action.target_grade;
-          
-          await updateCourse(action.id, user.id, updates);
-          resultId = action.id;
-          confirmMessage = `✅ Updated course **"${entityName}"**.`;
-          break;
-        }
-
-        case 'DELETE_COURSE': {
-          if (!action.id) throw new Error('Missing course ID for delete. The AI must provide the entity ID from the calendar data.');
-          
-          console.log(`[Ada Action] DELETE_COURSE: id=${action.id}, name=${action.name}`);
-          
-          await deleteCourse(action.id, user.id);
-          resultId = action.id;
-          confirmMessage = `🗑️ Deleted course **"${entityName}"**.`;
-          break;
-        }
-
-        default:
-          throw new Error(`Unknown action type: ${action.type}`);
-      }
+      const { resultId, confirmMessage } = await executeAdaAction(action);
 
       // Update pending action status
       setPendingActions(prev => prev.map((p, i) => 
@@ -1500,14 +1448,6 @@ export function AdaAIChat({
         metadata: { action_confirmed: true }
       }]);
 
-      // Trigger calendar refresh by dispatching a custom event
-      // This will notify any calendar components to refresh
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('calendar-updated', { 
-          detail: { actionType: action.type, entityId: resultId } 
-        }));
-      }
-
       // Award First Voyage badge for first event creation
       if (action.type === 'CREATE_EVENT') {
         await handleFirstVoyageUnlock();
@@ -1521,7 +1461,7 @@ export function AdaAIChat({
         variant: 'destructive'
       });
     }
-  }, [user, pendingActions, toast, saveChatMessage, handleFirstVoyageUnlock, resolveCourseId]);
+  }, [user, pendingActions, toast, saveChatMessage, handleFirstVoyageUnlock, executeAdaAction]);
 
   const handleCancelAction = useCallback((actionIndex: number) => {
     setPendingActions(prev => prev.map((p, i) => 
@@ -1649,18 +1589,50 @@ export function AdaAIChat({
         if (aiResponse.metadata?.has_actions && aiResponse.metadata?.actions?.length > 0) {
           const actions = aiResponse.metadata.actions as AdaAction[];
           
-          // Separate Cornell Notes actions (auto-execute) from other actions (need confirmation)
-          const cornellNotesActions = actions.filter(a => a.type === 'CREATE_CORNELL_NOTES');
-          const otherActions = actions.filter(a => a.type !== 'CREATE_CORNELL_NOTES');
+          // Define action types that should auto-execute vs require confirmation
+          const autoExecuteTypes: AdaActionType[] = [
+            'CREATE_CORNELL_NOTES',
+            // Auto-execute all CRUD operations since user explicitly asked for them
+            'CREATE_EVENT', 'UPDATE_EVENT', 'DELETE_EVENT',
+            'CREATE_ASSIGNMENT', 'UPDATE_ASSIGNMENT', 'DELETE_ASSIGNMENT', 'COMPLETE_ASSIGNMENT',
+            'CREATE_EXAM', 'UPDATE_EXAM', 'DELETE_EXAM',
+            'CREATE_STUDY_SESSION', 'UPDATE_STUDY_SESSION', 'DELETE_STUDY_SESSION',
+            'CREATE_COURSE', 'UPDATE_COURSE', 'DELETE_COURSE'
+          ];
           
-          // Auto-execute Cornell Notes actions immediately (no confirmation needed)
-          for (const action of cornellNotesActions) {
-            await executeCreateCornellNotes(action);
+          const autoExecuteActions = actions.filter(a => autoExecuteTypes.includes(a.type));
+          const confirmActions = actions.filter(a => !autoExecuteTypes.includes(a.type));
+          
+          // Auto-execute actions immediately
+          for (const action of autoExecuteActions) {
+            if (action.type === 'CREATE_CORNELL_NOTES') {
+              await executeCreateCornellNotes(action);
+            } else {
+              // Execute CRUD action directly using executeAdaAction
+              try {
+                const { confirmMessage } = await executeAdaAction(action);
+                // Save confirmation as a message
+                setMessages(prev => [...prev, {
+                  id: `action-confirm-${Date.now()}-${Math.random()}`,
+                  message: confirmMessage,
+                  is_user: false,
+                  created_at: new Date().toISOString(),
+                  metadata: { action_confirmed: true }
+                }]);
+              } catch (actionError: any) {
+                console.error('Auto-execute action failed:', actionError);
+                toast({
+                  title: 'Action Failed',
+                  description: actionError.message || 'Failed to execute action',
+                  variant: 'destructive'
+                });
+              }
+            }
           }
           
-          // Add other actions to pending (require user confirmation)
-          if (otherActions.length > 0) {
-            const newPendingActions: PendingAction[] = otherActions.map((action: AdaAction) => ({
+          // Add confirmation-required actions to pending
+          if (confirmActions.length > 0) {
+            const newPendingActions: PendingAction[] = confirmActions.map((action: AdaAction) => ({
               action,
               status: 'pending' as const,
               conflicts: []
@@ -1681,7 +1653,7 @@ export function AdaAIChat({
       setIsProcessing(false);
       setPendingFileStatus('');
     }
-  }, [user, isProcessing, messageCount, pendingFile, conversationId, tokenUsage, uploadAndIndexFile, wantsScheduleParsing, processFileWithAgenticAI, saveChatMessage, playNotificationSound, toast, handleChatBadgeUnlock, executeCreateCornellNotes, fetchTokenUsage]);
+  }, [user, isProcessing, messageCount, pendingFile, conversationId, tokenUsage, uploadAndIndexFile, wantsScheduleParsing, processFileWithAgenticAI, saveChatMessage, playNotificationSound, toast, handleChatBadgeUnlock, executeCreateCornellNotes, fetchTokenUsage, executeAdaAction]);
 
   // Voice toggle
   const handleVoiceToggle = useCallback(async () => {
