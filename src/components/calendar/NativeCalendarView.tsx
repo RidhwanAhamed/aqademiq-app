@@ -14,17 +14,13 @@ import { EnhancedMonthView } from './EnhancedMonthView';
 import { EnhancedAgendaView } from './EnhancedAgendaView';
 import { MobileWeekView } from './MobileWeekView';
 import { MobileMonthView } from './MobileMonthView';
-import { EnhancedEventContextMenu } from './EnhancedEventContextMenu';
 import { EventDetailSheet } from './EventDetailSheet';
 import { EditEventDialog } from './EditEventDialog';
-import { CalendarErrorBoundaryWrapper } from './ErrorBoundary';
-import { AccessibleCalendarView } from './AccessibleCalendarView';
-import { TimezoneSelector } from './TimezoneSelector';
 import { useEnhancedDragDrop } from '@/hooks/useEnhancedDragDrop';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
-import { formatInUserTimezone } from '@/utils/timezone';
+import * as CalendarService from '@/services/calendarEventService';
 
 interface NativeCalendarViewProps {
   selectedDate: Date;
@@ -65,91 +61,65 @@ export function NativeCalendarView({ selectedDate, onDateChange }: NativeCalenda
     refetch 
   } = useRealtimeCalendar();
 
-  // Helper to parse event ID into type and actual ID
-  // Handles formats: "schedule-{uuid}", "exam-{uuid}", "assignment-{uuid}", "study-session-{uuid}"
-  const parseEventId = useCallback((eventId: string): { type: string; id: string } | null => {
-    if (eventId.startsWith('study-session-')) {
-      return { type: 'study_session', id: eventId.replace('study-session-', '') };
-    }
-    const firstDash = eventId.indexOf('-');
-    if (firstDash === -1) return null;
-    return { 
-      type: eventId.substring(0, firstDash), 
-      id: eventId.substring(firstDash + 1) 
-    };
-  }, []);
-
   const { 
     conflicts, 
     detectConflicts 
   } = useConflictDetection();
 
+  // Handle event updates using the CalendarService
   const handleEventUpdate = useCallback(async (event: CalendarEvent, updates: Partial<CalendarEvent>) => {
-    try {
-      const parsed = parseEventId(event.id);
-      
-      if (!parsed) {
-        throw new Error('Invalid event ID format');
-      }
-      
-      const { type, id } = parsed;
-      
-      switch (type) {
-        case 'schedule':
-          if (updates.start || updates.end || updates.title || updates.location) {
-            const start_time = updates.start ? format(updates.start, 'HH:mm:ss') : undefined;
-            const end_time = updates.end ? format(updates.end, 'HH:mm:ss') : undefined;
-            const day_of_week = updates.start ? updates.start.getDay() : undefined;
-            
-            await updateScheduleBlock(id, {
-              start_time,
-              end_time,
-              day_of_week,
-              title: updates.title,
-              location: updates.location
-            });
-          }
-          break;
-          
-        case 'exam':
-          await updateExam(id, {
-            exam_date: updates.start?.toISOString(),
-            title: updates.title,
-            location: updates.location
-          });
-          break;
-          
-        case 'assignment':
-          await updateAssignment(id, {
-            due_date: updates.end?.toISOString(),
-            title: updates.title
-          });
-          break;
-          
-        case 'study_session':
-          await updateStudySession(id, {
-            scheduled_start: updates.start?.toISOString(),
-            scheduled_end: updates.end?.toISOString(),
-            title: updates.title
-          });
-          break;
-      }
-      
-      toast({
-        title: "Event Updated",
-        description: `${updates.title || event.title} has been updated successfully.`,
-      });
-      
-      refetch();
-    } catch (error) {
-      console.error('Error updating event:', error);
-      toast({
-        title: "Update Failed",
-        description: error instanceof Error ? error.message : "Failed to update event",
-        variant: "destructive"
-      });
+    const parsed = CalendarService.parseEventId(event.id);
+    
+    if (!parsed) {
+      toast({ title: "Error", description: "Invalid event ID", variant: "destructive" });
+      return;
     }
-  }, [updateScheduleBlock, updateExam, updateAssignment, refetch, toast]);
+
+    console.log('[NativeCalendarView] Updating event:', { eventId: event.id, type: parsed.type, updates });
+
+    let result: CalendarService.EventUpdateResult;
+
+    switch (parsed.type) {
+      case 'schedule':
+        result = await CalendarService.updateScheduleBlock(parsed.id, {
+          start_time: updates.start ? format(updates.start, 'HH:mm:ss') : undefined,
+          end_time: updates.end ? format(updates.end, 'HH:mm:ss') : undefined,
+          day_of_week: updates.start ? updates.start.getDay() : undefined,
+          title: updates.title,
+          location: updates.location,
+        });
+        break;
+      case 'exam':
+        result = await CalendarService.updateExam(parsed.id, {
+          exam_date: updates.start?.toISOString(),
+          title: updates.title,
+          location: updates.location,
+        });
+        break;
+      case 'assignment':
+        result = await CalendarService.updateAssignment(parsed.id, {
+          due_date: updates.end?.toISOString(),
+          title: updates.title,
+        });
+        break;
+      case 'study_session':
+        result = await CalendarService.updateStudySession(parsed.id, {
+          scheduled_start: updates.start?.toISOString(),
+          scheduled_end: updates.end?.toISOString(),
+          title: updates.title,
+        });
+        break;
+      default:
+        result = { success: false, error: 'Unknown event type' };
+    }
+
+    if (result.success) {
+      toast({ title: "Event Updated", description: `${updates.title || event.title} updated successfully.` });
+      refetch();
+    } else {
+      toast({ title: "Update Failed", description: result.error || "Failed to update event", variant: "destructive" });
+    }
+  }, [refetch, toast]);
 
   // Enhanced drag and drop functionality
   const {
@@ -220,38 +190,23 @@ export function NativeCalendarView({ selectedDate, onDateChange }: NativeCalenda
   }, []);
 
   const handleEventDelete = useCallback(async (event: CalendarEvent): Promise<boolean> => {
-    const parsed = parseEventId(event.id);
+    console.log('[NativeCalendarView] Deleting event:', event.id);
     
-    if (!parsed) {
+    const result = await CalendarService.deleteEvent(event.id);
+    
+    if (result.success) {
+      refetch();
+    } else {
       toast({
         title: "Error",
-        description: "Invalid event ID",
+        description: result.error || "Failed to delete event",
         variant: "destructive"
       });
-      return false;
-    }
-
-    const { type, id } = parsed;
-    let success = false;
-    
-    switch (type) {
-      case 'schedule':
-        success = await deleteScheduleBlock(id);
-        break;
-      case 'exam':
-        success = await deleteExam(id);
-        break;
-      case 'assignment':
-        success = await deleteAssignment(id);
-        break;
-      case 'study_session':
-        success = await deleteStudySession(id);
-        break;
     }
 
     setContextMenu(null);
-    return success;
-  }, [parseEventId, deleteScheduleBlock, deleteExam, deleteAssignment, deleteStudySession, toast]);
+    return result.success;
+  }, [refetch, toast]);
 
   const handleEventDuplicate = useCallback((event: CalendarEvent) => {
     toast({
