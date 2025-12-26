@@ -1305,13 +1305,14 @@ INSTRUCTIONS:
       try {
         const [coursesResult, pendingAssignmentsResult, upcomingExamsResult, userStatsResult] = await Promise.all([
           supabase.from('courses').select('id, name, code, credits').eq('user_id', userId).eq('is_active', true).limit(10),
-          supabase.from('assignments').select('id, title, due_date, priority').eq('user_id', userId).eq('is_completed', false).order('due_date', { ascending: true }).limit(10),
-          supabase.from('exams').select('id, title, exam_date').eq('user_id', userId).gte('exam_date', new Date().toISOString()).order('exam_date', { ascending: true }).limit(5),
+          supabase.from('assignments').select('id, title, due_date, priority, course_id, is_completed, courses(name)').eq('user_id', userId).order('due_date', { ascending: true }).limit(20),
+          supabase.from('exams').select('id, title, exam_date, course_id, courses(name)').eq('user_id', userId).gte('exam_date', new Date().toISOString()).order('exam_date', { ascending: true }).limit(10),
           supabase.from('user_stats').select('current_streak, total_study_hours').eq('user_id', userId).single()
         ]);
 
         const courses = coursesResult.data || [];
-        const pendingAssignments = pendingAssignmentsResult.data || [];
+        const allAssignments = pendingAssignmentsResult.data || [];
+        const pendingAssignments = allAssignments.filter((a: any) => !a.is_completed);
         const upcomingExams = upcomingExamsResult.data || [];
         const userStats = userStatsResult.data;
         const currentDate = new Date().toISOString();
@@ -1321,23 +1322,42 @@ INSTRUCTIONS:
           ? courses.map(c => `  - "${c.name}" (ID: ${c.id}${c.code ? `, Code: ${c.code}` : ''})`).join('\n')
           : '  - No active courses';
 
+        // Build complete assignments list with IDs
+        const assignmentsList = allAssignments.length > 0
+          ? allAssignments.map((a: any) => 
+              `  - "${a.title}" (ID: ${a.id}, Due: ${a.due_date?.split('T')[0] || 'N/A'}, Course: ${a.courses?.name || 'Unknown'}, Status: ${a.is_completed ? 'COMPLETED' : 'PENDING'})`
+            ).join('\n')
+          : '  - No assignments';
+
+        // Build exams list with IDs
+        const examsList = upcomingExams.length > 0
+          ? upcomingExams.map((e: any) => 
+              `  - "${e.title}" (ID: ${e.id}, Date: ${e.exam_date?.split('T')[0] || 'N/A'}, Course: ${e.courses?.name || 'Unknown'})`
+            ).join('\n')
+          : '  - No upcoming exams';
+
         userContext = `
 ## User Context (${currentDate.split('T')[0]}):
 
 ### AVAILABLE COURSES (Use these exact IDs for course_id field!):
 ${coursesList}
 
-### IMPORTANT - Course ID Instructions:
-When creating assignments, exams, or study sessions that reference a course:
-1. Look at the courses list above to find the matching course
-2. Use the EXACT UUID from that list (e.g., "a1b2c3d4-e5f6-7890-abcd-ef1234567890")
-3. Do NOT generate placeholder text like "course_id_placeholder"
-4. If user mentions a course by name, match it to the list and use its UUID
-5. Also include "course_name" field with the human-readable name for display
+### ALL ASSIGNMENTS (Use these exact IDs for assignment operations!):
+${assignmentsList}
+
+### UPCOMING EXAMS (Use these exact IDs for exam operations!):
+${examsList}
+
+### IMPORTANT - Entity ID Instructions:
+1. When updating, completing, or deleting assignments/exams/courses, you MUST use the EXACT UUID from the lists above
+2. Do NOT generate placeholder IDs like "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+3. If user mentions an entity by name, match it to the list and use its real UUID
+4. If you cannot find the exact entity, ask the user to clarify
+5. When creating new items, look up the course_id from the AVAILABLE COURSES list
 
 ### Academic Status:
-- Pending assignments: ${pendingAssignments.length} (${pendingAssignments.slice(0, 3).map(a => `"${a.title}" due ${a.due_date.split('T')[0]}`).join(', ') || 'None'})
-- Upcoming exams: ${upcomingExams.length} (${upcomingExams.slice(0, 2).map(e => `"${e.title}" on ${e.exam_date.split('T')[0]}`).join(', ') || 'None'})
+- Pending assignments: ${pendingAssignments.length}
+- Upcoming exams: ${upcomingExams.length}
 - Study streak: ${userStats?.current_streak || 0} days
 - User timezone: ${userTimezone || 'UTC'}
 `;
