@@ -9,6 +9,7 @@ import { CalendarEvent } from '@/hooks/useRealtimeCalendar';
 import { cn } from '@/lib/utils';
 import { ChevronLeft, ChevronRight, Clock, MapPin, Plus } from 'lucide-react';
 import { AddCalendarEventDialog } from './AddCalendarEventDialog';
+import { EnhancedEventContextMenu } from './EnhancedEventContextMenu';
 
 const DAY_START_HOUR = 0;
 const DAY_END_HOUR = 24;
@@ -22,6 +23,10 @@ interface EnhancedWeekViewProps {
   onEventUpdate: (event: CalendarEvent, updates: Partial<CalendarEvent>) => void;
   onTimeSlotClick: (date: Date, hour: number) => void;
   conflicts?: string[];
+  onEventEdit?: (event: CalendarEvent) => void;
+  onEventDelete?: (event: CalendarEvent) => Promise<boolean>;
+  onEventDuplicate?: (event: CalendarEvent) => void;
+  onEventReschedule?: (event: CalendarEvent) => void;
 }
 
 export function EnhancedWeekView({
@@ -31,7 +36,11 @@ export function EnhancedWeekView({
   onEventClick,
   onEventUpdate,
   onTimeSlotClick,
-  conflicts = []
+  conflicts = [],
+  onEventEdit,
+  onEventDelete,
+  onEventDuplicate,
+  onEventReschedule
 }: EnhancedWeekViewProps) {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<{ date: Date; hour: number } | null>(null);
@@ -102,7 +111,7 @@ export function EnhancedWeekView({
     // Check if event was created by Ada AI (stored in rotation_group field)
     const isAdaCreated = (event.data as any)?.rotation_group === 'ada-ai';
 
-    return (
+    const eventCard = (
       <div
         key={event.id}
         className={cn(
@@ -142,6 +151,24 @@ export function EnhancedWeekView({
         )}
       </div>
     );
+
+    // Wrap with context menu if handlers are provided
+    if (onEventEdit && onEventDelete && onEventDuplicate && onEventReschedule) {
+      return (
+        <EnhancedEventContextMenu
+          key={event.id}
+          event={event}
+          onEdit={onEventEdit}
+          onDelete={onEventDelete}
+          onDuplicate={onEventDuplicate}
+          onReschedule={onEventReschedule}
+        >
+          {eventCard}
+        </EnhancedEventContextMenu>
+      );
+    }
+
+    return eventCard;
   };
 
   const calculateEventPosition = (event: CalendarEvent, dayIndex: number) => {

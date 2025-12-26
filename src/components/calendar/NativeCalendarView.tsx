@@ -15,6 +15,8 @@ import { EnhancedAgendaView } from './EnhancedAgendaView';
 import { MobileWeekView } from './MobileWeekView';
 import { MobileMonthView } from './MobileMonthView';
 import { EnhancedEventContextMenu } from './EnhancedEventContextMenu';
+import { EventDetailSheet } from './EventDetailSheet';
+import { EditEventDialog } from './EditEventDialog';
 import { CalendarErrorBoundaryWrapper } from './ErrorBoundary';
 import { AccessibleCalendarView } from './AccessibleCalendarView';
 import { TimezoneSelector } from './TimezoneSelector';
@@ -42,6 +44,9 @@ export function NativeCalendarView({ selectedDate, onDateChange }: NativeCalenda
   const [rescheduleEvent, setRescheduleEvent] = useState<CalendarEvent | null>(null);
   const [newStartTime, setNewStartTime] = useState('');
   const [newEndTime, setNewEndTime] = useState('');
+  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
+  const [showDetailSheet, setShowDetailSheet] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const { toast } = useToast();
@@ -52,6 +57,10 @@ export function NativeCalendarView({ selectedDate, onDateChange }: NativeCalenda
     updateScheduleBlock, 
     updateExam, 
     updateAssignment,
+    deleteScheduleBlock,
+    deleteExam,
+    deleteAssignment,
+    deleteStudySession,
     refetch 
   } = useRealtimeCalendar();
 
@@ -167,21 +176,15 @@ export function NativeCalendarView({ selectedDate, onDateChange }: NativeCalenda
   }, [dragState.isDragging, handleDragMove, handleDragEnd]);
 
   const handleEventClick = useCallback((event: CalendarEvent) => {
-    // For now, just show a toast. Could open edit dialog in the future
-    toast({
-      title: event.title,
-      description: `${format(event.start, 'MMM d, HH:mm')} - ${format(event.end, 'HH:mm')}`,
-    });
-  }, [toast]);
-
+    setSelectedEvent(event);
+    setShowDetailSheet(true);
+  }, []);
 
   const handleTimeSlotClick = useCallback((date: Date, hour: number) => {
-    // Time slot clicks are now handled by EnhancedWeekView's AddCalendarEventDialog
     console.log('Time slot clicked:', date, hour);
   }, []);
 
   const handleDayClick = useCallback((date: Date) => {
-    // Day clicks are now handled by EnhancedMonthView's AddCalendarEventDialog
     console.log('Day clicked:', date);
   }, []);
 
@@ -190,21 +193,44 @@ export function NativeCalendarView({ selectedDate, onDateChange }: NativeCalenda
   }, []);
 
   const handleEventEdit = useCallback((event: CalendarEvent) => {
-    toast({
-      title: "Edit Event",
-      description: `Editing ${event.title}`,
-    });
+    setSelectedEvent(event);
+    setShowEditDialog(true);
     setContextMenu(null);
-  }, [toast]);
+  }, []);
 
-  const handleEventDelete = useCallback((event: CalendarEvent) => {
-    toast({
-      title: "Delete Event", 
-      description: `Deleted ${event.title}`,
-      variant: "destructive"
-    });
+  const handleEventDelete = useCallback(async (event: CalendarEvent): Promise<boolean> => {
+    const [type, id] = event.id.split('-');
+    
+    if (!type || !id) {
+      toast({
+        title: "Error",
+        description: "Invalid event ID",
+        variant: "destructive"
+      });
+      return false;
+    }
+
+    let success = false;
+    switch (type) {
+      case 'schedule':
+        success = await deleteScheduleBlock(id);
+        break;
+      case 'exam':
+        success = await deleteExam(id);
+        break;
+      case 'assignment':
+        success = await deleteAssignment(id);
+        break;
+      case 'study':
+        // study-session-{id} format
+        const sessionId = event.id.replace('study-session-', '');
+        success = await deleteStudySession(sessionId);
+        break;
+    }
+
     setContextMenu(null);
-  }, [toast]);
+    return success;
+  }, [deleteScheduleBlock, deleteExam, deleteAssignment, deleteStudySession, toast]);
 
   const handleEventDuplicate = useCallback((event: CalendarEvent) => {
     toast({
@@ -215,12 +241,12 @@ export function NativeCalendarView({ selectedDate, onDateChange }: NativeCalenda
   }, [toast]);
 
   const handleEventReschedule = useCallback((event: CalendarEvent) => {
-    toast({
-      title: "Reschedule Event",
-      description: `Rescheduling ${event.title}`,
-    });
+    setRescheduleEvent(event);
+    setNewStartTime(format(event.start, 'HH:mm'));
+    setNewEndTime(format(event.end, 'HH:mm'));
+    setShowConflictPanel(true);
     setContextMenu(null);
-  }, [toast]);
+  }, []);
 
   if (loading) {
     return (
@@ -302,6 +328,10 @@ export function NativeCalendarView({ selectedDate, onDateChange }: NativeCalenda
                   onEventUpdate={handleEventUpdate}
                   onTimeSlotClick={handleTimeSlotClick}
                   conflicts={conflictIds}
+                  onEventEdit={handleEventEdit}
+                  onEventDelete={handleEventDelete}
+                  onEventDuplicate={handleEventDuplicate}
+                  onEventReschedule={handleEventReschedule}
                 />
               )}
             </TabsContent>
@@ -324,6 +354,10 @@ export function NativeCalendarView({ selectedDate, onDateChange }: NativeCalenda
                   onEventClick={handleEventClick}
                   onDayClick={handleDayClick}
                   conflicts={conflictIds}
+                  onEventEdit={handleEventEdit}
+                  onEventDelete={handleEventDelete}
+                  onEventDuplicate={handleEventDuplicate}
+                  onEventReschedule={handleEventReschedule}
                 />
               )}
             </TabsContent>
@@ -336,6 +370,10 @@ export function NativeCalendarView({ selectedDate, onDateChange }: NativeCalenda
                 onEventClick={handleEventClick}
                 conflicts={conflictIds}
                 onOpenConflictPanel={() => setShowConflictPanel(true)}
+                onEventEdit={handleEventEdit}
+                onEventDelete={handleEventDelete}
+                onEventDuplicate={handleEventDuplicate}
+                onEventReschedule={handleEventReschedule}
               />
             </TabsContent>
           </Tabs>
@@ -564,6 +602,23 @@ export function NativeCalendarView({ selectedDate, onDateChange }: NativeCalenda
           )}
         </SheetContent>
       </Sheet>
+
+      {/* Event Detail Sheet */}
+      <EventDetailSheet
+        event={selectedEvent}
+        open={showDetailSheet}
+        onOpenChange={setShowDetailSheet}
+        onEdit={handleEventEdit}
+        onDelete={handleEventDelete}
+      />
+
+      {/* Edit Event Dialog */}
+      <EditEventDialog
+        event={selectedEvent}
+        open={showEditDialog}
+        onOpenChange={setShowEditDialog}
+        onSave={handleEventUpdate}
+      />
     </>
   );
 }
