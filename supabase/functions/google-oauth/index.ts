@@ -135,11 +135,19 @@ serve(async (req) => {
         const redirectUri = requestBody?.redirectUri;
         const userId = requestBody?.userId;
         
+        console.log('🔐 OAuth authorize request:', { 
+          redirectUri, 
+          userId: userId ? 'present' : 'MISSING',
+          hasRedirectUri: !!redirectUri 
+        });
+        
         if (!redirectUri) {
+          console.error('❌ Missing redirectUri in authorize request');
           throw new Error('Missing redirectUri');
         }
 
         if (!userId) {
+          console.error('❌ Missing userId in authorize request - client must include userId');
           throw new Error('Missing userId - authentication required');
         }
 

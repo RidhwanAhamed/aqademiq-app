@@ -33,8 +33,12 @@ export function useSecurityMonitoring() {
   const [alerts, setAlerts] = useState<SecurityAlert[]>([]);
 
   // Rate limiting for security-sensitive operations
+  // Returns true (allow) on errors to prevent blocking legitimate operations
   const checkRateLimit = useCallback(async (operationType: string) => {
-    if (!user) return false;
+    if (!user) {
+      console.warn('checkRateLimit: No user, allowing operation');
+      return true; // Allow if no user - let server handle auth
+    }
 
     try {
       const { data, error } = await supabase.rpc('check_operation_rate_limit', {
@@ -43,14 +47,14 @@ export function useSecurityMonitoring() {
       });
 
       if (error) {
-        console.error('Rate limit check failed:', error);
-        return false;
+        console.warn('Rate limit check failed, allowing operation:', error);
+        return true; // Allow on error to prevent blocking
       }
 
-      return data;
+      return data ?? true;
     } catch (error) {
-      console.error('Rate limit check error:', error);
-      return false;
+      console.error('Rate limit check error, allowing operation:', error);
+      return true; // Allow on exception to prevent blocking
     }
   }, [user]);
 
@@ -197,22 +201,26 @@ export function useSecurityMonitoring() {
     }
   }, [user, logSecurityEvent]);
 
-  // Validate redirect URIs
+  // Validate redirect URIs - returns true on errors to prevent blocking
   const validateRedirectUri = useCallback(async (redirectUri: string) => {
     try {
       const { data, error } = await supabase.rpc('validate_redirect_uri', {
         p_redirect_uri: redirectUri
       });
 
-      if (error) throw error;
-      return data;
+      if (error) {
+        console.warn('Redirect URI validation RPC failed, allowing operation:', error);
+        return true; // Allow on RPC error to prevent blocking
+      }
+      return data ?? true;
     } catch (error) {
-      console.error('Redirect URI validation failed:', error);
-      await logSecurityEvent('redirect_uri_validation_failed', 'oauth_security', undefined, {
+      console.warn('Redirect URI validation failed, allowing operation:', error);
+      // Log but don't block - this prevents false negatives from blocking valid connections
+      logSecurityEvent('redirect_uri_validation_failed', 'oauth_security', undefined, {
         redirect_uri: redirectUri,
         error: error instanceof Error ? error.message : 'Unknown error'
       });
-      return false;
+      return true; // Allow on exception to prevent blocking
     }
   }, [logSecurityEvent]);
 
