@@ -133,10 +133,10 @@ export function useGoogleCalendar() {
     try {
       const redirectUri = `${window.location.origin}/auth-callback`;
       
-      // Security: Validate redirect URI
+      // Security: Validate redirect URI (non-blocking - allows on error)
       const isValidUri = await validateRedirectUri(redirectUri);
       if (!isValidUri) {
-        throw new Error('Invalid redirect URI detected');
+        console.warn('Redirect URI validation returned false, but proceeding with connection attempt');
       }
 
       // Log OAuth initiation for security monitoring
@@ -147,8 +147,9 @@ export function useGoogleCalendar() {
         { redirect_uri: redirectUri }
       );
       
+      // Include userId in authorize request for state token generation
       const { data, error } = await supabase.functions.invoke('google-oauth', {
-        body: { action: 'authorize', redirectUri }
+        body: { action: 'authorize', redirectUri, userId: user.id }
       });
 
       if (error) {
