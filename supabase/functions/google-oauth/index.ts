@@ -73,8 +73,14 @@ serve(async (req) => {
 
     // Validate environment variables
     if (!googleClientId || !googleClientSecret) {
-      console.error('Missing Google OAuth credentials');
-      throw new Error('Google OAuth not configured properly');
+      console.error('Missing Google OAuth credentials (GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET)');
+      return new Response(JSON.stringify({ 
+        error: 'Google OAuth not configured properly',
+        hint: 'Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in the Edge Function environment.'
+      }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     switch (action || 'authorize') {
@@ -157,7 +163,14 @@ serve(async (req) => {
 
         if (validationError || !isValidUri) {
           console.error('Invalid redirect URI:', redirectUri);
-          throw new Error('Invalid redirect URI provided');
+          return new Response(JSON.stringify({ 
+            error: 'Invalid redirect URI provided',
+            redirectUri,
+            hint: 'Ensure this exact URI is in Google OAuth Authorized redirect URIs and in validate_redirect_uri allowlist.'
+          }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
         }
 
         // Generate and store state token using secure database function
@@ -219,19 +232,25 @@ serve(async (req) => {
               p_user_id: userId 
             });
 
-          if (stateError || !isValidState) {
-            await supabase.rpc('log_security_event', {
-              p_action: 'oauth_csrf_attack_detected',
-              p_resource_type: 'security_incident',
-              p_details: {
-                user_id: userId,
-                invalid_state: state,
-                client_ip: req.headers.get('x-forwarded-for') || 'unknown',
-                timestamp: new Date().toISOString()
-              }
-            });
-            throw new Error('Invalid OAuth state - possible CSRF attack');
-          }
+        if (stateError || !isValidState) {
+          await supabase.rpc('log_security_event', {
+            p_action: 'oauth_csrf_attack_detected',
+            p_resource_type: 'security_incident',
+            p_details: {
+              user_id: userId,
+              invalid_state: state,
+              client_ip: req.headers.get('x-forwarded-for') || 'unknown',
+              timestamp: new Date().toISOString()
+            }
+          });
+          return new Response(JSON.stringify({ 
+            error: 'Invalid OAuth state - possible CSRF attack',
+            hint: 'State validation failed; restart OAuth flow.'
+          }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
         }
 
         // Rate limit OAuth callback attempts
@@ -262,9 +281,16 @@ serve(async (req) => {
           const { data: isValidUri, error: uriError } = await supabase
             .rpc('validate_redirect_uri', { p_redirect_uri: redirectUri });
 
-          if (uriError || !isValidUri) {
-            throw new Error('Invalid redirect URI in callback');
-          }
+        if (uriError || !isValidUri) {
+          return new Response(JSON.stringify({ 
+            error: 'Invalid redirect URI in callback',
+            redirectUri,
+            hint: 'Ensure redirectUri matches an allowed domain/path.'
+          }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
         }
 
         // Use the provided redirect URI or fall back to a default
@@ -305,7 +331,13 @@ serve(async (req) => {
 
         if (tokenError) {
           console.error('Error storing tokens:', tokenError);
-          throw tokenError;
+          return new Response(JSON.stringify({ 
+            error: 'Failed to store tokens',
+            detail: tokenError.message || tokenError,
+          }), {
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
         }
 
         // Initialize Google Calendar settings
@@ -320,7 +352,13 @@ serve(async (req) => {
 
         if (settingsError) {
           console.error('Error creating calendar settings:', settingsError);
-          throw settingsError;
+          return new Response(JSON.stringify({ 
+            error: 'Failed to initialize calendar settings',
+            detail: settingsError.message || settingsError,
+          }), {
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
         }
 
         return new Response(JSON.stringify({ success: true }), {
@@ -341,7 +379,12 @@ serve(async (req) => {
           .rpc('get_user_google_tokens', { p_user_id: userId });
 
         if (tokenError || !tokens || tokens.length === 0) {
-          throw new Error('No tokens found for user');
+          return new Response(JSON.stringify({ 
+            error: 'No tokens found for user'
+          }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
         }
 
         const tokenData = tokens[0];
@@ -380,7 +423,13 @@ serve(async (req) => {
 
         if (updateError || !updated) {
           console.error('Error updating tokens:', updateError);
-          throw new Error('Failed to update tokens');
+          return new Response(JSON.stringify({ 
+            error: 'Failed to update tokens',
+            detail: updateError?.message || updateError
+          }), {
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
         }
 
         return new Response(JSON.stringify({ 
