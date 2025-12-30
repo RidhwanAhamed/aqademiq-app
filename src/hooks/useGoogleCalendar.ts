@@ -183,7 +183,7 @@ export function useGoogleCalendar() {
           clearInterval(checkClosed);
           
           // Handle the auth code with state validation
-          handleAuthCallback(event.data.code, data.state);
+          handleAuthCallback(event.data.code, event.data.state || data.state);
         } else if (event.data.type === 'GOOGLE_AUTH_ERROR') {
           authWindow?.close();
           window.removeEventListener('message', handleAuthComplete);
