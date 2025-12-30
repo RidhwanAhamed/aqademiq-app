@@ -1,10 +1,8 @@
 /**
- * AI Chat Edge Function with Full Calendar RAG + Agentic Capabilities
- * Purpose: Process user messages with COMPLETE calendar context and return structured actions
+ * AI Chat Edge Function with Context Window Management
+ * Purpose: Process user messages with intelligent context window, summarization,
+ * and action tracking to prevent duplicate operations
  * Backend integration: Lovable AI Gateway (google/gemini-2.5-flash)
- * 
- * CRITICAL FIX: This version fetches ALL calendar data from the database as the
- * Single Source of Truth (SSOT), not just AI-created events.
  */
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -16,13 +14,44 @@ const corsHeaders = {
 };
 
 // =============================================================================
+// CONTEXT WINDOW CONFIGURATION
+// =============================================================================
+const MAX_CONTEXT_TOKENS = 6000; // Reserve space for system prompt + response
+const SUMMARY_THRESHOLD_TOKENS = 4000; // Trigger summarization when exceeded
+const MIN_RECENT_MESSAGES = 4; // Always keep at least 4 recent messages
+const SUMMARIZATION_TEMPERATURE = 0.3; // Lower temperature for consistent summaries
+
+// =============================================================================
+// TOKEN ESTIMATION
+// =============================================================================
+
+/**
+ * Estimate token count for text (model-aware approximation)
+ * Uses ~4 characters per token for English text
+ */
+function estimateTokenCount(text: string): number {
+  if (!text) return 0;
+  return Math.ceil(text.length / 4);
+}
+
+/**
+ * Estimate total tokens for a message array
+ */
+function estimateMessagesTokenCount(messages: Array<{ role: string; content: string }>): number {
+  return messages.reduce((sum, msg) => {
+    // Add overhead for role markers (~4 tokens per message)
+    return sum + estimateTokenCount(msg.content) + 4;
+  }, 0);
+}
+
+// =============================================================================
 // CALENDAR DATA TYPES
 // =============================================================================
 
 interface ScheduleBlock {
   id: string;
   title: string;
-  start_time: string; // TIME format (HH:MM:SS)
+  start_time: string;
   end_time: string;
   day_of_week: number | null;
   specific_date: string | null;
@@ -64,7 +93,7 @@ interface StudySession {
 }
 
 interface CalendarEvent {
-  id: string;  // Entity ID for updates/deletes
+  id: string;
   type: 'class' | 'assignment' | 'exam' | 'study_session';
   title: string;
   start: Date;
@@ -79,9 +108,6 @@ interface CalendarEvent {
 // DATE/TIME UTILITIES
 // =============================================================================
 
-/**
- * Get current date in user's timezone or UTC
- */
 function getCurrentDate(timezone?: string): Date {
   const now = new Date();
   if (timezone) {
@@ -113,37 +139,13 @@ function getCurrentDate(timezone?: string): Date {
   return now;
 }
 
-/**
- * Parse time string (HH:MM:SS or HH:MM) and combine with date
- */
 function parseTimeToDate(date: Date, timeStr: string): Date {
   const parts = timeStr.split(':').map(Number);
-  const hours = parts[0] || 0;
-  const minutes = parts[1] || 0;
-  const seconds = parts[2] || 0;
   const result = new Date(date);
-  result.setHours(hours, minutes, seconds, 0);
+  result.setHours(parts[0] || 0, parts[1] || 0, parts[2] || 0, 0);
   return result;
 }
 
-/**
- * Format date for display
- */
-function formatDateForDisplay(date: Date): string {
-  const options: Intl.DateTimeFormatOptions = {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true
-  };
-  return date.toLocaleString('en-US', options);
-}
-
-/**
- * Format time for display
- */
 function formatTimeForDisplay(date: Date): string {
   return date.toLocaleTimeString('en-US', { 
     hour: 'numeric', 
@@ -152,51 +154,35 @@ function formatTimeForDisplay(date: Date): string {
   });
 }
 
-/**
- * Get day name from day of week number
- */
 function getDayName(dayOfWeek: number): string {
   const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   return days[dayOfWeek] || 'Unknown';
 }
 
-/**
- * Check if a recurring class should occur on a given date
- */
 function shouldClassOccurOnDate(block: ScheduleBlock, date: Date): boolean {
   if (!block.is_recurring) {
-    // Non-recurring: check specific_date
     if (block.specific_date) {
       const specificDate = new Date(block.specific_date);
       return specificDate.toDateString() === date.toDateString();
     }
     return false;
   }
-  
-  // Recurring: check day_of_week
   if (block.day_of_week !== null) {
     return date.getDay() === block.day_of_week;
   }
-  
   return false;
 }
 
-/**
- * Get date range for a query (today, tomorrow, this week, etc.)
- */
 function getDateRange(query: string, now: Date): { start: Date; end: Date; label: string } {
   const lowerQuery = query.toLowerCase();
-  
   const startOfDay = new Date(now);
   startOfDay.setHours(0, 0, 0, 0);
-  
   const endOfDay = new Date(now);
   endOfDay.setHours(23, 59, 59, 999);
   
-  if (lowerQuery.includes('today') || lowerQuery.includes('today\'s')) {
+  if (lowerQuery.includes('today')) {
     return { start: startOfDay, end: endOfDay, label: 'today' };
   }
-  
   if (lowerQuery.includes('tomorrow')) {
     const tomorrow = new Date(startOfDay);
     tomorrow.setDate(tomorrow.getDate() + 1);
@@ -204,33 +190,312 @@ function getDateRange(query: string, now: Date): { start: Date; end: Date; label
     tomorrowEnd.setHours(23, 59, 59, 999);
     return { start: tomorrow, end: tomorrowEnd, label: 'tomorrow' };
   }
-  
   if (lowerQuery.includes('this week') || lowerQuery.includes('week')) {
     const weekStart = new Date(startOfDay);
-    const dayOfWeek = weekStart.getDay();
-    weekStart.setDate(weekStart.getDate() - dayOfWeek); // Go to Sunday
+    weekStart.setDate(weekStart.getDate() - weekStart.getDay());
     const weekEnd = new Date(weekStart);
     weekEnd.setDate(weekEnd.getDate() + 6);
     weekEnd.setHours(23, 59, 59, 999);
     return { start: weekStart, end: weekEnd, label: 'this week' };
   }
-  
   if (lowerQuery.includes('next week')) {
     const nextWeekStart = new Date(startOfDay);
-    const dayOfWeek = nextWeekStart.getDay();
-    nextWeekStart.setDate(nextWeekStart.getDate() - dayOfWeek + 7); // Next Sunday
+    nextWeekStart.setDate(nextWeekStart.getDate() - nextWeekStart.getDay() + 7);
     const nextWeekEnd = new Date(nextWeekStart);
     nextWeekEnd.setDate(nextWeekEnd.getDate() + 6);
     nextWeekEnd.setHours(23, 59, 59, 999);
     return { start: nextWeekStart, end: nextWeekEnd, label: 'next week' };
   }
-  
-  // Default to today
   return { start: startOfDay, end: endOfDay, label: 'today' };
 }
 
 // =============================================================================
-// CALENDAR RETRIEVAL (RAG FOR CALENDAR DATA)
+// CONTEXT WINDOW MANAGER
+// =============================================================================
+
+interface ContextMessage {
+  id: string;
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  token_count: number;
+  is_summary: boolean;
+  created_at: string;
+  metadata?: any;
+}
+
+interface ContextWindowResult {
+  messages: Array<{ role: string; content: string }>;
+  totalTokens: number;
+  summarizedCount: number;
+  summaryText?: string;
+}
+
+/**
+ * Extract action outcomes from conversation history
+ * This prevents the AI from repeating already-executed actions
+ */
+function extractActionOutcomes(messages: ContextMessage[]): string {
+  const outcomes: string[] = [];
+  
+  for (const msg of messages) {
+    if (!msg.is_summary && msg.metadata?.actions_executed) {
+      for (const action of msg.metadata.actions_executed) {
+        outcomes.push(`- ${action.type}: ${action.title || action.name || 'unnamed'} (${action.result || 'completed'})`);
+      }
+    }
+    
+    // Also extract from message content patterns
+    if (!msg.is_summary && msg.role === 'assistant') {
+      const createPatterns = msg.content.match(/✅.*?(Created|Added|Scheduled|Deleted|Updated|Completed).*?[\"*]([^\"*]+)[\"*]/gi);
+      if (createPatterns) {
+        for (const pattern of createPatterns) {
+          outcomes.push(`- Action: ${pattern.replace(/[✅🗑️📅📝📚📖]/g, '').trim()}`);
+        }
+      }
+    }
+  }
+  
+  return outcomes.length > 0 
+    ? `\n## PREVIOUSLY EXECUTED ACTIONS (DO NOT REPEAT):\n${outcomes.join('\n')}\n`
+    : '';
+}
+
+/**
+ * Build context window with intelligent summarization
+ */
+async function buildContextWindow(
+  supabase: any,
+  userId: string,
+  conversationId: string,
+  apiKey: string,
+  useGemini: boolean
+): Promise<ContextWindowResult> {
+  // Fetch conversation history with token counts
+  const { data: messages, error } = await supabase
+    .from('chat_messages')
+    .select('id, message, is_user, created_at, token_count, is_summary, metadata')
+    .eq('conversation_id', conversationId)
+    .eq('user_id', userId)
+    .order('created_at', { ascending: true });
+
+  if (error || !messages || messages.length === 0) {
+    console.log('No conversation history found');
+    return { messages: [], totalTokens: 0, summarizedCount: 0 };
+  }
+
+  // Transform to ContextMessage format
+  const contextMessages: ContextMessage[] = messages.map((m: any) => ({
+    id: m.id,
+    role: m.is_user ? 'user' : 'assistant',
+    content: m.message,
+    token_count: m.token_count || estimateTokenCount(m.message),
+    is_summary: m.is_summary || false,
+    created_at: m.created_at,
+    metadata: m.metadata
+  }));
+
+  // Calculate total tokens
+  let totalTokens = contextMessages.reduce((sum, m) => sum + m.token_count, 0);
+  console.log(`Context window: ${contextMessages.length} messages, ${totalTokens} tokens`);
+
+  // Check if we have an existing summary
+  const existingSummary = contextMessages.find(m => m.is_summary);
+  
+  // If under threshold, return all messages with action outcomes
+  if (totalTokens <= SUMMARY_THRESHOLD_TOKENS) {
+    const actionOutcomes = extractActionOutcomes(contextMessages);
+    const formattedMessages = contextMessages
+      .filter(m => !m.is_summary || m === existingSummary)
+      .map(m => ({
+        role: m.is_summary ? 'system' : m.role,
+        content: m.is_summary ? `[Previous Conversation Summary]\n${m.content}` : m.content
+      }));
+    
+    // Inject action outcomes as system context if present
+    if (actionOutcomes) {
+      formattedMessages.unshift({
+        role: 'system',
+        content: actionOutcomes
+      });
+    }
+    
+    return { 
+      messages: formattedMessages, 
+      totalTokens,
+      summarizedCount: 0 
+    };
+  }
+
+  // Need to summarize - find messages to summarize (older ones)
+  console.log('Token threshold exceeded, triggering summarization...');
+  
+  // Keep recent messages (at least MIN_RECENT_MESSAGES)
+  const recentMessages = contextMessages.slice(-MIN_RECENT_MESSAGES);
+  const olderMessages = contextMessages.slice(0, -MIN_RECENT_MESSAGES)
+    .filter(m => !m.is_summary);
+  
+  if (olderMessages.length < 2) {
+    // Not enough to summarize, return as-is
+    const actionOutcomes = extractActionOutcomes(contextMessages);
+    const formattedMessages = contextMessages.map(m => ({
+      role: m.role,
+      content: m.content
+    }));
+    
+    if (actionOutcomes) {
+      formattedMessages.unshift({ role: 'system', content: actionOutcomes });
+    }
+    
+    return { messages: formattedMessages, totalTokens, summarizedCount: 0 };
+  }
+
+  // Generate summary of older messages
+  const summaryText = await generateConversationSummary(
+    olderMessages,
+    apiKey,
+    useGemini
+  );
+
+  if (!summaryText) {
+    console.log('Summarization failed, using truncated history');
+    const actionOutcomes = extractActionOutcomes(recentMessages);
+    const formattedMessages = recentMessages.map(m => ({
+      role: m.role,
+      content: m.content
+    }));
+    
+    if (actionOutcomes) {
+      formattedMessages.unshift({ role: 'system', content: actionOutcomes });
+    }
+    
+    return { 
+      messages: formattedMessages, 
+      totalTokens: recentMessages.reduce((sum, m) => sum + m.token_count, 0),
+      summarizedCount: olderMessages.length 
+    };
+  }
+
+  // Store summary in database
+  try {
+    const summarizedIds = olderMessages.map(m => m.id);
+    await supabase.from('chat_messages').insert({
+      user_id: userId,
+      conversation_id: conversationId,
+      message: summaryText,
+      is_user: false,
+      is_summary: true,
+      summary_of_message_ids: summarizedIds,
+      token_count: estimateTokenCount(summaryText),
+      metadata: { 
+        summarized_count: olderMessages.length,
+        summarized_at: new Date().toISOString()
+      }
+    });
+    
+    console.log(`Stored summary covering ${olderMessages.length} messages`);
+  } catch (err) {
+    console.error('Failed to store summary:', err);
+  }
+
+  // Build final context with summary + recent messages
+  const actionOutcomes = extractActionOutcomes([...olderMessages, ...recentMessages]);
+  const finalMessages: Array<{ role: string; content: string }> = [];
+  
+  if (actionOutcomes) {
+    finalMessages.push({ role: 'system', content: actionOutcomes });
+  }
+  
+  finalMessages.push({
+    role: 'system',
+    content: `[Conversation Summary - Earlier Messages]\n${summaryText}\n\n[End of Summary - Recent messages follow]`
+  });
+  
+  for (const msg of recentMessages) {
+    finalMessages.push({ role: msg.role, content: msg.content });
+  }
+
+  const finalTokens = estimateMessagesTokenCount(finalMessages);
+  console.log(`Context window after summarization: ${finalMessages.length} messages, ${finalTokens} tokens`);
+
+  return {
+    messages: finalMessages,
+    totalTokens: finalTokens,
+    summarizedCount: olderMessages.length,
+    summaryText
+  };
+}
+
+/**
+ * Generate a summary of conversation messages
+ * Preserves intent, decisions, and constraints
+ */
+async function generateConversationSummary(
+  messages: ContextMessage[],
+  apiKey: string,
+  useGemini: boolean
+): Promise<string | null> {
+  if (messages.length === 0) return null;
+
+  const conversationText = messages
+    .map(m => `${m.role.toUpperCase()}: ${m.content}`)
+    .join('\n\n');
+
+  const summaryPrompt = `You are a conversation summarizer for an academic assistant app. 
+Summarize the following conversation while preserving:
+1. All ACTIONS taken (events created, deleted, updated, assignments completed, etc.)
+2. Key decisions made by the user
+3. Important constraints mentioned (times, dates, preferences)
+4. Any entities mentioned (courses, assignments, exams, events) with their IDs if available
+5. The user's intent and goals
+
+Be concise but comprehensive. Format as bullet points.
+
+CRITICAL: For any CREATE, UPDATE, or DELETE action that was executed, clearly state:
+- What was created/updated/deleted
+- The entity name and ID (if available)
+- This prevents duplicate operations
+
+CONVERSATION TO SUMMARIZE:
+${conversationText}
+
+SUMMARY:`;
+
+  try {
+    const apiUrl = useGemini 
+      ? 'https://ai.gateway.lovable.dev/v1/chat/completions'
+      : 'https://api.openai.com/v1/chat/completions';
+
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: useGemini ? 'google/gemini-2.5-flash' : 'gpt-4o-mini',
+        messages: [{ role: 'user', content: summaryPrompt }],
+        temperature: SUMMARIZATION_TEMPERATURE,
+        max_tokens: 800
+      })
+    });
+
+    if (!response.ok) {
+      console.error('Summary API error:', response.status);
+      return null;
+    }
+
+    const result = await response.json();
+    const summary = result.choices?.[0]?.message?.content;
+    console.log('Generated summary:', summary?.substring(0, 200));
+    return summary || null;
+  } catch (err) {
+    console.error('Summarization error:', err);
+    return null;
+  }
+}
+
+// =============================================================================
+// CALENDAR RAG
 // =============================================================================
 
 interface CalendarContext {
@@ -240,9 +505,6 @@ interface CalendarContext {
   dateRange: { start: Date; end: Date; label: string };
 }
 
-/**
- * Fetch all calendar data for a user and compute context
- */
 async function fetchCalendarContext(
   supabase: any,
   userId: string,
@@ -252,45 +514,13 @@ async function fetchCalendarContext(
   const now = getCurrentDate(timezone);
   const dateRange = getDateRange(query, now);
   
-  console.log(`Calendar RAG: Fetching events for ${dateRange.label} (${dateRange.start.toISOString()} to ${dateRange.end.toISOString()})`);
+  console.log(`Calendar RAG: Fetching events for ${dateRange.label}`);
   
-  // Fetch ALL calendar data types in parallel
-  const [
-    scheduleBlocksResult,
-    assignmentsResult,
-    examsResult,
-    studySessionsResult
-  ] = await Promise.all([
-    // Schedule blocks (classes)
-    supabase
-      .from('schedule_blocks')
-      .select('*, courses(name, color)')
-      .eq('user_id', userId)
-      .eq('is_active', true),
-    
-    // Assignments
-    supabase
-      .from('assignments')
-      .select('*, courses(name)')
-      .eq('user_id', userId)
-      .gte('due_date', dateRange.start.toISOString())
-      .lte('due_date', dateRange.end.toISOString()),
-    
-    // Exams
-    supabase
-      .from('exams')
-      .select('*, courses(name)')
-      .eq('user_id', userId)
-      .gte('exam_date', dateRange.start.toISOString())
-      .lte('exam_date', dateRange.end.toISOString()),
-    
-    // Study sessions
-    supabase
-      .from('study_sessions')
-      .select('*, courses(name)')
-      .eq('user_id', userId)
-      .gte('scheduled_start', dateRange.start.toISOString())
-      .lte('scheduled_end', dateRange.end.toISOString())
+  const [scheduleBlocksResult, assignmentsResult, examsResult, studySessionsResult] = await Promise.all([
+    supabase.from('schedule_blocks').select('*, courses(name, color)').eq('user_id', userId).eq('is_active', true),
+    supabase.from('assignments').select('*, courses(name)').eq('user_id', userId).gte('due_date', dateRange.start.toISOString()).lte('due_date', dateRange.end.toISOString()),
+    supabase.from('exams').select('*, courses(name)').eq('user_id', userId).gte('exam_date', dateRange.start.toISOString()).lte('exam_date', dateRange.end.toISOString()),
+    supabase.from('study_sessions').select('*, courses(name)').eq('user_id', userId).gte('scheduled_start', dateRange.start.toISOString()).lte('scheduled_end', dateRange.end.toISOString())
   ]);
   
   const scheduleBlocks: ScheduleBlock[] = scheduleBlocksResult.data || [];
@@ -298,26 +528,19 @@ async function fetchCalendarContext(
   const exams: Exam[] = examsResult.data || [];
   const studySessions: StudySession[] = studySessionsResult.data || [];
   
-  console.log(`Calendar RAG: Found ${scheduleBlocks.length} schedule blocks, ${assignments.length} assignments, ${exams.length} exams, ${studySessions.length} study sessions`);
-  
-  // Convert all to unified CalendarEvent format
   const events: CalendarEvent[] = [];
   
-  // Process schedule blocks - expand recurring events for the date range
+  // Process schedule blocks
   for (const block of scheduleBlocks) {
-    // For each day in the range, check if this block should occur
     const currentDate = new Date(dateRange.start);
     while (currentDate <= dateRange.end) {
       if (shouldClassOccurOnDate(block, currentDate)) {
-        const startTime = parseTimeToDate(currentDate, block.start_time);
-        const endTime = parseTimeToDate(currentDate, block.end_time);
-        
         events.push({
           id: block.id,
           type: 'class',
           title: block.title,
-          start: startTime,
-          end: endTime,
+          start: parseTimeToDate(currentDate, block.start_time),
+          end: parseTimeToDate(currentDate, block.end_time),
           location: block.location || undefined,
           courseName: block.courses?.name,
           isRecurring: block.is_recurring,
@@ -328,18 +551,15 @@ async function fetchCalendarContext(
     }
   }
   
-  // Process assignments (treat due date as a point event with 1 hour window)
+  // Process assignments
   for (const assignment of assignments) {
     const dueDate = new Date(assignment.due_date);
-    const endDate = new Date(dueDate);
-    endDate.setHours(endDate.getHours() + 1);
-    
     events.push({
       id: assignment.id,
       type: 'assignment',
       title: `📝 ${assignment.title} (Due)`,
       start: dueDate,
-      end: endDate,
+      end: new Date(dueDate.getTime() + 3600000),
       courseName: assignment.courses?.name
     });
   }
@@ -347,15 +567,12 @@ async function fetchCalendarContext(
   // Process exams
   for (const exam of exams) {
     const examDate = new Date(exam.exam_date);
-    const endDate = new Date(examDate);
-    endDate.setMinutes(endDate.getMinutes() + (exam.duration_minutes || 60));
-    
     events.push({
       id: exam.id,
       type: 'exam',
       title: `📚 ${exam.title} (Exam)`,
       start: examDate,
-      end: endDate,
+      end: new Date(examDate.getTime() + (exam.duration_minutes || 60) * 60000),
       location: exam.location || undefined,
       courseName: exam.courses?.name
     });
@@ -373,74 +590,37 @@ async function fetchCalendarContext(
     });
   }
   
-  // Sort events chronologically
   events.sort((a, b) => a.start.getTime() - b.start.getTime());
   
-  // Compute free time slots
   const freeSlots = computeFreeTimeSlots(events, dateRange.start, dateRange.end);
-  
-  // Generate summary
   const summary = generateCalendarSummary(events, freeSlots, dateRange, now);
   
   return { events, freeSlots, summary, dateRange };
 }
 
-/**
- * Compute free time slots between events
- * Working hours: 8 AM to 10 PM
- */
-function computeFreeTimeSlots(
-  events: CalendarEvent[],
-  rangeStart: Date,
-  rangeEnd: Date
-): Array<{ start: Date; end: Date }> {
-  const WORKING_START_HOUR = 8;
-  const WORKING_END_HOUR = 22;
-  const MIN_SLOT_MINUTES = 30;
-  
+function computeFreeTimeSlots(events: CalendarEvent[], rangeStart: Date, rangeEnd: Date): Array<{ start: Date; end: Date }> {
   const freeSlots: Array<{ start: Date; end: Date }> = [];
-  
-  // Process each day in the range
   const currentDay = new Date(rangeStart);
+  
   while (currentDay <= rangeEnd) {
     const dayStart = new Date(currentDay);
-    dayStart.setHours(WORKING_START_HOUR, 0, 0, 0);
-    
+    dayStart.setHours(8, 0, 0, 0);
     const dayEnd = new Date(currentDay);
-    dayEnd.setHours(WORKING_END_HOUR, 0, 0, 0);
+    dayEnd.setHours(22, 0, 0, 0);
     
-    // Get events for this day
-    const dayEvents = events.filter(e => 
-      e.start.toDateString() === currentDay.toDateString()
-    ).sort((a, b) => a.start.getTime() - b.start.getTime());
+    const dayEvents = events.filter(e => e.start.toDateString() === currentDay.toDateString())
+      .sort((a, b) => a.start.getTime() - b.start.getTime());
     
-    // Find gaps
     let cursor = dayStart;
-    
     for (const event of dayEvents) {
-      const eventStart = event.start < dayStart ? dayStart : event.start;
-      const eventEnd = event.end > dayEnd ? dayEnd : event.end;
-      
-      // Gap before this event
-      if (eventStart > cursor) {
-        const gapMinutes = (eventStart.getTime() - cursor.getTime()) / (1000 * 60);
-        if (gapMinutes >= MIN_SLOT_MINUTES) {
-          freeSlots.push({ start: new Date(cursor), end: new Date(eventStart) });
-        }
+      if (event.start > cursor && (event.start.getTime() - cursor.getTime()) >= 1800000) {
+        freeSlots.push({ start: new Date(cursor), end: new Date(event.start) });
       }
-      
-      // Move cursor past this event
-      if (eventEnd > cursor) {
-        cursor = new Date(eventEnd);
-      }
+      if (event.end > cursor) cursor = new Date(event.end);
     }
     
-    // Gap after last event until end of working hours
-    if (cursor < dayEnd) {
-      const gapMinutes = (dayEnd.getTime() - cursor.getTime()) / (1000 * 60);
-      if (gapMinutes >= MIN_SLOT_MINUTES) {
-        freeSlots.push({ start: new Date(cursor), end: new Date(dayEnd) });
-      }
+    if (cursor < dayEnd && (dayEnd.getTime() - cursor.getTime()) >= 1800000) {
+      freeSlots.push({ start: new Date(cursor), end: new Date(dayEnd) });
     }
     
     currentDay.setDate(currentDay.getDate() + 1);
@@ -449,32 +629,18 @@ function computeFreeTimeSlots(
   return freeSlots;
 }
 
-/**
- * Generate a human-readable calendar summary
- */
-function generateCalendarSummary(
-  events: CalendarEvent[],
-  freeSlots: Array<{ start: Date; end: Date }>,
-  dateRange: { start: Date; end: Date; label: string },
-  now: Date
-): string {
-  const lines: string[] = [];
-  
-  lines.push(`## 📅 Calendar for ${dateRange.label.charAt(0).toUpperCase() + dateRange.label.slice(1)}`);
-  lines.push(`*Generated at ${formatTimeForDisplay(now)}*\n`);
+function generateCalendarSummary(events: CalendarEvent[], freeSlots: Array<{ start: Date; end: Date }>, dateRange: { label: string }, now: Date): string {
+  const lines: string[] = [`## 📅 Calendar for ${dateRange.label}`, `*Generated at ${formatTimeForDisplay(now)}*\n`];
   
   if (events.length === 0) {
-    lines.push(`🎉 **No scheduled events ${dateRange.label}!** Your calendar is completely free.`);
+    lines.push(`🎉 **No scheduled events ${dateRange.label}!**`);
   } else {
     lines.push(`### Scheduled Events (${events.length} total)\n`);
     
-    // Group events by day
     const eventsByDay = new Map<string, CalendarEvent[]>();
     for (const event of events) {
       const dayKey = event.start.toDateString();
-      if (!eventsByDay.has(dayKey)) {
-        eventsByDay.set(dayKey, []);
-      }
+      if (!eventsByDay.has(dayKey)) eventsByDay.set(dayKey, []);
       eventsByDay.get(dayKey)!.push(event);
     }
     
@@ -485,56 +651,24 @@ function generateCalendarSummary(
       
       for (const event of dayEvents) {
         const timeRange = `${formatTimeForDisplay(event.start)} - ${formatTimeForDisplay(event.end)}`;
-        const course = event.courseName ? ` (${event.courseName})` : '';
-        const location = event.location ? ` @ ${event.location}` : '';
-        lines.push(`- ${timeRange}: ${event.title}${course}${location} [ID: ${event.id}]`);
+        lines.push(`- ${timeRange}: ${event.title}${event.courseName ? ` (${event.courseName})` : ''}${event.location ? ` @ ${event.location}` : ''} [ID: ${event.id}]`);
       }
       lines.push('');
     }
   }
   
-  // Free time summary
   if (freeSlots.length > 0) {
     lines.push(`### ⏰ Available Time Slots\n`);
-    
-    // Group by day
-    const slotsByDay = new Map<string, Array<{ start: Date; end: Date }>>();
-    for (const slot of freeSlots) {
+    const slotsByDay = new Map<string, typeof freeSlots>();
+    for (const slot of freeSlots.slice(0, 10)) {
       const dayKey = slot.start.toDateString();
-      if (!slotsByDay.has(dayKey)) {
-        slotsByDay.set(dayKey, []);
-      }
+      if (!slotsByDay.has(dayKey)) slotsByDay.set(dayKey, []);
       slotsByDay.get(dayKey)!.push(slot);
     }
     
     for (const [dayKey, daySlots] of slotsByDay) {
       const dayDate = new Date(dayKey);
-      const isToday = dayDate.toDateString() === now.toDateString();
-      lines.push(`**${isToday ? 'Today' : getDayName(dayDate.getDay())}:**`);
-      
-      for (const slot of daySlots) {
-        const duration = Math.round((slot.end.getTime() - slot.start.getTime()) / (1000 * 60));
-        const hours = Math.floor(duration / 60);
-        const mins = duration % 60;
-        const durationStr = hours > 0 
-          ? (mins > 0 ? `${hours}h ${mins}m` : `${hours}h`)
-          : `${mins}m`;
-        lines.push(`- ${formatTimeForDisplay(slot.start)} - ${formatTimeForDisplay(slot.end)} (${durationStr} free)`);
-      }
-      lines.push('');
-    }
-  } else if (events.length > 0) {
-    lines.push(`\n⚠️ **No free time slots available ${dateRange.label}** (fully booked)`);
-  }
-  
-  // Add entity reference section for updates/deletes
-  if (events.length > 0) {
-    lines.push('\n### 🔑 Entity Reference (for updates/deletes):');
-    for (const event of events) {
-      const typeLabel = event.type === 'class' ? 'Event' : 
-                        event.type === 'assignment' ? 'Assignment' :
-                        event.type === 'exam' ? 'Exam' : 'Study Session';
-      lines.push(`- "${event.title.replace(/^(📝|📚|📖)\s*/, '')}" (${typeLabel}): ID=${event.id}`);
+      lines.push(`**${getDayName(dayDate.getDay())}:** ${daySlots.map(s => `${formatTimeForDisplay(s.start)}-${formatTimeForDisplay(s.end)}`).join(', ')}`);
     }
   }
   
@@ -542,303 +676,50 @@ function generateCalendarSummary(
 }
 
 // =============================================================================
-// DOCUMENT RAG (Existing functionality)
+// DOCUMENT RAG
 // =============================================================================
 
-/**
- * Generate embedding for RAG query
- */
 async function generateQueryEmbedding(query: string, apiKey: string): Promise<number[] | null> {
   try {
     const response = await fetch('https://api.openai.com/v1/embeddings', {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'text-embedding-3-small',
-        input: query.slice(0, 8000),
-      }),
+      headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: 'text-embedding-3-small', input: query })
     });
-    
-    if (!response.ok) {
-      console.log('Embedding API not available, skipping document RAG');
-      return null;
-    }
-    
-    const result = await response.json();
-    return result.data[0].embedding;
-  } catch (error) {
-    console.log('Document RAG embedding generation failed:', error);
-    return null;
-  }
+    if (!response.ok) return null;
+    const data = await response.json();
+    return data.data?.[0]?.embedding || null;
+  } catch { return null; }
 }
 
-/**
- * Search for relevant documents using vector similarity
- */
-async function searchDocuments(
-  supabase: any, 
-  userId: string, 
-  queryEmbedding: number[],
-  courseId?: string
-): Promise<Array<{ content: string; source_type: string; file_name?: string; similarity: number }>> {
+async function searchDocuments(supabase: any, userId: string, embedding: number[], courseId?: string): Promise<any[]> {
   try {
-    const embeddingString = `[${queryEmbedding.join(',')}]`;
-    
-    const { data, error } = await supabase.rpc('search_documents', {
+    const { data } = await supabase.rpc('search_documents', {
       p_user_id: userId,
-      p_query_embedding: embeddingString,
-      p_match_threshold: 0.5,
+      p_query_embedding: JSON.stringify(embedding),
+      p_match_threshold: 0.35,
       p_match_count: 5,
-      p_course_id: courseId || null,
+      p_course_id: courseId || null
     });
-    
-    if (error) {
-      console.log('Document search failed:', error);
-      return [];
-    }
-    
     return data || [];
-  } catch (error) {
-    console.log('Document RAG search failed:', error);
-    return [];
-  }
+  } catch { return []; }
 }
 
 // =============================================================================
 // CALENDAR QUERY DETECTION
 // =============================================================================
 
-/**
- * Detect if a query is asking about calendar/schedule
- */
-function isCalendarQuery(query: string): boolean {
+function isCalendarQuery(message: string): boolean {
   const calendarKeywords = [
-    'calendar', 'schedule', 'event', 'events',
-    'today', 'tomorrow', 'this week', 'next week',
-    'free', 'free time', 'available', 'availability',
-    'busy', 'occupied', 'when am i',
-    'what do i have', 'what\'s on my', 'what is on my',
-    'class', 'classes', 'meeting', 'meetings',
-    'appointment', 'appointments',
-    'exam', 'exams', 'assignment', 'assignments',
-    'due', 'deadline', 'deadlines',
-    'study session', 'study sessions'
+    'schedule', 'calendar', 'today', 'tomorrow', 'this week', 'next week',
+    'free time', 'busy', 'available', 'class', 'classes', 'event', 'events',
+    'appointment', 'meeting', 'when', 'what time', 'do i have', 'show me',
+    'my day', 'plans', 'upcoming', 'study session', 'exam', 'assignment',
+    'due', 'deadline', 'create', 'schedule', 'add', 'delete', 'remove',
+    'cancel', 'update', 'move', 'reschedule', 'change'
   ];
-  
-  const lowerQuery = query.toLowerCase();
-  return calendarKeywords.some(keyword => lowerQuery.includes(keyword));
-}
-
-// =============================================================================
-// RESPONSE FORMATTING
-// =============================================================================
-
-/**
- * Format raw JSON schedule responses into readable markdown
- * Detects if the response contains raw JSON and converts it to a formatted schedule
- */
-function formatScheduleResponse(response: string): string {
-  // Skip if response is empty or already well-formatted
-  if (!response || response.trim().length === 0) {
-    return response;
-  }
-
-  // Check if response contains code blocks - if so, don't format (user might be showing code)
-  if (response.includes('```')) {
-    return response;
-  }
-
-  let formatted = response;
-
-  // Check if the entire response is just raw JSON (most common case)
-  const trimmed = formatted.trim();
-  if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
-    try {
-      const parsed = JSON.parse(trimmed);
-      
-      // If it has actions array, format those
-      if (parsed.actions && Array.isArray(parsed.actions) && parsed.actions.length > 0) {
-        const formattedSchedule = formatScheduleItems(parsed.actions);
-        if (formattedSchedule) {
-          // If there's also a reply_markdown, prepend it
-          if (parsed.reply_markdown && parsed.reply_markdown !== trimmed) {
-            return parsed.reply_markdown + '\n\n' + formattedSchedule;
-          }
-          return formattedSchedule;
-        }
-      }
-      
-      // If it's a single action object
-      if (parsed.type && (parsed.type.startsWith('CREATE_') || parsed.type.startsWith('UPDATE_'))) {
-        const formattedAction = formatActionAsSchedule(parsed);
-        if (formattedAction) {
-          return formattedAction;
-        }
-      }
-    } catch (e) {
-      // Not valid JSON, continue with other checks
-    }
-  }
-
-  // Look for JSON objects in the response that look like schedule actions
-  // Match JSON objects that are not inside code blocks
-  const jsonObjectPattern = /\{[^{}]*"(?:type|start_iso|end_iso|scheduled_start|scheduled_end|title|due_date|exam_date)"[^{}]*\}/g;
-  const matches = formatted.match(jsonObjectPattern);
-  
-  if (matches) {
-    for (const match of matches) {
-      try {
-        const parsed = JSON.parse(match);
-        
-        // Only format if it looks like a schedule action
-        if (parsed.type && (
-          parsed.type.includes('EVENT') || 
-          parsed.type.includes('SESSION') || 
-          parsed.type.includes('ASSIGNMENT') || 
-          parsed.type.includes('EXAM')
-        )) {
-          const formattedAction = formatActionAsSchedule(parsed);
-          if (formattedAction) {
-            // Replace the JSON with formatted version
-            formatted = formatted.replace(match, formattedAction);
-          }
-        }
-      } catch (e) {
-        // Not valid JSON, skip
-        continue;
-      }
-    }
-  }
-
-  return formatted;
-}
-
-/**
- * Format a single action as a schedule item
- */
-function formatActionAsSchedule(action: any): string | null {
-  if (!action.type) return null;
-
-  const lines: string[] = [];
-
-  switch (action.type) {
-    case 'CREATE_EVENT':
-    case 'UPDATE_EVENT': {
-      if (action.start_iso && action.end_iso) {
-        const start = new Date(action.start_iso);
-        const end = new Date(action.end_iso);
-        const dateStr = start.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-        const timeStr = `${formatTimeForDisplay(start)} - ${formatTimeForDisplay(end)}`;
-        lines.push(`📅 **${action.title || 'Event'}**`);
-        lines.push(`   ${dateStr} at ${timeStr}`);
-        if (action.location) lines.push(`   📍 ${action.location}`);
-        if (action.notes) lines.push(`   📝 ${action.notes}`);
-      }
-      break;
-    }
-    case 'CREATE_STUDY_SESSION':
-    case 'UPDATE_STUDY_SESSION': {
-      if (action.scheduled_start && action.scheduled_end) {
-        const start = new Date(action.scheduled_start);
-        const end = new Date(action.scheduled_end);
-        const dateStr = start.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-        const timeStr = `${formatTimeForDisplay(start)} - ${formatTimeForDisplay(end)}`;
-        lines.push(`📖 **${action.title || 'Study Session'}**`);
-        lines.push(`   ${dateStr} at ${timeStr}`);
-        if (action.notes) lines.push(`   📝 ${action.notes}`);
-      }
-      break;
-    }
-    case 'CREATE_ASSIGNMENT':
-    case 'UPDATE_ASSIGNMENT': {
-      if (action.due_date) {
-        const due = new Date(action.due_date);
-        const dateStr = due.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-        const timeStr = formatTimeForDisplay(due);
-        lines.push(`📝 **${action.title || 'Assignment'}**`);
-        lines.push(`   Due: ${dateStr} at ${timeStr}`);
-        if (action.description) lines.push(`   📄 ${action.description}`);
-      }
-      break;
-    }
-    case 'CREATE_EXAM':
-    case 'UPDATE_EXAM': {
-      if (action.exam_date) {
-        const examDate = new Date(action.exam_date);
-        const dateStr = examDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-        const timeStr = formatTimeForDisplay(examDate);
-        lines.push(`📚 **${action.title || 'Exam'}**`);
-        lines.push(`   ${dateStr} at ${timeStr}`);
-        if (action.location) lines.push(`   📍 ${action.location}`);
-        if (action.duration_minutes) lines.push(`   ⏱️ ${action.duration_minutes} minutes`);
-      }
-      break;
-    }
-  }
-
-  return lines.length > 0 ? lines.join('\n') : null;
-}
-
-/**
- * Format an array of schedule items/actions into a readable schedule
- */
-function formatScheduleItems(items: any[]): string | null {
-  if (!Array.isArray(items) || items.length === 0) return null;
-
-  const lines: string[] = [];
-  lines.push('## 📅 Schedule\n');
-
-  // Group items by date
-  const itemsByDate = new Map<string, any[]>();
-  
-  for (const item of items) {
-    let dateKey: string;
-    let date: Date;
-
-    if (item.start_iso || item.scheduled_start) {
-      date = new Date(item.start_iso || item.scheduled_start);
-    } else if (item.due_date || item.exam_date) {
-      date = new Date(item.due_date || item.exam_date);
-    } else if (item.end_iso) {
-      date = new Date(item.end_iso);
-    } else {
-      continue;
-    }
-
-    dateKey = date.toDateString();
-    if (!itemsByDate.has(dateKey)) {
-      itemsByDate.set(dateKey, []);
-    }
-    itemsByDate.get(dateKey)!.push({ ...item, _date: date });
-  }
-
-  // Sort dates
-  const sortedDates = Array.from(itemsByDate.keys()).sort((a, b) => 
-    new Date(a).getTime() - new Date(b).getTime()
-  );
-
-  // Format each day
-  for (const dateKey of sortedDates) {
-    const dayItems = itemsByDate.get(dateKey)!;
-    const dayDate = dayItems[0]._date;
-    const isToday = dayDate.toDateString() === new Date().toDateString();
-    
-    lines.push(`### ${isToday ? '📍 Today' : getDayName(dayDate.getDay())}, ${dayDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`);
-    lines.push('');
-
-    for (const item of dayItems) {
-      const formatted = formatActionAsSchedule(item);
-      if (formatted) {
-        lines.push(formatted);
-        lines.push('');
-      }
-    }
-  }
-
-  return lines.join('\n');
+  const lowerMessage = message.toLowerCase();
+  return calendarKeywords.some(kw => lowerMessage.includes(kw));
 }
 
 // =============================================================================
@@ -847,252 +728,75 @@ function formatScheduleItems(items: any[]): string | null {
 
 const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
 
-function checkRateLimit(identifier: string, maxRequests = 10, windowMs = 60000): boolean {
+function checkRateLimit(identifier: string, maxRequests = 20, windowMs = 60000): boolean {
   const now = Date.now();
-  const key = identifier;
-  const record = rateLimitStore.get(key);
-
+  const record = rateLimitStore.get(identifier);
   if (!record || now > record.resetTime) {
-    rateLimitStore.set(key, { count: 1, resetTime: now + windowMs });
+    rateLimitStore.set(identifier, { count: 1, resetTime: now + windowMs });
     return true;
   }
-
-  if (record.count >= maxRequests) {
-    return false;
-  }
-
+  if (record.count >= maxRequests) return false;
   record.count++;
   return true;
 }
 
 // =============================================================================
-// ACTION SPECIFICATION - Full CRUD for all entity types
+// ACTION SPECIFICATION
 // =============================================================================
 
 const ACTION_SPEC = `
 ## AGENTIC RESPONSE FORMAT
-When the user asks to create, update, delete, or manage their calendar, assignments, exams, study sessions, or courses, respond with structured JSON:
+When the user asks to create, update, delete, or manage their calendar, respond with JSON:
 
 {
   "reply_markdown": "Your conversational response in markdown",
-  "actions": [
-    {
-      "type": "ACTION_TYPE",
-      ...action_specific_fields
-    }
-  ]
+  "actions": [{ "type": "ACTION_TYPE", ...fields }]
 }
 
-## CRITICAL TIME FORMAT RULES:
-- **DO NOT** use "Z" suffix or timezone offsets in datetime fields
-- Times should be in LOCAL format: "YYYY-MM-DDTHH:MM:SS" (no Z at the end!)
-- When user says "10 AM", use "T10:00:00" NOT "T10:00:00Z"
+## CRITICAL: DUPLICATE ACTION PREVENTION
+Before creating, updating, or deleting ANY entity:
+1. CHECK the "PREVIOUSLY EXECUTED ACTIONS" section in the context
+2. If an action was already executed (e.g., "Created Event X"), DO NOT repeat it
+3. If user asks to delete something that was just created, find the ID from the action history
+4. When referencing existing entities, use IDs from the calendar context or action history
 
-## EVENT ACTIONS (Calendar Events/Classes):
+## TIME FORMAT RULES:
+- Use LOCAL format: "YYYY-MM-DDTHH:MM:SS" (NO "Z" suffix!)
 
-### CREATE_EVENT - Create a new calendar event
-{
-  "type": "CREATE_EVENT",
-  "title": "Event title",
-  "start_iso": "2025-12-01T19:00:00",
-  "end_iso": "2025-12-01T20:30:00",
-  "location": "optional location",
-  "notes": "optional notes",
-  "course_id": "optional course UUID"
-}
-
-### UPDATE_EVENT - Modify an existing event
-{
-  "type": "UPDATE_EVENT",
-  "id": "event UUID (required)",
-  "title": "new title (optional)",
-  "start_iso": "new start time (optional)",
-  "end_iso": "new end time (optional)",
-  "location": "new location (optional)"
-}
-
-### DELETE_EVENT - Remove an event
-{
-  "type": "DELETE_EVENT",
-  "id": "event UUID (required)",
-  "title": "event title for confirmation message"
-}
+## EVENT ACTIONS:
+CREATE_EVENT: { type, title, start_iso, end_iso, location?, notes?, course_id? }
+UPDATE_EVENT: { type, id (required), title?, start_iso?, end_iso?, location? }
+DELETE_EVENT: { type, id (required), title? }
 
 ## ASSIGNMENT ACTIONS:
-
-### CREATE_ASSIGNMENT - Create a new assignment
-{
-  "type": "CREATE_ASSIGNMENT",
-  "title": "Assignment title",
-  "course_id": "course UUID (required)",
-  "due_date": "2025-12-15T23:59:00",
-  "description": "optional description",
-  "priority": 1-3 (1=high, 2=medium, 3=low),
-  "estimated_hours": number,
-  "assignment_type": "homework|project|essay|quiz|exam|presentation|lab|test|report"
-}
-
-### UPDATE_ASSIGNMENT - Modify an assignment
-{
-  "type": "UPDATE_ASSIGNMENT",
-  "id": "assignment UUID (required)",
-  "title": "new title (optional)",
-  "due_date": "new due date (optional)",
-  "priority": "new priority (optional)",
-  "is_completed": true/false (optional)
-}
-
-### DELETE_ASSIGNMENT - Remove an assignment
-{
-  "type": "DELETE_ASSIGNMENT",
-  "id": "assignment UUID (required)",
-  "title": "assignment title for confirmation"
-}
-
-### COMPLETE_ASSIGNMENT - Mark assignment as complete
-{
-  "type": "COMPLETE_ASSIGNMENT",
-  "id": "assignment UUID (required)",
-  "title": "assignment title"
-}
+CREATE_ASSIGNMENT: { type, title, course_id, due_date, description?, priority?, estimated_hours?, assignment_type? }
+UPDATE_ASSIGNMENT: { type, id (required), title?, due_date?, priority?, is_completed? }
+DELETE_ASSIGNMENT: { type, id (required), title? }
+COMPLETE_ASSIGNMENT: { type, id (required), title? }
 
 ## EXAM ACTIONS:
-
-### CREATE_EXAM - Create a new exam
-{
-  "type": "CREATE_EXAM",
-  "title": "Exam title",
-  "course_id": "course UUID (required)",
-  "exam_date": "2025-12-20T09:00:00",
-  "duration_minutes": 120,
-  "location": "optional location",
-  "exam_type": "midterm|final|quiz|test",
-  "notes": "optional notes"
-}
-
-### UPDATE_EXAM - Modify an exam
-{
-  "type": "UPDATE_EXAM",
-  "id": "exam UUID (required)",
-  "title": "new title (optional)",
-  "exam_date": "new date (optional)",
-  "location": "new location (optional)"
-}
-
-### DELETE_EXAM - Remove an exam
-{
-  "type": "DELETE_EXAM",
-  "id": "exam UUID (required)",
-  "title": "exam title for confirmation"
-}
+CREATE_EXAM: { type, title, course_id, exam_date, duration_minutes?, location?, exam_type?, notes? }
+UPDATE_EXAM: { type, id (required), title?, exam_date?, location? }
+DELETE_EXAM: { type, id (required), title? }
 
 ## STUDY SESSION ACTIONS:
-
-### CREATE_STUDY_SESSION - Schedule a study session
-{
-  "type": "CREATE_STUDY_SESSION",
-  "title": "Study session title",
-  "scheduled_start": "2025-12-01T14:00:00",
-  "scheduled_end": "2025-12-01T16:00:00",
-  "course_id": "optional course UUID",
-  "exam_id": "optional exam UUID to study for",
-  "assignment_id": "optional assignment UUID to work on",
-  "notes": "optional notes"
-}
-
-### UPDATE_STUDY_SESSION - Modify a study session
-{
-  "type": "UPDATE_STUDY_SESSION",
-  "id": "study session UUID (required)",
-  "title": "new title (optional)",
-  "scheduled_start": "new start (optional)",
-  "scheduled_end": "new end (optional)",
-  "status": "scheduled|in_progress|completed|cancelled"
-}
-
-### DELETE_STUDY_SESSION - Cancel a study session
-{
-  "type": "DELETE_STUDY_SESSION",
-  "id": "study session UUID (required)",
-  "title": "session title for confirmation"
-}
+CREATE_STUDY_SESSION: { type, title, scheduled_start, scheduled_end, course_id?, exam_id?, assignment_id?, notes? }
+UPDATE_STUDY_SESSION: { type, id (required), title?, scheduled_start?, scheduled_end?, status? }
+DELETE_STUDY_SESSION: { type, id (required), title? }
 
 ## COURSE ACTIONS:
+CREATE_COURSE: { type, name, code?, credits?, instructor?, color?, target_grade? }
+UPDATE_COURSE: { type, id (required), name?, instructor?, color? }
+DELETE_COURSE: { type, id (required), name? }
 
-### CREATE_COURSE - Add a new course
-{
-  "type": "CREATE_COURSE",
-  "name": "Course name",
-  "code": "optional course code (e.g., CS101)",
-  "credits": 3,
-  "instructor": "optional instructor name",
-  "color": "blue|green|red|purple|orange|yellow|pink",
-  "target_grade": "optional target grade (A, B, etc.)"
-}
-
-### UPDATE_COURSE - Modify a course
-{
-  "type": "UPDATE_COURSE",
-  "id": "course UUID (required)",
-  "name": "new name (optional)",
-  "instructor": "new instructor (optional)",
-  "color": "new color (optional)"
-}
-
-### DELETE_COURSE - Remove a course
-{
-  "type": "DELETE_COURSE",
-  "id": "course UUID (required)",
-  "name": "course name for confirmation"
-}
-
-## CORNELL NOTES ACTIONS:
-
-### CREATE_CORNELL_NOTES - Generate Cornell Notes from a topic
-{
-  "type": "CREATE_CORNELL_NOTES",
-  "topic": "Topic or subject for notes (required)",
-  "depthLevel": "brief | standard | comprehensive (default: standard)"
-}
-
-## WHEN TO USE CORNELL NOTES ACTIONS:
-- User says "create/generate/make notes for X" → CREATE_CORNELL_NOTES
-- User says "study notes for X" or "Cornell notes about X" → CREATE_CORNELL_NOTES
-- User wants "quick notes" or "summary" → depthLevel: "brief"
-- User wants "detailed" or "comprehensive" or "thorough" → depthLevel: "comprehensive"
-- Default request → depthLevel: "standard"
-
-## WHEN TO USE ACTIONS:
-- User says "schedule/add/create X" → CREATE action
-- User says "move/change/reschedule/update X" → UPDATE action
-- User says "delete/remove/cancel X" → DELETE action
-- User says "complete/finish/done with X" → COMPLETE action (for assignments)
-
-## STUDY SESSION SCHEDULING:
-When the user asks to schedule, plan, or create a study session (e.g., "schedule a study session", "I need to study", "plan my study time", "create a study session for X"), you MUST:
-1. Use CREATE_STUDY_SESSION action with proper scheduled_start and scheduled_end times
-2. If the user mentions a specific time, use that time
-3. If the user mentions a course, assignment, or exam, link the study session using course_id, assignment_id, or exam_id
-4. If no specific time is mentioned, suggest reasonable times based on the user's free time slots from their calendar
-5. Default duration: 1-2 hours unless specified otherwise
-6. Always schedule study sessions in the calendar - they should appear as calendar events
-
-## WHEN NOT TO USE ACTIONS:
-- User is asking questions about their calendar/schedule
-- User wants information or advice
-- User is chatting casually
+## CORNELL NOTES:
+CREATE_CORNELL_NOTES: { type, topic, depthLevel?: "brief"|"standard"|"comprehensive" }
 
 ## FINDING ENTITY IDs:
-When user refers to an entity by name (e.g., "delete my Physics exam"), you MUST:
-1. Look in the "Entity Reference" section of the calendar context to find the matching entity
-2. Use the EXACT UUID/ID from the calendar data (format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
-3. NEVER generate, guess, or fabricate UUIDs - only use IDs that appear in the provided calendar data
-4. If you cannot find the exact entity ID, ask the user to clarify which one they mean
-5. The ID field is REQUIRED for UPDATE_* and DELETE_* actions - the operation will fail without it
-
-CRITICAL: Entity IDs are 36-character UUIDs with dashes. Example: "4b53bc13-817d-4186-8a11-cf1d86820aec"
-
-Always include reply_markdown even when returning actions. If no actions are needed, omit the actions array entirely and just respond normally.
+1. Check "PREVIOUSLY EXECUTED ACTIONS" for recently created entity IDs
+2. Check calendar context for existing entity IDs
+3. NEVER fabricate UUIDs - use only IDs from provided context
+4. If ID not found, ask user to clarify
 `;
 
 // =============================================================================
@@ -1113,18 +817,14 @@ serve(async (req) => {
     const apiKey = lovableApiKey || openaiApiKey;
     const useGemini = !!lovableApiKey;
     
-    if (!apiKey) {
-      throw new Error('No AI API key configured (LOVABLE_API_KEY or OPENAI_API_KEY)');
-    }
+    if (!apiKey) throw new Error('No AI API key configured');
 
-    console.log(`Starting AI chat with ${useGemini ? 'Lovable AI (Gemini)' : 'OpenAI'}`);
+    console.log(`AI chat starting with ${useGemini ? 'Lovable AI' : 'OpenAI'}`);
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     
-    // Get user from auth header
     const authHeader = req.headers.get('Authorization');
-    const ip = req.headers.get('x-forwarded-for') || req.headers.get('cf-connecting-ip') || 'unknown';
-    let user: any = null;
+    const ip = req.headers.get('x-forwarded-for') || 'unknown';
     let userId: string | null = null;
     let userTimezone: string | undefined;
     
@@ -1133,237 +833,135 @@ serve(async (req) => {
         const token = authHeader.replace('Bearer ', '');
         const { data } = await supabase.auth.getUser(token);
         if (data?.user) {
-          user = data.user;
           userId = data.user.id;
-          
-          // Fetch user's timezone from profile
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('timezone')
-            .eq('user_id', userId)
-            .single();
-          
-          userTimezone = profile?.timezone || undefined;
+          const { data: profile } = await supabase.from('profiles').select('timezone').eq('user_id', userId).single();
+          userTimezone = profile?.timezone;
         }
-      } catch (e) {
-        console.log('Auth header present but user could not be resolved.');
-      }
+      } catch {}
     }
 
-    // Parse request body first to check for message
     const { message, conversation_id, course_id, just_indexed_file_id } = await req.json();
 
-    // Token-based rate limiting (50,000 tokens per day per user)
+    // Token rate limiting
     if (userId) {
       try {
-        const { data: usageData, error: usageError } = await supabase.rpc('get_daily_token_usage', {
-          p_user_id: userId
-        });
-
-        if (!usageError && usageData?.[0]?.is_limit_exceeded) {
-          const usage = usageData[0];
-          console.log(`Token limit exceeded for user ${userId}: ${usage.total_tokens_today}/50000 tokens used`);
+        const { data: usageData } = await supabase.rpc('get_daily_token_usage', { p_user_id: userId });
+        if (usageData?.[0]?.is_limit_exceeded) {
           return new Response(JSON.stringify({ 
-            error: 'Daily token limit reached (50,000 tokens/day). Try again tomorrow.',
-            usage: {
-              used: Number(usage.total_tokens_today),
-              limit: 50000,
-              remaining: 0,
-              resets_at: usage.resets_at
-            }
-          }), {
-            status: 429,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
+            error: 'Daily token limit reached. Try again tomorrow.',
+            usage: { used: Number(usageData[0].total_tokens_today), limit: 50000, remaining: 0 }
+          }), { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
         }
-      } catch (tokenCheckError) {
-        console.log('Token limit check failed (non-blocking):', tokenCheckError);
-      }
+      } catch {}
     }
 
-    // Legacy rate limiting (fallback for non-authenticated users)
     const rlKey = userId ? `user:${userId}` : `ip:${ip}`;
-    if (!checkRateLimit(rlKey, 20, 60000)) {
-      console.log(`Rate limit exceeded for ${rlKey}`);
+    if (!checkRateLimit(rlKey)) {
       return new Response(JSON.stringify({ error: 'Rate limit exceeded' }), {
-        status: 429,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
 
     if (!message) {
-      return new Response(
-        JSON.stringify({ error: 'Message is required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return new Response(JSON.stringify({ error: 'Message is required' }), {
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
 
-    console.log('Processing message:', message.substring(0, 100));
-    if (just_indexed_file_id) {
-      console.log('Recently indexed file ID:', just_indexed_file_id);
+    console.log('Processing:', message.substring(0, 100));
+
+    // ==========================================================================
+    // BUILD CONTEXT WINDOW WITH SUMMARIZATION
+    // ==========================================================================
+    let conversationHistory: Array<{ role: string; content: string }> = [];
+    let contextSummaryInfo = '';
+    
+    if (conversation_id && userId) {
+      const contextResult = await buildContextWindow(
+        supabase,
+        userId,
+        conversation_id,
+        apiKey,
+        useGemini
+      );
+      
+      conversationHistory = contextResult.messages;
+      
+      if (contextResult.summarizedCount > 0) {
+        contextSummaryInfo = `\n[Context: ${contextResult.summarizedCount} older messages summarized]`;
+        console.log(`Context window: summarized ${contextResult.summarizedCount} messages`);
+      }
     }
 
     // ==========================================================================
-    // CALENDAR RAG - Fetch real calendar data if this is a calendar query
+    // CALENDAR RAG
     // ==========================================================================
     let calendarContext = '';
     if (userId && isCalendarQuery(message)) {
-      console.log('Calendar query detected, fetching calendar data...');
       try {
         const calendarData = await fetchCalendarContext(supabase, userId, message, userTimezone);
         calendarContext = `
-## 📅 USER'S ACTUAL CALENDAR DATA (Single Source of Truth)
-This is the user's REAL calendar from the database. Use this information to answer their questions accurately.
-
+## 📅 USER'S CALENDAR DATA (Single Source of Truth)
 ${calendarData.summary}
 
----
-**IMPORTANT**: Base your answer on the calendar data above. Do not say "no events" if events are listed. Do not make up events that aren't listed.
+**IMPORTANT**: Base answers on this data. Do not invent events.
 `;
-        console.log(`Calendar RAG: Generated context with ${calendarData.events.length} events and ${calendarData.freeSlots.length} free slots`);
-      } catch (calendarError) {
-        console.error('Calendar RAG failed:', calendarError);
+      } catch (err) {
+        console.error('Calendar RAG failed:', err);
       }
     }
 
     // ==========================================================================
-    // DOCUMENT RAG - Search uploaded documents
-    // NOTE: Now runs for ALL queries (including calendar) to provide document context
+    // DOCUMENT RAG
     // ==========================================================================
     let documentContext = '';
-    const openaiApiKeyForRAG = Deno.env.get('OPENAI_API_KEY');
-    
-    // Always attempt document RAG when user has uploaded files
-    if (userId && openaiApiKeyForRAG) {
+    if (userId && openaiApiKey) {
       try {
-        console.log('Document RAG: Starting search for user documents...');
-        const queryEmbedding = await generateQueryEmbedding(message, openaiApiKeyForRAG);
-        
-        if (queryEmbedding) {
-          // Use lower threshold (0.35) for better recall - searchDocuments only takes 4 params
-          const relevantDocs = await searchDocuments(supabase, userId, queryEmbedding, course_id);
-          
-          if (relevantDocs.length > 0) {
-            console.log(`Document RAG: Found ${relevantDocs.length} relevant documents`);
-            
-            const docContextParts = relevantDocs.map((doc, i) => {
-              const source = doc.file_name || doc.source_type || 'Uploaded Document';
-              return `[Source ${i + 1}: ${source} (${(doc.similarity * 100).toFixed(0)}% match)]\n${doc.content}`;
-            });
-            
+        const embedding = await generateQueryEmbedding(message, openaiApiKey);
+        if (embedding) {
+          const docs = await searchDocuments(supabase, userId, embedding, course_id);
+          if (docs.length > 0) {
             documentContext = `
-## IMPORTANT: User's Uploaded Documents (Use This Information!)
-The following content was extracted from documents the user has uploaded. When the user asks about their notes, files, or uploaded content, USE THIS INFORMATION to answer accurately.
-
-${docContextParts.join('\n\n---\n\n')}
-
-INSTRUCTIONS:
-- If the user asks about content from their files/notes, answer based on the above.
-- Cite the source (e.g., "According to your Cornell notes on Machine Learning...")
-- If the information above doesn't contain what they're asking about, say so.
+## User's Uploaded Documents
+${docs.map((d, i) => `[Source ${i + 1}: ${d.file_name || 'Document'}]\n${d.content}`).join('\n\n---\n\n')}
 `;
-          } else {
-            console.log('Document RAG: No matching documents found');
           }
         }
-      } catch (ragError) {
-        console.error('Document RAG retrieval failed:', ragError);
-      }
+      } catch {}
     }
 
     // ==========================================================================
-    // CONVERSATION HISTORY
-    // ==========================================================================
-    let conversationHistory: Array<{ role: string; content: string }> = [];
-    if (conversation_id && userId) {
-      try {
-        const { data: historyRows } = await supabase
-          .from('chat_messages')
-          .select('message, is_user, created_at')
-          .eq('conversation_id', conversation_id)
-          .eq('user_id', userId)
-          .order('created_at', { ascending: true })
-          .limit(20);
-
-        if (historyRows && historyRows.length > 0) {
-          conversationHistory = historyRows.map(row => ({
-            role: row.is_user ? 'user' : 'assistant',
-            content: row.message
-          }));
-          console.log(`Loaded ${conversationHistory.length} previous messages`);
-        }
-      } catch (error) {
-        console.error('Failed to load conversation history:', error);
-      }
-    }
-
-    // ==========================================================================
-    // USER CONTEXT (Courses, pending assignments, etc.)
+    // USER CONTEXT
     // ==========================================================================
     let userContext = '';
     if (userId) {
       try {
-        const [coursesResult, pendingAssignmentsResult, upcomingExamsResult, userStatsResult] = await Promise.all([
-          supabase.from('courses').select('id, name, code, credits').eq('user_id', userId).eq('is_active', true).limit(10),
-          supabase.from('assignments').select('id, title, due_date, priority, course_id, is_completed, courses(name)').eq('user_id', userId).order('due_date', { ascending: true }).limit(20),
-          supabase.from('exams').select('id, title, exam_date, course_id, courses(name)').eq('user_id', userId).gte('exam_date', new Date().toISOString()).order('exam_date', { ascending: true }).limit(10),
-          supabase.from('user_stats').select('current_streak, total_study_hours').eq('user_id', userId).single()
+        const [coursesResult, assignmentsResult, examsResult, statsResult] = await Promise.all([
+          supabase.from('courses').select('id, name, code').eq('user_id', userId).eq('is_active', true).limit(10),
+          supabase.from('assignments').select('id, title, due_date, is_completed, courses(name)').eq('user_id', userId).order('due_date').limit(20),
+          supabase.from('exams').select('id, title, exam_date, courses(name)').eq('user_id', userId).gte('exam_date', new Date().toISOString()).limit(10),
+          supabase.from('user_stats').select('current_streak').eq('user_id', userId).single()
         ]);
 
         const courses = coursesResult.data || [];
-        const allAssignments = pendingAssignmentsResult.data || [];
-        const pendingAssignments = allAssignments.filter((a: any) => !a.is_completed);
-        const upcomingExams = upcomingExamsResult.data || [];
-        const userStats = userStatsResult.data;
-        const currentDate = new Date().toISOString();
-
-        // Build course list with IDs for AI to use
-        const coursesList = courses.length > 0 
-          ? courses.map(c => `  - "${c.name}" (ID: ${c.id}${c.code ? `, Code: ${c.code}` : ''})`).join('\n')
-          : '  - No active courses';
-
-        // Build complete assignments list with IDs
-        const assignmentsList = allAssignments.length > 0
-          ? allAssignments.map((a: any) => 
-              `  - "${a.title}" (ID: ${a.id}, Due: ${a.due_date?.split('T')[0] || 'N/A'}, Course: ${a.courses?.name || 'Unknown'}, Status: ${a.is_completed ? 'COMPLETED' : 'PENDING'})`
-            ).join('\n')
-          : '  - No assignments';
-
-        // Build exams list with IDs
-        const examsList = upcomingExams.length > 0
-          ? upcomingExams.map((e: any) => 
-              `  - "${e.title}" (ID: ${e.id}, Date: ${e.exam_date?.split('T')[0] || 'N/A'}, Course: ${e.courses?.name || 'Unknown'})`
-            ).join('\n')
-          : '  - No upcoming exams';
+        const assignments = assignmentsResult.data || [];
+        const exams = examsResult.data || [];
 
         userContext = `
-## User Context (${currentDate.split('T')[0]}):
+## User Context (${new Date().toISOString().split('T')[0]}):
 
-### AVAILABLE COURSES (Use these exact IDs for course_id field!):
-${coursesList}
+### COURSES (use these IDs):
+${courses.map(c => `- "${c.name}" (ID: ${c.id})`).join('\n') || '- No courses'}
 
-### ALL ASSIGNMENTS (Use these exact IDs for assignment operations!):
-${assignmentsList}
+### ASSIGNMENTS:
+${assignments.map((a: any) => `- "${a.title}" (ID: ${a.id}, Due: ${a.due_date?.split('T')[0]}, ${a.is_completed ? 'DONE' : 'PENDING'})`).join('\n') || '- No assignments'}
 
-### UPCOMING EXAMS (Use these exact IDs for exam operations!):
-${examsList}
+### EXAMS:
+${exams.map((e: any) => `- "${e.title}" (ID: ${e.id}, Date: ${e.exam_date?.split('T')[0]})`).join('\n') || '- No exams'}
 
-### IMPORTANT - Entity ID Instructions:
-1. When updating, completing, or deleting assignments/exams/courses, you MUST use the EXACT UUID from the lists above
-2. Do NOT generate placeholder IDs like "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
-3. If user mentions an entity by name, match it to the list and use its real UUID
-4. If you cannot find the exact entity, ask the user to clarify
-5. When creating new items, look up the course_id from the AVAILABLE COURSES list
-
-### Academic Status:
-- Pending assignments: ${pendingAssignments.length}
-- Upcoming exams: ${upcomingExams.length}
-- Study streak: ${userStats?.current_streak || 0} days
-- User timezone: ${userTimezone || 'UTC'}
+Timezone: ${userTimezone || 'UTC'}
 `;
-      } catch (error) {
-        console.log('Could not fetch user context:', error);
-      }
+      } catch {}
     }
 
     // ==========================================================================
@@ -1373,44 +971,26 @@ ${examsList}
 
 ## Your Role:
 - Help students manage their academic schedules
-- Create calendar events when requested
-- **Schedule study sessions in the calendar when users ask for them** - this is critical!
+- Create/update/delete calendar events, assignments, exams, study sessions
 - Provide study tips and academic advice
-- Answer questions using the user's uploaded documents and course materials
-- Answer questions about the user's calendar using REAL calendar data from the database
-- Be warm, concise, and action-oriented
+- Use provided calendar data and documents to answer questions
 
 ${ACTION_SPEC}
 
-${userContext ? userContext : ''}
-
-${calendarContext ? calendarContext : ''}
-
-${documentContext ? documentContext : ''}
+${userContext}
+${calendarContext}
+${documentContext}
 
 ## Response Guidelines:
-1. Start with a **bolded summary** when helpful
-2. Use markdown formatting (headers, bullets, bold)
-3. For scheduling requests, ALWAYS return the JSON format with actions
-4. **When users ask to schedule/plan/create a study session, you MUST use CREATE_STUDY_SESSION action** - don't just suggest, actually schedule it!
-5. For calendar questions, use the calendar data provided above - do NOT make up events
-6. Be conversational but efficient
-7. When using information from user documents, reference the source
-8. Current datetime for reference: ${new Date().toISOString()}
-9. If asked about calendar/schedule/events, ALWAYS check the "USER'S ACTUAL CALENDAR DATA" section first
+1. Use markdown formatting
+2. For scheduling requests, return JSON with actions
+3. NEVER repeat actions that appear in "PREVIOUSLY EXECUTED ACTIONS"
+4. For calendar questions, use the provided calendar data
+5. Current datetime: ${new Date().toISOString()}
+${contextSummaryInfo}
 
-## CRITICAL: Schedule Response Formatting
-- When showing a schedule or list of events, ALWAYS format it as readable markdown with dates, times, and descriptions
-- NEVER return raw JSON code blocks in your reply_markdown field
-- Use markdown formatting like:
-  - Headers (## Schedule)
-  - Bullet points with emojis (📅 Event name)
-  - Date/time formatting (Monday, Dec 1 at 10:00 AM)
-- If you need to return actions, put them in the "actions" array, but the reply_markdown should be human-readable text, NOT JSON
-- Example of GOOD format:
-  "## 📅 Your Schedule\n\n### Monday, Dec 1\n- 📅 Math Class at 10:00 AM - 11:30 AM\n- 📝 Assignment due at 11:59 PM\n\n### Tuesday, Dec 2\n..."
-- Example of BAD format (DO NOT DO THIS):
-  "{\"type\":\"CREATE_EVENT\",\"title\":\"Math Class\",\"start_iso\":\"2025-12-01T10:00:00\"}"
+## Schedule Formatting:
+Format schedules as readable markdown with dates and times, NOT raw JSON.
 `;
 
     // ==========================================================================
@@ -1420,10 +1000,8 @@ ${documentContext ? documentContext : ''}
       ? 'https://ai.gateway.lovable.dev/v1/chat/completions'
       : 'https://api.openai.com/v1/chat/completions';
     
-    const model = useGemini ? 'google/gemini-2.5-flash' : 'gpt-4o-mini';
-
     const requestBody = {
-      model,
+      model: useGemini ? 'google/gemini-2.5-flash' : 'gpt-4o-mini',
       messages: [
         { role: 'system', content: systemPrompt },
         ...conversationHistory,
@@ -1433,17 +1011,14 @@ ${documentContext ? documentContext : ''}
       max_tokens: 2000
     };
 
-    console.log('Calling AI API:', apiUrl);
+    console.log('Calling AI API with', requestBody.messages.length, 'messages');
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 25000);
 
     const aiResponse = await fetch(apiUrl, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(requestBody),
       signal: controller.signal
     });
@@ -1453,20 +1028,16 @@ ${documentContext ? documentContext : ''}
     if (!aiResponse.ok) {
       const errorBody = await aiResponse.text();
       console.error('AI API error:', aiResponse.status, errorBody);
-      
       if (aiResponse.status === 429) {
-        return new Response(JSON.stringify({ error: 'Rate limit exceeded. Please try again shortly.' }), {
-          status: 429,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        return new Response(JSON.stringify({ error: 'Rate limit exceeded. Try again shortly.' }), {
+          status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
       }
       if (aiResponse.status === 402) {
-        return new Response(JSON.stringify({ error: 'AI credits exhausted. Please add funds.' }), {
-          status: 402,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        return new Response(JSON.stringify({ error: 'AI credits exhausted.' }), {
+          status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
       }
-      
       throw new Error(`AI API error: ${aiResponse.status}`);
     }
 
@@ -1474,10 +1045,9 @@ ${documentContext ? documentContext : ''}
     const rawContent = aiResult.choices?.[0]?.message?.content ?? '';
     const tokenUsage = aiResult.usage || {};
 
-    console.log('Raw AI response length:', rawContent.length);
-    console.log('Token usage:', tokenUsage);
+    console.log('AI response length:', rawContent.length, 'tokens:', tokenUsage.total_tokens);
 
-    // Record token usage to database
+    // Record token usage
     if (userId && tokenUsage.total_tokens) {
       try {
         await supabase.from('ai_token_usage').insert({
@@ -1486,117 +1056,60 @@ ${documentContext ? documentContext : ''}
           completion_tokens: tokenUsage.completion_tokens || 0,
           total_tokens: tokenUsage.total_tokens || 0,
           function_name: 'ai-chat',
-          request_metadata: { 
-            message_preview: message.substring(0, 100),
-            model,
-            conversation_id
-          }
+          request_metadata: { message_preview: message.substring(0, 100), conversation_id }
         });
-        console.log(`Recorded ${tokenUsage.total_tokens} tokens for user ${userId}`);
-      } catch (tokenRecordError) {
-        console.error('Failed to record token usage (non-blocking):', tokenRecordError);
-      }
+      } catch {}
     }
 
-    // Parse response for actions
-    let parsedResponse = {
-      reply_markdown: rawContent,
-      actions: [] as any[]
-    };
+    // Parse response
+    let parsedResponse = { reply_markdown: rawContent, actions: [] as any[] };
 
     try {
-      const jsonMatch = rawContent.match(/\{[\s\S]*"reply_markdown"[\s\S]*\}/);
+      const jsonMatch = rawContent.match(/\{[\s\S]*\"reply_markdown\"[\s\S]*\}/);
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]);
         if (parsed.reply_markdown) {
-          parsedResponse = {
-            reply_markdown: parsed.reply_markdown,
-            actions: parsed.actions || []
-          };
-          console.log('Extracted structured response with', parsedResponse.actions.length, 'actions');
+          parsedResponse = { reply_markdown: parsed.reply_markdown, actions: parsed.actions || [] };
         }
-      } else {
-        if (rawContent.trim().startsWith('{')) {
-          const parsed = JSON.parse(rawContent);
-          if (parsed.reply_markdown) {
-            parsedResponse = {
-              reply_markdown: parsed.reply_markdown,
-              actions: parsed.actions || []
-            };
-          }
+      } else if (rawContent.trim().startsWith('{')) {
+        const parsed = JSON.parse(rawContent);
+        if (parsed.reply_markdown) {
+          parsedResponse = { reply_markdown: parsed.reply_markdown, actions: parsed.actions || [] };
         }
       }
-    } catch (parseError) {
-      console.log('Response is plain markdown (no actions)');
-    }
+    } catch {}
 
-    // Post-process: Format raw JSON schedules in reply_markdown
-    parsedResponse.reply_markdown = formatScheduleResponse(parsedResponse.reply_markdown);
-
-    // Validate actions - support all CRUD action types
+    // Validate actions
     const validatedActions = parsedResponse.actions.filter(action => {
       switch (action.type) {
-        // Event actions
-        case 'CREATE_EVENT':
-          return action.title && action.start_iso && action.end_iso;
-        case 'UPDATE_EVENT':
-          return action.id && (action.title || action.start_iso || action.end_iso || action.location !== undefined);
-        case 'DELETE_EVENT':
-          return action.id;
-        
-        // Assignment actions
-        case 'CREATE_ASSIGNMENT':
-          return action.title && action.course_id && action.due_date;
-        case 'UPDATE_ASSIGNMENT':
-          return action.id;
-        case 'DELETE_ASSIGNMENT':
-          return action.id;
-        case 'COMPLETE_ASSIGNMENT':
-          return action.id;
-        
-        // Exam actions
-        case 'CREATE_EXAM':
-          return action.title && action.course_id && action.exam_date;
-        case 'UPDATE_EXAM':
-          return action.id;
-        case 'DELETE_EXAM':
-          return action.id;
-        
-        // Study session actions
-        case 'CREATE_STUDY_SESSION':
-          return action.title && action.scheduled_start && action.scheduled_end;
-        case 'UPDATE_STUDY_SESSION':
-          return action.id;
-        case 'DELETE_STUDY_SESSION':
-          return action.id;
-        
-        // Course actions
-        case 'CREATE_COURSE':
-          return action.name;
-        case 'UPDATE_COURSE':
-          return action.id;
-        case 'DELETE_COURSE':
-          return action.id;
-        
-        // Cornell Notes actions
-        case 'CREATE_CORNELL_NOTES':
-          return action.topic;
-        
-        default:
-          console.log('Unknown action type:', action.type);
-          return false;
+        case 'CREATE_EVENT': return action.title && action.start_iso && action.end_iso;
+        case 'UPDATE_EVENT': return action.id;
+        case 'DELETE_EVENT': return action.id;
+        case 'CREATE_ASSIGNMENT': return action.title && action.course_id && action.due_date;
+        case 'UPDATE_ASSIGNMENT': return action.id;
+        case 'DELETE_ASSIGNMENT': return action.id;
+        case 'COMPLETE_ASSIGNMENT': return action.id;
+        case 'CREATE_EXAM': return action.title && action.course_id && action.exam_date;
+        case 'UPDATE_EXAM': return action.id;
+        case 'DELETE_EXAM': return action.id;
+        case 'CREATE_STUDY_SESSION': return action.title && action.scheduled_start && action.scheduled_end;
+        case 'UPDATE_STUDY_SESSION': return action.id;
+        case 'DELETE_STUDY_SESSION': return action.id;
+        case 'CREATE_COURSE': return action.name;
+        case 'UPDATE_COURSE': return action.id;
+        case 'DELETE_COURSE': return action.id;
+        case 'CREATE_CORNELL_NOTES': return action.topic;
+        default: return false;
       }
     });
 
     console.log('Validated actions:', validatedActions.length);
 
-    // Fetch updated token usage to return to client
+    // Get updated usage
     let currentUsage = null;
     if (userId) {
       try {
-        const { data: usageData } = await supabase.rpc('get_daily_token_usage', {
-          p_user_id: userId
-        });
+        const { data: usageData } = await supabase.rpc('get_daily_token_usage', { p_user_id: userId });
         if (usageData?.[0]) {
           currentUsage = {
             used: Number(usageData[0].total_tokens_today),
@@ -1605,23 +1118,19 @@ ${documentContext ? documentContext : ''}
             resets_at: usageData[0].resets_at
           };
         }
-      } catch (usageError) {
-        console.log('Failed to fetch updated usage:', usageError);
-      }
+      } catch {}
     }
 
     return new Response(
       JSON.stringify({ 
         response: parsedResponse.reply_markdown,
         metadata: {
-          model,
+          model: useGemini ? 'google/gemini-2.5-flash' : 'gpt-4o-mini',
           provider: useGemini ? 'lovable-ai' : 'openai',
           timestamp: new Date().toISOString(),
-          user_context_included: !!userContext,
-          calendar_context_included: !!calendarContext,
-          document_context_included: !!documentContext,
           actions: validatedActions,
-          has_actions: validatedActions.length > 0
+          has_actions: validatedActions.length > 0,
+          context_info: contextSummaryInfo || undefined
         },
         usage: currentUsage,
         tokens_used: tokenUsage.total_tokens || 0
@@ -1630,20 +1139,14 @@ ${documentContext ? documentContext : ''}
     );
 
   } catch (error) {
-    console.error('Error in AI chat:', error);
+    console.error('AI chat error:', error);
     return new Response(
       JSON.stringify({ 
         response: "I'm sorry, I encountered an error. Please try again.",
         error: error instanceof Error ? error.message : 'Unknown error',
-        metadata: {
-          actions: [],
-          has_actions: false
-        }
+        metadata: { actions: [], has_actions: false }
       }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });
