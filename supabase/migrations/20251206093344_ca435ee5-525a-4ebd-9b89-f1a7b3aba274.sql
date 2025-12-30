@@ -5,6 +5,7 @@ CREATE OR REPLACE FUNCTION public.validate_redirect_uri(
   p_redirect_uri TEXT,
   p_allowed_domains TEXT[] DEFAULT ARRAY[
     'localhost', 
+    '127.0.0.1',
     '.vercel.app', 
     '.netlify.app',
     '.aqademiq.app',
@@ -22,6 +23,11 @@ DECLARE
   uri_host TEXT;
   domain TEXT;
 BEGIN
+  -- Allow common mobile/webview loopback schemes explicitly
+  IF p_redirect_uri LIKE 'capacitor://localhost%' THEN
+    RETURN TRUE;
+  END IF;
+
   -- Extract host from URI
   uri_host := substring(p_redirect_uri FROM 'https?://([^/]+)');
   
@@ -33,6 +39,11 @@ BEGIN
   FOREACH domain IN ARRAY p_allowed_domains LOOP
     -- Exact match for localhost
     IF domain = 'localhost' AND uri_host ~ '^localhost(:[0-9]+)?$' THEN
+      RETURN TRUE;
+    END IF;
+
+    -- Exact match for 127.0.0.1 loopback
+    IF domain = '127.0.0.1' AND uri_host ~ '^127\.0\.0\.1(:[0-9]+)?$' THEN
       RETURN TRUE;
     END IF;
     
