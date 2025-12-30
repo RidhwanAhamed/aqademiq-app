@@ -154,7 +154,8 @@ export function useGoogleCalendar() {
 
       if (error) {
         console.error('Error from google-oauth function:', error);
-        throw new Error(error.message || 'Failed to get authorization URL');
+        const serverMessage = (error as any)?.message || 'Failed to get authorization URL';
+        throw new Error(serverMessage);
       }
 
       // Security: Validate state parameter if returned
@@ -251,7 +252,10 @@ export function useGoogleCalendar() {
         }
       );
       
-      const errorMessage = error instanceof Error ? error.message : "Failed to connect to Google Calendar. Please try again.";
+      let errorMessage = error instanceof Error ? error.message : "Failed to connect to Google Calendar. Please try again.";
+      if (typeof errorMessage === 'string' && errorMessage.includes('non-2xx')) {
+        errorMessage = "Google OAuth edge function failed. Check redirect URI allowlist and client credentials.";
+      }
       toast({
         title: "Connection Failed",
         description: `Error: ${errorMessage}. Check if Google OAuth is properly configured.`,
