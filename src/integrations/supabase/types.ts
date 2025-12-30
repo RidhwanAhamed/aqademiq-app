@@ -393,33 +393,84 @@ export type Database = {
       }
       chat_messages: {
         Row: {
+          context_window_position: number | null
           conversation_id: string | null
           created_at: string
           file_upload_id: string | null
           id: string
+          is_summary: boolean | null
           is_user: boolean
           message: string
           metadata: Json | null
+          summary_of_message_ids: string[] | null
+          token_count: number | null
           user_id: string
         }
         Insert: {
+          context_window_position?: number | null
           conversation_id?: string | null
           created_at?: string
           file_upload_id?: string | null
           id?: string
+          is_summary?: boolean | null
           is_user?: boolean
           message: string
           metadata?: Json | null
+          summary_of_message_ids?: string[] | null
+          token_count?: number | null
           user_id: string
         }
         Update: {
+          context_window_position?: number | null
           conversation_id?: string | null
           created_at?: string
           file_upload_id?: string | null
           id?: string
+          is_summary?: boolean | null
           is_user?: boolean
           message?: string
           metadata?: Json | null
+          summary_of_message_ids?: string[] | null
+          token_count?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      conversation_context: {
+        Row: {
+          context_window_summary: string | null
+          conversation_id: string
+          created_at: string | null
+          id: string
+          last_summarization_at: string | null
+          oldest_unsummarized_message_id: string | null
+          summary_token_count: number | null
+          total_token_count: number | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          context_window_summary?: string | null
+          conversation_id: string
+          created_at?: string | null
+          id?: string
+          last_summarization_at?: string | null
+          oldest_unsummarized_message_id?: string | null
+          summary_token_count?: number | null
+          total_token_count?: number | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          context_window_summary?: string | null
+          conversation_id?: string
+          created_at?: string | null
+          id?: string
+          last_summarization_at?: string | null
+          oldest_unsummarized_message_id?: string | null
+          summary_token_count?: number | null
+          total_token_count?: number | null
+          updated_at?: string | null
           user_id?: string
         }
         Relationships: []
@@ -2084,6 +2135,7 @@ export type Database = {
       }
       email_exists: { Args: { p_email: string }; Returns: boolean }
       encrypt_token: { Args: { p_token: string }; Returns: string }
+      estimate_token_count: { Args: { text_content: string }; Returns: number }
       forecast_grade_trend: {
         Args: { p_course_id?: string; p_user_id: string }
         Returns: {
