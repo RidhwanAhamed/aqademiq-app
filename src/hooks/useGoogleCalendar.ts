@@ -158,14 +158,6 @@ export function useGoogleCalendar() {
         throw new Error(serverMessage);
       }
 
-      // Security: Validate state parameter if returned
-      if (data.state) {
-        const isValidState = await validateOAuthState(data.state);
-        if (!isValidState) {
-          throw new Error('Invalid OAuth state parameter');
-        }
-      }
-
       // Open Google OAuth in a new window
       const authWindow = window.open(
         data.authUrl,
