@@ -1,7 +1,8 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { CalendarDays, Clock, Users, GraduationCap, Calendar as CalendarIcon, MapPin } from "lucide-react";
+import { Cloud, CalendarDays, Clock, Users, GraduationCap, Calendar as CalendarIcon, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useGoogleCalendar } from '@/hooks/useGoogleCalendar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CalendarView } from '@/components/calendar/CalendarView';
 import { EnhancedCalendarView } from '@/components/calendar/EnhancedCalendarView';
@@ -22,6 +23,7 @@ export default function Calendar() {
   const [view, setView] = useState<'week' | 'month'>('week');
   const [activeTab, setActiveTab] = useState('calendar');
   const [currentDate, setCurrentDate] = useState(new Date());
+  const { tokenStatus, loading: googleSyncLoading, syncNow } = useGoogleCalendar();
   
   // Use optimized calendar hook for real-time events
   const { events, loading: calendarLoading } = useOptimizedRealtimeCalendar();
@@ -116,7 +118,16 @@ export default function Calendar() {
             </div>
           )}
         </div>
-        <div className="flex gap-2 w-full sm:w-auto">
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+          <Button
+            variant="outline"
+            className="w-full sm:w-auto"
+            onClick={syncNow}
+            disabled={!tokenStatus.isConnected || googleSyncLoading}
+          >
+            <Cloud className="w-4 h-4 mr-2" />
+            {googleSyncLoading ? 'Syncing...' : 'Full Sync'}
+          </Button>
           <AddClassDialog />
         </div>
       </div>
