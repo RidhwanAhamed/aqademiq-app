@@ -12,6 +12,18 @@ type ActionBody = {
   state?: string;
 };
 
+function toBase64Url(bytes: Uint8Array): string {
+  const bin = String.fromCharCode(...bytes);
+  const b64 = btoa(bin);
+  return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function generateStateToken(size = 32): string {
+  const buf = new Uint8Array(size);
+  crypto.getRandomValues(buf);
+  return toBase64Url(buf);
+}
+
 // Extract first IP from x-forwarded-for (comma-separated) safely
 function getClientIp(req: Request): string | null {
   const raw = req.headers.get('x-forwarded-for') || '';
@@ -116,10 +128,11 @@ serve(async (req) => {
         // Generate and store state token if user is authenticated
         let state: string;
         if (userId) {
-          // Use secure database function to create and store state token
+          const rawState = generateStateToken();
           const { data: stateToken, error: stateError } = await supabase
             .rpc('create_oauth_state_token', { 
               p_user_id: userId,
+              p_state_token: rawState,
               p_ip_address: getClientIp(req),
               p_user_agent: req.headers.get('user-agent') || null
             });
@@ -130,11 +143,8 @@ serve(async (req) => {
           }
           state = 'signin_' + stateToken;
         } else {
-          // For unauthenticated sign-in flows, generate a temporary state
-          state = 'signin_' + Array.from(
-            crypto.getRandomValues(new Uint8Array(32)), 
-            b => b.toString(16).padStart(2, '0')
-          ).join('');
+          // For unauthenticated sign-in flows, generate a temporary state (not stored)
+          state = 'signin_' + generateStateToken();
         }
         
         const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
@@ -192,9 +202,11 @@ serve(async (req) => {
         }
 
         // Generate and store state token using secure database function
+        const rawState = generateStateToken();
         const { data: stateToken, error: stateError } = await supabase
           .rpc('create_oauth_state_token', { 
             p_user_id: userId,
+            p_state_token: rawState,
             p_ip_address: getClientIp(req),
             p_user_agent: req.headers.get('user-agent') || null
           });
