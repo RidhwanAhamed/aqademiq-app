@@ -84,8 +84,8 @@ serve(async (req) => {
       if (file.user_id !== user.id) {
         console.warn(`Unauthorized access attempt: User ${user.id} tried to access file owned by ${file.user_id}`);
         
-        // Log security event
-        await supabaseAdmin.rpc('log_security_event', {
+        // Log security event (fire and forget)
+        supabaseAdmin.rpc('log_security_event', {
           p_action: 'unauthorized_file_access_attempt',
           p_resource_type: 'file_upload',
           p_resource_id: fileId,
@@ -94,7 +94,7 @@ serve(async (req) => {
             file_owner: file.user_id,
             timestamp: new Date().toISOString()
           }
-        }).then(() => {}).catch((err: Error) => console.error('Failed to log security event:', err));
+        }).then(() => {}, (err: Error) => console.error('Failed to log security event:', err));
 
         return new Response(
           JSON.stringify({ error: 'Access denied' }),
