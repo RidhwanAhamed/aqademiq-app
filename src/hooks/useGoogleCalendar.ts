@@ -261,19 +261,9 @@ export function useGoogleCalendar() {
     if (!user) return;
 
     try {
-      // Security: Validate state parameter if provided
-      if (state) {
-        const isValidState = await validateOAuthState(state);
-        if (!isValidState) {
-          await logSecurityEvent(
-            'oauth_invalid_state_detected',
-            'security_incident',
-            user.id,
-            { state_token: state }
-          );
-          throw new Error('Invalid OAuth state - security validation failed');
-        }
-      }
+      // NOTE: State validation is done server-side in the callback action to ensure
+      // the token is consumed only once. Do NOT validate client-side here as that
+      // would consume the token before the server can use it.
 
       const { data, error } = await supabase.functions.invoke('google-oauth', {
         body: { 

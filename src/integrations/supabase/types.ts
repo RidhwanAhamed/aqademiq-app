@@ -2284,23 +2284,14 @@ export type Database = {
         Args: { p_user_id?: string }
         Returns: boolean
       }
-      validate_oauth_state:
-        | {
-            Args: {
-              p_max_age_minutes?: number
-              p_state_token: string
-              p_user_id: string
-            }
-            Returns: boolean
-          }
-        | {
-            Args: {
-              p_max_age_minutes?: number
-              p_state_token: string
-              p_user_id: string
-            }
-            Returns: boolean
-          }
+      validate_oauth_state: {
+        Args: {
+          p_max_age_minutes?: number
+          p_state_token: string
+          p_user_id: string
+        }
+        Returns: boolean
+      }
       validate_redirect_uri: {
         Args: { p_allowed_domains?: string[]; p_redirect_uri: string }
         Returns: boolean
