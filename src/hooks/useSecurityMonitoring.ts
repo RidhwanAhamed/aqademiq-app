@@ -180,13 +180,16 @@ export function useSecurityMonitoring() {
   }, [user, checkRateLimit]);
 
   // Validate OAuth state for CSRF protection
+  // NOTE: This consumes the token (one-time use). Only call when you're ready
+  // to actually complete the OAuth flow. For most flows, let the server validate.
   const validateOAuthState = useCallback(async (stateToken: string) => {
     if (!user) return false;
 
     try {
+      // Use correct parameter order: p_user_id, p_state_token
       const { data, error } = await supabase.rpc('validate_oauth_state', {
-        p_state_token: stateToken,
-        p_user_id: user.id
+        p_user_id: user.id,
+        p_state_token: stateToken
       });
 
       if (error) throw error;
