@@ -1,5 +1,23 @@
+// @ts-nocheck
+/// <reference lib="deno.ns" />
+/// <reference lib="dom" />
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+type ActionBody = {
+  action?: 'authorize' | 'signin-authorize' | 'callback' | 'refresh' | 'revoke';
+  redirectUri?: string;
+  userId?: string;
+  code?: string;
+  state?: string;
+};
+
+// Extract first IP from x-forwarded-for (comma-separated) safely
+function getClientIp(req: Request): string | null {
+  const raw = req.headers.get('x-forwarded-for') || '';
+  const first = raw.split(',')[0]?.trim();
+  return first || null;
+}
 
 // Rate limiting store (in-memory, resets on function restart)
 const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
@@ -49,7 +67,7 @@ serve(async (req) => {
     console.log('Google OAuth action from URL:', action);
 
     // Basic rate limiting for OAuth endpoints
-    const clientIp = req.headers.get('x-forwarded-for') || 'unknown';
+    const clientIp = getClientIp(req) || 'unknown';
     if (!checkRateLimit(clientIp, 30, 60000)) { // 30 requests per minute per IP
       console.log(`Rate limit exceeded for IP: ${clientIp}`);
       return new Response(JSON.stringify({ error: 'Rate limit exceeded' }), {
@@ -59,10 +77,10 @@ serve(async (req) => {
     }
 
     // Try to get action from request body if not in URL
-    let requestBody = null;
+    let requestBody: ActionBody = {};
     if (req.method === 'POST' && req.headers.get('content-type')?.includes('application/json')) {
       try {
-        requestBody = await req.json();
+        requestBody = await req.json() as ActionBody;
         action = requestBody.action || action;
         console.log('Google OAuth action from body:', action);
         console.log('Request body:', requestBody);
@@ -102,7 +120,7 @@ serve(async (req) => {
           const { data: stateToken, error: stateError } = await supabase
             .rpc('create_oauth_state_token', { 
               p_user_id: userId,
-              p_ip_address: req.headers.get('x-forwarded-for') || null,
+              p_ip_address: getClientIp(req),
               p_user_agent: req.headers.get('user-agent') || null
             });
           
@@ -177,7 +195,7 @@ serve(async (req) => {
         const { data: stateToken, error: stateError } = await supabase
           .rpc('create_oauth_state_token', { 
             p_user_id: userId,
-            p_ip_address: req.headers.get('x-forwarded-for') || null,
+            p_ip_address: getClientIp(req),
             p_user_agent: req.headers.get('user-agent') || null
           });
         
@@ -193,7 +211,7 @@ serve(async (req) => {
           p_details: {
             redirect_uri: redirectUri,
             state_stored: true,
-            client_ip: req.headers.get('x-forwarded-for') || 'unknown',
+            client_ip: getClientIp(req) || 'unknown',
             user_agent: req.headers.get('user-agent') || 'unknown',
             timestamp: new Date().toISOString()
           }
@@ -239,7 +257,7 @@ serve(async (req) => {
             p_details: {
               user_id: userId,
               invalid_state: state,
-              client_ip: req.headers.get('x-forwarded-for') || 'unknown',
+              client_ip: getClientIp(req) || 'unknown',
               timestamp: new Date().toISOString()
             }
           });
@@ -269,7 +287,7 @@ serve(async (req) => {
             p_details: {
               user_id: userId,
               operation: 'oauth_callback',
-              client_ip: req.headers.get('x-forwarded-for') || 'unknown',
+              client_ip: getClientIp(req) || 'unknown',
               timestamp: new Date().toISOString()
             }
           });
