@@ -2098,6 +2098,7 @@ export type Database = {
       create_oauth_state_token: {
         Args: {
           p_ip_address?: unknown
+          p_state_token: string
           p_user_agent?: string
           p_user_id: string
         }

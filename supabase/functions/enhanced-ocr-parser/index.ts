@@ -215,8 +215,8 @@ async function primaryOCR(
   
   // Enhanced OCR Space API request with optimized settings
   const formData = new FormData();
-  // Cast to ArrayBuffer first to avoid TypeScript error
-  const arrayBuffer = fileBuffer.buffer.slice(fileBuffer.byteOffset, fileBuffer.byteOffset + fileBuffer.byteLength);
+  // Create a proper ArrayBuffer copy to avoid TypeScript SharedArrayBuffer issue
+  const arrayBuffer = new Uint8Array(fileBuffer).buffer as ArrayBuffer;
   const blob = new Blob([arrayBuffer], { type: fileType });
   formData.append('file', blob, fileName);
   formData.append('apikey', apiKey);
