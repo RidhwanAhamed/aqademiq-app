@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useSplashQuote } from '@/hooks/useMotivationalQuote';
 
 interface AnimatedSplashProps {
   onComplete: () => void;
@@ -8,6 +9,7 @@ interface AnimatedSplashProps {
 
 export function AnimatedSplash({ onComplete, minimumDuration = 2500 }: AnimatedSplashProps) {
   const [isExiting, setIsExiting] = useState(false);
+  const { quote } = useSplashQuote();
   
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -145,6 +147,20 @@ export function AnimatedSplash({ onComplete, minimumDuration = 2500 }: AnimatedS
             }}
           >
             {tagline}
+          </motion.p>
+
+          {/* Motivational Quote */}
+          <motion.p
+            className="mt-6 text-xs md:text-sm text-primary/80 italic max-w-xs md:max-w-sm text-center z-10 px-4"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{
+              delay: 1.0,
+              duration: 0.5,
+              ease: "easeOut",
+            }}
+          >
+            "{quote}"
           </motion.p>
 
           {/* Loading dots */}
