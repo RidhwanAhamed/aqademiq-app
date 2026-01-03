@@ -1,0 +1,87 @@
+{
+  "__comment": "Motivational quotes for splash screen. Backend integration: optional sync with /api/user/preferences for enable/disable toggle.",
+  "exam": [
+    "You've prepared for this. Trust your work!",
+    "Exam day is just another chance to show what you know.",
+    "Stay calm, stay focused. You've got this!",
+    "Let's ace this exam together!",
+    "Deep breaths. You're more ready than you think.",
+    "All your hard work is about to pay off.",
+    "Believe in your preparation. You're ready!"
+  ],
+  "examSoon": [
+    "Exam coming up! Steady progress wins the race.",
+    "A little review today goes a long way.",
+    "Small daily reviews beat last-minute cramming.",
+    "You have time. Use it wisely, not anxiously.",
+    "Consistent effort beats cramming every time."
+  ],
+  "assignment": [
+    "Almost there! Let's wrap this up.",
+    "Deadline approaching? You've got the skills to finish strong.",
+    "One step at a time. You can do this!",
+    "Focus mode: ON. Let's get it done.",
+    "That assignment won't write itself—but you've got this!"
+  ],
+  "assignmentSoon": [
+    "Assignment due soon. A little progress today helps!",
+    "Plan today, stress less tomorrow.",
+    "Break it down, knock it out.",
+    "Small wins lead to big results."
+  ],
+  "streak": [
+    "Keep the streak alive! You're building something powerful.",
+    "Consistency is your superpower. Don't stop now!",
+    "Every day you show up, you level up.",
+    "Your streak is proof of your dedication."
+  ],
+  "streakMilestone": {
+    "7": "ONE WEEK STREAK! 🎉 Consistency unlocked.",
+    "14": "Two weeks of dedication. You're unstoppable!",
+    "30": "30 DAYS! You've proven discipline beats motivation.",
+    "60": "60 days! You've built a real habit.",
+    "100": "100 DAYS! You're in the top 1% of dedicated students."
+  },
+  "welcomeBack": [
+    "Welcome back! You're here, and that's what matters.",
+    "Back in action! Let's pick up where you left off.",
+    "Every expert was once someone who came back after a break.",
+    "Missed a few days? No worries. Today is a fresh start."
+  ],
+  "morning": [
+    "Good morning! A new day of learning awaits.",
+    "Rise and shine! Your potential is limitless today.",
+    "Morning focus hits different. Let's make it count!",
+    "The early bird catches the A+."
+  ],
+  "afternoon": [
+    "Afternoon focus. Let's make it count!",
+    "The day is half done. Your goals aren't. Keep pushing!",
+    "Perfect time to tackle what you've been putting off."
+  ],
+  "evening": [
+    "Evening dedication. That's what sets you apart.",
+    "One more productive session before you rest.",
+    "Evening learners are tomorrow's leaders."
+  ],
+  "night": [
+    "Night owl mode! Just don't forget to rest.",
+    "The quiet hours are perfect for deep focus.",
+    "Late night study? Keep it focused, keep it short."
+  ],
+  "general": [
+    "The secret to getting ahead is getting started.",
+    "You don't have to be perfect. Just consistent.",
+    "Progress, not perfection.",
+    "Your future is created by what you do today.",
+    "Success is the sum of small efforts, repeated daily.",
+    "You're capable of more than you know.",
+    "Show up. That's half the battle.",
+    "Knowledge compounds. Keep investing in yourself.",
+    "One task at a time. One day at a time.",
+    "Discipline is choosing what you want most over what you want now.",
+    "Small steps today lead to giant leaps tomorrow.",
+    "You've already taken the hardest step—starting."
+  ]
+}
+
