@@ -3,6 +3,8 @@ import { AddStudySessionDialog } from "@/components/AddStudySessionDialog";
 import { StudyContextSelector, type StudyContext } from "@/components/StudyContextSelector";
 import { TimerSettingsDialog } from "@/components/TimerSettingsDialog";
 import { WhiteNoisePlayer } from "@/components/WhiteNoisePlayer";
+import { SoundscapePlayer } from "@/components/SoundscapePlayer";
+import { useSoundscape } from "@/hooks/useSoundscape";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -64,6 +66,17 @@ export default function Timer() {
   const { courses } = useCourses();
   const { assignments } = useAssignments();
   const { exams } = useExams();
+  
+  // Soundscape integration - auto-play when timer starts
+  const { 
+    isPlaying: isSoundscapePlaying, 
+    currentSoundscape, 
+    play: playSoundscape, 
+    pause: pauseSoundscape 
+  } = useSoundscape();
+  
+  // Track if soundscape was playing before timer pause (to restore on resume)
+  const soundscapeWasPlaying = useRef(false);
 
   // Sync custom picker with stored custom duration
   useEffect(() => {
@@ -94,6 +107,12 @@ export default function Timer() {
   }, []);
 
   const handleTimerComplete = async () => {
+    // Pause soundscape when timer completes
+    if (isSoundscapePlaying) {
+      await pauseSoundscape();
+      soundscapeWasPlaying.current = false; // Reset for next session
+    }
+    
     if (isFocusMode(mode) && currentSessionStart) {
       const sessionDuration = presets[mode] / 60;
       
@@ -198,6 +217,28 @@ export default function Timer() {
     if (!currentSessionStart && isFocusMode(mode)) {
       setCurrentSessionStart(new Date());
     }
+    
+    // Auto-play soundscape if one is selected (and we're in focus mode)
+    if (currentSoundscape && isFocusMode(mode)) {
+      // If soundscape was playing before pause, or if starting fresh with a selected soundscape
+      if (soundscapeWasPlaying.current || !isSoundscapePlaying) {
+        playSoundscape();
+      }
+    }
+  };
+  
+  // Handle timer pause with soundscape
+  const handlePauseTimer = async () => {
+    // Remember if soundscape was playing before we pause
+    soundscapeWasPlaying.current = isSoundscapePlaying;
+    
+    // Pause the soundscape if playing
+    if (isSoundscapePlaying) {
+      await pauseSoundscape();
+    }
+    
+    // Pause the timer
+    pauseTimer();
   };
 
   const resetTimer = () => {
@@ -287,6 +328,7 @@ export default function Timer() {
           <p className="text-sm sm:text-base text-muted-foreground">Focus with Pomodoro technique</p>
         </div>
         <div className="flex gap-2">
+          <SoundscapePlayer />
           <WhiteNoisePlayer />
           <Button 
             onClick={() => setSettingsOpen(true)}
@@ -484,7 +526,7 @@ export default function Timer() {
               ) : (
                 <Button 
                   size="lg" 
-                  onClick={pauseTimer} 
+                  onClick={handlePauseTimer} 
                   variant="outline"
                   className="h-14 w-14 sm:h-12 sm:w-auto sm:px-6 rounded-full sm:rounded-md"
                 >

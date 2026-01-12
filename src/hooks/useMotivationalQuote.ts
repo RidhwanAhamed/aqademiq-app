@@ -181,3 +181,9 @@ export function useSplashQuote(): { quote: string; loading: boolean } {
 
 export default useMotivationalQuote;
 
+
+
+
+
+
+
