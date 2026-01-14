@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { X, Sparkles, Clock, AlertTriangle, Zap, Calendar, List } from "lucide-react";
@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { supabase } from "@/integrations/supabase/client";
 
 interface SmartNudgeProps {
   className?: string;
@@ -323,18 +324,155 @@ function OverdueTasksPanel({ open, onOpenChange, overdueNudges, onRemoveNudge }:
 }
 
 // Export standalone button component for use in other pages
+// This shows overdue assignments + dismissed nudges
 export function OverdueTasksButton() {
   const { dismissedNudges, removeFromOverdueList } = useSmartNudges();
   const [open, setOpen] = useState(false);
+  const [overdueAssignments, setOverdueAssignments] = useState<SmartNudgeType[]>([]);
+  const navigate = useNavigate();
 
-  if (dismissedNudges.length === 0) return null;
+  // Fetch overdue assignments directly
+  useEffect(() => {
+    const fetchOverdueAssignments = async () => {
+      const { data: session } = await supabase.auth.getSession();
+      if (!session?.session?.user) return;
+
+      const now = new Date().toISOString();
+      const { data: overdue } = await supabase
+        .from("assignments")
+        .select("id, title, due_date, reschedule_count, completion_percentage")
+        .eq("user_id", session.session.user.id)
+        .eq("is_completed", false)
+        .lt("due_date", now)
+        .order("due_date", { ascending: true })
+        .limit(10);
+
+      if (overdue) {
+        const overdueNudges: SmartNudgeType[] = overdue.map(a => {
+          const dueDate = new Date(a.due_date);
+          const daysOverdue = Math.floor((Date.now() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
+          return {
+            type: "overdue" as const,
+            assignment_id: a.id,
+            assignment_title: a.title,
+            message: `is ${daysOverdue} day${daysOverdue !== 1 ? 's' : ''} overdue`,
+            action_label: "Work on This",
+            action_type: "do_now" as const,
+            priority: 0,
+          };
+        });
+        setOverdueAssignments(overdueNudges);
+      }
+    };
+
+    fetchOverdueAssignments();
+  }, []);
+
+  // Combine dismissed nudges with actual overdue assignments (deduped)
+  const allOverdueItems = useMemo(() => {
+    const combined = [...overdueAssignments];
+    dismissedNudges.forEach(nudge => {
+      if (!combined.some(n => n.assignment_id === nudge.assignment_id)) {
+        combined.push(nudge);
+      }
+    });
+    return combined;
+  }, [overdueAssignments, dismissedNudges]);
+
+  if (allOverdueItems.length === 0) return null;
 
   return (
-    <OverdueTasksPanel
-      open={open}
-      onOpenChange={setOpen}
-      overdueNudges={dismissedNudges}
-      onRemoveNudge={removeFromOverdueList}
-    />
+    <Sheet open={open} onOpenChange={setOpen}>
+      <SheetTrigger asChild>
+        <Button
+          variant="outline"
+          size="sm"
+          className="fixed bottom-24 right-4 z-40 gap-2 shadow-lg bg-background/95 backdrop-blur-sm border-destructive/50 text-destructive hover:bg-destructive/10"
+        >
+          <AlertTriangle className="h-4 w-4" />
+          <span className="hidden sm:inline">Needs Attention</span>
+          <Badge variant="destructive" className="ml-1">
+            {allOverdueItems.length}
+          </Badge>
+        </Button>
+      </SheetTrigger>
+      <SheetContent side="right" className="w-full sm:max-w-md">
+        <SheetHeader>
+          <SheetTitle className="flex items-center gap-2">
+            <AlertTriangle className="h-5 w-5 text-destructive" />
+            Tasks Needing Attention
+          </SheetTitle>
+          <SheetDescription>
+            Overdue or pending tasks. Choose an action for each.
+          </SheetDescription>
+        </SheetHeader>
+        
+        <ScrollArea className="h-[calc(100vh-200px)] mt-6">
+          <div className="space-y-4 pr-4">
+            {allOverdueItems.map((nudge, index) => (
+              <div
+                key={`${nudge.assignment_id}-${index}`}
+                className="p-4 rounded-lg border bg-card space-y-3"
+              >
+                <div className="flex items-start gap-3">
+                  <div className={cn(
+                    "flex h-8 w-8 items-center justify-center rounded-full",
+                    nudge.type === "overdue" ? "bg-destructive/10" : "bg-amber-500/10"
+                  )}>
+                    {nudge.type === "overdue" ? (
+                      <Clock className="h-4 w-4 text-destructive" />
+                    ) : (
+                      <AlertTriangle className="h-4 w-4 text-amber-500" />
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-medium text-sm">{nudge.assignment_title}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{nudge.message}</p>
+                  </div>
+                </div>
+                
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="flex-1 gap-1"
+                    onClick={() => {
+                      navigate(`/assignments`);
+                      setOpen(false);
+                    }}
+                  >
+                    <Sparkles className="h-3 w-3" />
+                    Break Down
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="flex-1 gap-1"
+                    onClick={() => {
+                      navigate(`/calendar`);
+                      setOpen(false);
+                    }}
+                  >
+                    <Calendar className="h-3 w-3" />
+                    Schedule
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="w-full gap-1 mt-1"
+                    onClick={() => {
+                      navigate(`/timer`);
+                      setOpen(false);
+                    }}
+                  >
+                    <Zap className="h-3 w-3" />
+                    Start Now
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </ScrollArea>
+      </SheetContent>
+    </Sheet>
   );
 }
