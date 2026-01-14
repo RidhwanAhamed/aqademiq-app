@@ -13,6 +13,82 @@ interface MicroTask {
   priority: "low" | "medium" | "high";
 }
 
+interface ScheduleSlot {
+  date: string;
+  start_time: string;
+  end_time: string;
+}
+
+// Helper to add minutes to a time string
+function addMinutesToTime(timeStr: string, minutes: number): string {
+  const [h, m] = timeStr.split(":").map(Number);
+  const totalMinutes = h * 60 + m + minutes;
+  const newHours = Math.floor(totalMinutes / 60) % 24;
+  const newMinutes = totalMinutes % 60;
+  return `${String(newHours).padStart(2, "0")}:${String(newMinutes).padStart(2, "0")}:00`;
+}
+
+// Helper to check if two time ranges overlap
+function timesOverlap(
+  start1: string, end1: string, 
+  start2: string, end2: string
+): boolean {
+  const toMinutes = (t: string) => {
+    const [h, m] = t.split(":").map(Number);
+    return h * 60 + m;
+  };
+  const s1 = toMinutes(start1), e1 = toMinutes(end1);
+  const s2 = toMinutes(start2), e2 = toMinutes(end2);
+  return s1 < e2 && s2 < e1;
+}
+
+// Find available slots for a given date, avoiding conflicts
+function findAvailableSlots(
+  date: string,
+  durationMinutes: number,
+  existingBlocks: Array<{ specific_date: string | null; day_of_week: number | null; start_time: string; end_time: string }>,
+  workdayStart = 9,
+  workdayEnd = 21
+): ScheduleSlot | null {
+  const dateObj = new Date(date);
+  const dayOfWeek = dateObj.getDay();
+  
+  // Get blocks for this specific date or recurring on this day
+  const dayBlocks = existingBlocks.filter(b => 
+    b.specific_date === date || b.day_of_week === dayOfWeek
+  ).sort((a, b) => a.start_time.localeCompare(b.start_time));
+  
+  // Try to find a slot between workday hours
+  let currentStart = workdayStart;
+  
+  for (const block of dayBlocks) {
+    const [blockStartH] = block.start_time.split(":").map(Number);
+    const [blockEndH, blockEndM] = block.end_time.split(":").map(Number);
+    const blockEnd = blockEndH + blockEndM / 60;
+    
+    // Check if we can fit before this block
+    const slotEnd = currentStart + durationMinutes / 60;
+    if (slotEnd <= blockStartH && currentStart >= workdayStart) {
+      const startTime = `${String(Math.floor(currentStart)).padStart(2, "0")}:${String(Math.round((currentStart % 1) * 60)).padStart(2, "0")}:00`;
+      const endTime = addMinutesToTime(startTime, durationMinutes);
+      return { date, start_time: startTime, end_time: endTime };
+    }
+    
+    // Move current start past this block
+    currentStart = Math.max(currentStart, blockEnd);
+  }
+  
+  // Check if we can fit after all blocks
+  const slotEnd = currentStart + durationMinutes / 60;
+  if (slotEnd <= workdayEnd && currentStart >= workdayStart) {
+    const startTime = `${String(Math.floor(currentStart)).padStart(2, "0")}:${String(Math.round((currentStart % 1) * 60)).padStart(2, "0")}:00`;
+    const endTime = addMinutesToTime(startTime, durationMinutes);
+    return { date, start_time: startTime, end_time: endTime };
+  }
+  
+  return null;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -63,6 +139,13 @@ serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    // Fetch existing schedule blocks to avoid conflicts
+    const { data: existingBlocks } = await supabaseClient
+      .from("schedule_blocks")
+      .select("specific_date, day_of_week, start_time, end_time")
+      .eq("user_id", user.id)
+      .eq("is_active", true);
 
     // Call Lovable AI to generate micro-tasks
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
@@ -155,18 +238,60 @@ Create specific, actionable steps that a student can complete one at a time. Eac
 
     const { tasks: microTasks }: { tasks: MicroTask[] } = JSON.parse(toolCall.function.arguments);
 
-    // Insert micro-tasks into the tasks table
-    const tasksToInsert = microTasks.map((task, index) => ({
-      user_id: user.id,
-      assignment_id: assignment_id,
-      title: task.title,
-      description: task.description,
-      estimated_minutes: Math.min(task.estimated_minutes, 30),
-      priority: task.priority === "high" ? 1 : task.priority === "medium" ? 2 : 3,
-      order_index: index,
-      is_completed: false,
-      task_type: "micro_task",
-    }));
+    // Calculate recommended schedule for each task
+    const dueDate = new Date(assignment.due_date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    // Calculate days available (from today to due date - 1)
+    const daysUntilDue = Math.max(1, Math.floor((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)));
+    const tasksPerDay = Math.ceil(microTasks.length / daysUntilDue);
+    
+    // Track used slots to avoid scheduling conflicts between tasks
+    const usedSlots: Array<{ date: string; start_time: string; end_time: string }> = [];
+    
+    // Insert micro-tasks with recommended scheduling
+    const tasksToInsert = microTasks.map((task, index) => {
+      const estimatedMinutes = Math.min(task.estimated_minutes, 30);
+      
+      // Calculate which day to schedule this task
+      const dayOffset = Math.min(Math.floor(index / tasksPerDay), daysUntilDue - 1);
+      const targetDate = new Date(today);
+      targetDate.setDate(today.getDate() + dayOffset);
+      const dateStr = targetDate.toISOString().split("T")[0];
+      
+      // Combine existing blocks with already-used slots for this scheduling session
+      const allBlocksForDate = [
+        ...(existingBlocks || []),
+        ...usedSlots.filter(s => s.date === dateStr).map(s => ({
+          specific_date: s.date,
+          day_of_week: null,
+          start_time: s.start_time,
+          end_time: s.end_time
+        }))
+      ];
+      
+      // Find an available slot
+      const slot = findAvailableSlots(dateStr, estimatedMinutes, allBlocksForDate);
+      
+      // Track this slot as used
+      if (slot) {
+        usedSlots.push({ date: slot.date, start_time: slot.start_time, end_time: slot.end_time });
+      }
+      
+      return {
+        user_id: user.id,
+        assignment_id: assignment_id,
+        title: task.title,
+        description: task.description,
+        estimated_minutes: estimatedMinutes,
+        priority: task.priority === "high" ? 1 : task.priority === "medium" ? 2 : 3,
+        order_index: index,
+        is_completed: false,
+        task_type: "micro_task",
+        due_date: slot ? `${slot.date}T${slot.start_time}` : null,
+      };
+    });
 
     const { data: insertedTasks, error: insertError } = await supabaseClient
       .from("tasks")

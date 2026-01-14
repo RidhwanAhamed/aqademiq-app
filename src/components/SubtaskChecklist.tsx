@@ -4,10 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
-import { Trash2, Clock, Sparkles, Loader2, Calendar, Check, Edit2, X, CalendarPlus } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { Trash2, Clock, Sparkles, Loader2, Calendar, Check, X, CalendarPlus, Edit2 } from "lucide-react";
 import { useSubtasks, Subtask } from "@/hooks/useSubtasks";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { format, parseISO } from "date-fns";
 
 interface SubtaskChecklistProps {
   assignmentId: string;
@@ -29,6 +32,7 @@ export function SubtaskChecklist({ assignmentId, estimatedHours, className }: Su
     scheduleSubtask,
     scheduleAllSubtasks,
     schedulingTaskId,
+    updateSubtask,
   } = useSubtasks(assignmentId);
 
   const showBreakdownButton = (estimatedHours ?? 0) >= 1 && totalCount === 0;
@@ -110,6 +114,7 @@ export function SubtaskChecklist({ assignmentId, estimatedHours, className }: Su
                 onToggle={toggleSubtask}
                 onDelete={deleteSubtask}
                 onSchedule={scheduleSubtask}
+                onUpdate={updateSubtask}
                 isScheduling={schedulingTaskId === task.id}
               />
             ))}
@@ -125,12 +130,20 @@ interface SubtaskItemProps {
   onToggle: (id: string, completed: boolean) => void;
   onDelete: (id: string) => void;
   onSchedule: (task: Subtask) => Promise<void>;
+  onUpdate: (id: string, updates: Partial<Subtask>) => Promise<void>;
   isScheduling: boolean;
 }
 
-function SubtaskItem({ task, onToggle, onDelete, onSchedule, isScheduling }: SubtaskItemProps) {
+function SubtaskItem({ task, onToggle, onDelete, onSchedule, onUpdate, isScheduling }: SubtaskItemProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(task.title);
+  const [editMinutes, setEditMinutes] = useState(task.estimated_minutes?.toString() || "30");
+  const [editDate, setEditDate] = useState<Date | undefined>(
+    task.due_date ? parseISO(task.due_date) : undefined
+  );
+  const [editTime, setEditTime] = useState(
+    task.due_date ? format(parseISO(task.due_date), "HH:mm") : "09:00"
+  );
   const { toast } = useToast();
 
   const priorityColors = {
@@ -140,15 +153,28 @@ function SubtaskItem({ task, onToggle, onDelete, onSchedule, isScheduling }: Sub
   };
 
   const handleSaveEdit = async () => {
-    // TODO: Implement edit save when backend supports it
+    const updates: Partial<Subtask> = {
+      title: editTitle,
+      estimated_minutes: parseInt(editMinutes) || 30,
+    };
+    
+    if (editDate) {
+      const [hours, minutes] = editTime.split(":").map(Number);
+      const newDate = new Date(editDate);
+      newDate.setHours(hours, minutes, 0, 0);
+      updates.due_date = newDate.toISOString();
+    }
+    
+    await onUpdate(task.id, updates);
     toast({
       title: "Updated",
-      description: "Task title updated.",
+      description: "Task updated successfully.",
     });
     setIsEditing(false);
   };
 
   const isScheduled = !!task.scheduled_block_id;
+  const recommendedTime = task.due_date ? parseISO(task.due_date) : null;
 
   return (
     <div
@@ -166,89 +192,163 @@ function SubtaskItem({ task, onToggle, onDelete, onSchedule, isScheduling }: Sub
       
       <div className="flex-1 min-w-0">
         {isEditing ? (
-          <div className="flex items-center gap-2">
+          <div className="space-y-3">
             <Input
               value={editTitle}
               onChange={(e) => setEditTitle(e.target.value)}
-              className="h-7 text-sm"
+              className="h-8 text-sm"
+              placeholder="Task title"
               autoFocus
             />
-            <Button size="icon" variant="ghost" className="h-6 w-6" onClick={handleSaveEdit}>
-              <Check className="h-3 w-3" />
-            </Button>
-            <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => setIsEditing(false)}>
-              <X className="h-3 w-3" />
-            </Button>
+            
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Duration edit */}
+              <div className="flex items-center gap-1">
+                <Clock className="h-3 w-3 text-muted-foreground" />
+                <Input
+                  type="number"
+                  value={editMinutes}
+                  onChange={(e) => setEditMinutes(e.target.value)}
+                  className="h-7 w-16 text-xs"
+                  min="5"
+                  max="120"
+                />
+                <span className="text-xs text-muted-foreground">min</span>
+              </div>
+              
+              {/* Date picker */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-7 text-xs gap-1">
+                    <Calendar className="h-3 w-3" />
+                    {editDate ? format(editDate, "MMM d") : "Pick date"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <CalendarComponent
+                    mode="single"
+                    selected={editDate}
+                    onSelect={setEditDate}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+              
+              {/* Time picker */}
+              <Input
+                type="time"
+                value={editTime}
+                onChange={(e) => setEditTime(e.target.value)}
+                className="h-7 w-24 text-xs"
+              />
+            </div>
+            
+            <div className="flex items-center gap-1">
+              <Button size="sm" variant="default" className="h-7 text-xs" onClick={handleSaveEdit}>
+                <Check className="h-3 w-3 mr-1" />
+                Save
+              </Button>
+              <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setIsEditing(false)}>
+                <X className="h-3 w-3 mr-1" />
+                Cancel
+              </Button>
+            </div>
           </div>
         ) : (
-          <div className="flex items-center gap-2 flex-wrap">
-            <span
-              className={cn(
-                "text-sm font-medium cursor-pointer hover:text-primary",
-                task.is_completed && "line-through text-muted-foreground"
-              )}
-              onClick={() => setIsEditing(true)}
-            >
-              {task.title}
-            </span>
-            {task.priority && (
-              <Badge
-                variant="secondary"
-                className={cn("text-xs", priorityColors[task.priority as keyof typeof priorityColors])}
+          <>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span
+                className={cn(
+                  "text-sm font-medium",
+                  task.is_completed && "line-through text-muted-foreground"
+                )}
               >
-                {task.priority === 1 ? "High" : task.priority === 2 ? "Medium" : "Low"}
-              </Badge>
+                {task.title}
+              </span>
+              {task.priority && (
+                <Badge
+                  variant="secondary"
+                  className={cn("text-xs", priorityColors[task.priority as keyof typeof priorityColors])}
+                >
+                  {task.priority === 1 ? "High" : task.priority === 2 ? "Medium" : "Low"}
+                </Badge>
+              )}
+              {isScheduled && (
+                <Badge variant="outline" className="text-xs gap-1 text-primary border-primary">
+                  <Calendar className="h-3 w-3" />
+                  Scheduled
+                </Badge>
+              )}
+            </div>
+            
+            {task.description && (
+              <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                {task.description}
+              </p>
             )}
-            {isScheduled && (
-              <Badge variant="outline" className="text-xs gap-1 text-primary border-primary">
-                <Calendar className="h-3 w-3" />
-                Scheduled
-              </Badge>
-            )}
-          </div>
-        )}
-        
-        {task.description && !isEditing && (
-          <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-            {task.description}
-          </p>
-        )}
-        
-        {task.estimated_minutes && !isEditing && (
-          <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
-            <Clock className="h-3 w-3" />
-            <span>{task.estimated_minutes} min</span>
-          </div>
+            
+            {/* Duration and Recommended Time */}
+            <div className="flex items-center gap-3 mt-2 flex-wrap">
+              {task.estimated_minutes && (
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <Clock className="h-3 w-3" />
+                  <span>{task.estimated_minutes} min</span>
+                </div>
+              )}
+              
+              {recommendedTime && !isScheduled && (
+                <div className="flex items-center gap-1 text-xs text-primary/80 bg-primary/10 px-2 py-0.5 rounded-full">
+                  <Calendar className="h-3 w-3" />
+                  <span>
+                    Recommended: {format(recommendedTime, "MMM d")} at {format(recommendedTime, "h:mm a")}
+                  </span>
+                </div>
+              )}
+            </div>
+          </>
         )}
       </div>
 
-      <div className="flex items-center gap-1">
-        {/* Schedule to calendar button */}
-        {!task.is_completed && !isScheduled && (
+      {!isEditing && (
+        <div className="flex items-center gap-1">
+          {/* Edit button */}
           <Button
             variant="ghost"
             size="icon"
-            className="h-7 w-7 text-muted-foreground hover:text-primary"
-            onClick={() => onSchedule(task)}
-            disabled={isScheduling}
-            title="Add to calendar"
+            className="h-7 w-7 text-muted-foreground hover:text-foreground"
+            onClick={() => setIsEditing(true)}
+            title="Edit task"
           >
-            {isScheduling ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Calendar className="h-3.5 w-3.5" />
-            )}
+            <Edit2 className="h-3.5 w-3.5" />
           </Button>
-        )}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7 text-muted-foreground hover:text-destructive"
-          onClick={() => onDelete(task.id)}
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-        </Button>
-      </div>
+          
+          {/* Schedule to calendar button */}
+          {!task.is_completed && !isScheduled && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-muted-foreground hover:text-primary"
+              onClick={() => onSchedule(task)}
+              disabled={isScheduling}
+              title="Add to calendar"
+            >
+              {isScheduling ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <CalendarPlus className="h-3.5 w-3.5" />
+              )}
+            </Button>
+          )}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 text-muted-foreground hover:text-destructive"
+            onClick={() => onDelete(task.id)}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

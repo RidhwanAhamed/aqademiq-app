@@ -18,6 +18,9 @@ export interface Subtask {
   created_at: string;
   due_date: string | null;
   scheduled_block_id?: string | null;
+  recommended_date?: string | null;
+  recommended_start_time?: string | null;
+  recommended_end_time?: string | null;
 }
 
 export function useSubtasks(assignmentId?: string) {
@@ -189,6 +192,37 @@ export function useSubtasks(assignmentId?: string) {
     }
   }, [toast]);
 
+  const updateSubtask = useCallback(async (taskId: string, updates: Partial<Subtask>) => {
+    try {
+      const dbUpdates: Record<string, unknown> = {};
+      if (updates.title !== undefined) dbUpdates.title = updates.title;
+      if (updates.description !== undefined) dbUpdates.description = updates.description;
+      if (updates.estimated_minutes !== undefined) dbUpdates.estimated_minutes = updates.estimated_minutes;
+      if (updates.due_date !== undefined) dbUpdates.due_date = updates.due_date;
+      if (updates.priority !== undefined) dbUpdates.priority = updates.priority;
+
+      const { error } = await supabase
+        .from("tasks")
+        .update(dbUpdates)
+        .eq("id", taskId);
+
+      if (error) throw error;
+
+      setSubtasks((prev) =>
+        prev.map((task) =>
+          task.id === taskId ? { ...task, ...updates } : task
+        )
+      );
+    } catch (err) {
+      console.error("Error updating subtask:", err);
+      toast({
+        title: "Error",
+        description: "Failed to update task.",
+        variant: "destructive",
+      });
+    }
+  }, [toast]);
+
   const scheduleSubtask = useCallback(async (task: Subtask) => {
     if (!user) return;
     
@@ -205,18 +239,39 @@ export function useSubtasks(assignmentId?: string) {
         throw new Error("Assignment not found");
       }
 
-      // Schedule for tomorrow or today (find a good time slot)
-      const now = new Date();
-      const scheduleDate = new Date();
-      scheduleDate.setDate(now.getDate() + 1); // Default to tomorrow
+      // Use recommended time from task if available, otherwise calculate
+      let scheduleDate: Date;
+      let startTime: string;
+      let endTime: string;
       
-      // Find next available 30-min slot starting at 9 AM
-      const startHour = 9 + Math.floor(Math.random() * 8); // Random between 9 AM and 5 PM
-      const startTime = `${String(startHour).padStart(2, "0")}:00:00`;
-      const durationMinutes = task.estimated_minutes || 30;
-      const endHour = startHour + Math.ceil(durationMinutes / 60);
-      const endMinutes = durationMinutes % 60;
-      const endTime = `${String(endHour).padStart(2, "0")}:${String(endMinutes).padStart(2, "0")}:00`;
+      if (task.due_date) {
+        // Use the recommended time stored in due_date
+        const recommendedDate = new Date(task.due_date);
+        scheduleDate = recommendedDate;
+        const hours = recommendedDate.getHours();
+        const minutes = recommendedDate.getMinutes();
+        startTime = `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:00`;
+        
+        const durationMinutes = task.estimated_minutes || 30;
+        const endMinutesTotal = hours * 60 + minutes + durationMinutes;
+        const endHour = Math.floor(endMinutesTotal / 60) % 24;
+        const endMin = endMinutesTotal % 60;
+        endTime = `${String(endHour).padStart(2, "0")}:${String(endMin).padStart(2, "0")}:00`;
+      } else {
+        // Fallback: schedule for tomorrow with smart time selection
+        const now = new Date();
+        scheduleDate = new Date();
+        scheduleDate.setDate(now.getDate() + 1);
+        
+        // Find next available slot starting at 9 AM
+        const startHour = 9 + Math.floor(Math.random() * 8);
+        startTime = `${String(startHour).padStart(2, "0")}:00:00`;
+        const durationMinutes = task.estimated_minutes || 30;
+        const endMinutesTotal = startHour * 60 + durationMinutes;
+        const endHour = Math.floor(endMinutesTotal / 60);
+        const endMin = endMinutesTotal % 60;
+        endTime = `${String(endHour).padStart(2, "0")}:${String(endMin).padStart(2, "0")}:00`;
+      }
 
       const { error } = await supabase
         .from("schedule_blocks")
@@ -302,6 +357,7 @@ export function useSubtasks(assignmentId?: string) {
     generateBreakdown,
     toggleSubtask,
     deleteSubtask,
+    updateSubtask,
     scheduleSubtask,
     scheduleAllSubtasks,
   };
