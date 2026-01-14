@@ -18,6 +18,7 @@ import { MarketplaceTeaserCard } from "./MarketplaceTeaserCard";
 import { QuickStats } from "./QuickStats";
 import { RevisionTasksPanel } from "./RevisionTasksPanel";
 import { TodayTimeline } from "./TodayTimeline";
+import { OverdueTasksButton } from "./SmartNudge";
 
 export function Dashboard() {
   const [showAddDialog, setShowAddDialog] = useState(false);
@@ -318,6 +319,9 @@ export function Dashboard() {
         contextData={aiContextData}
         onGenerateInsights={generateAIInsights}
       />
+
+      {/* Overdue Tasks Button */}
+      <OverdueTasksButton />
     </div>
   );
 }

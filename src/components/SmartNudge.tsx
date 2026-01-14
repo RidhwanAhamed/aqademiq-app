@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { X, Sparkles, Clock, AlertTriangle, Zap, Calendar, List } from "lucide-react";
@@ -24,15 +24,14 @@ interface SmartNudgeProps {
 export function SmartNudge({ className, activeAssignmentId }: SmartNudgeProps) {
   const { 
     currentNudge, 
-    nudges,
     dismissNudge, 
     snoozeNudge, 
     hasNudges, 
     loading,
     dismissedNudges,
-    addToOverdueList 
+    addToOverdueList,
+    removeFromOverdueList
   } = useSmartNudges();
-  const [handlingAction, setHandlingAction] = useState(false);
   const [showOverdueSheet, setShowOverdueSheet] = useState(false);
   const navigate = useNavigate();
 
@@ -41,10 +40,9 @@ export function SmartNudge({ className, activeAssignmentId }: SmartNudgeProps) {
     ? currentNudge 
     : null;
 
-  if (loading || !hasNudges || !filteredNudge) return null;
-
   const handleAction = async () => {
-    setHandlingAction(true);
+    if (!filteredNudge) return;
+    
     switch (filteredNudge.action_type) {
       case "breakdown":
         dismissNudge(filteredNudge.assignment_id, "breakdown_started");
@@ -59,39 +57,46 @@ export function SmartNudge({ className, activeAssignmentId }: SmartNudgeProps) {
         navigate(`/assignments`);
         break;
     }
-    setHandlingAction(false);
   };
 
   const handleDismissToOverdue = () => {
+    if (!filteredNudge) return;
     addToOverdueList(filteredNudge);
     dismissNudge(filteredNudge.assignment_id, "moved_to_overdue");
   };
 
+  // Show nudge card only if there's an active nudge
+  const showNudgeCard = !loading && hasNudges && filteredNudge;
+
   return (
     <>
+      {/* Active Nudge Card */}
       <AnimatePresence>
-        <motion.div
-          initial={{ opacity: 0, y: 50, scale: 0.9 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: 50, scale: 0.9 }}
-          transition={{ type: "spring", damping: 20, stiffness: 300 }}
-          className={className}
-        >
-          <NudgeCard
-            nudge={filteredNudge}
-            onDismiss={handleDismissToOverdue}
-            onSnooze={() => snoozeNudge(filteredNudge.assignment_id, 60)}
-            onAction={handleAction}
-          />
-        </motion.div>
+        {showNudgeCard && (
+          <motion.div
+            initial={{ opacity: 0, y: 50, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 50, scale: 0.9 }}
+            transition={{ type: "spring", damping: 20, stiffness: 300 }}
+            className={className}
+          >
+            <NudgeCard
+              nudge={filteredNudge}
+              onDismiss={handleDismissToOverdue}
+              onSnooze={() => snoozeNudge(filteredNudge.assignment_id, 60)}
+              onAction={handleAction}
+            />
+          </motion.div>
+        )}
       </AnimatePresence>
 
-      {/* Overdue Tasks Button - shows when there are dismissed nudges */}
+      {/* Overdue Tasks Button - Always visible when there are dismissed nudges */}
       {dismissedNudges.length > 0 && (
         <OverdueTasksPanel 
           open={showOverdueSheet}
           onOpenChange={setShowOverdueSheet}
           overdueNudges={dismissedNudges}
+          onRemoveNudge={removeFromOverdueList}
         />
       )}
     </>
@@ -191,22 +196,26 @@ interface OverdueTasksPanelProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   overdueNudges: SmartNudgeType[];
+  onRemoveNudge: (assignmentId: string) => void;
 }
 
-function OverdueTasksPanel({ open, onOpenChange, overdueNudges }: OverdueTasksPanelProps) {
+function OverdueTasksPanel({ open, onOpenChange, overdueNudges, onRemoveNudge }: OverdueTasksPanelProps) {
   const navigate = useNavigate();
 
   const handleBreakdown = (nudge: SmartNudgeType) => {
+    onRemoveNudge(nudge.assignment_id);
     navigate(`/assignments`);
     onOpenChange(false);
   };
 
   const handleSchedule = (nudge: SmartNudgeType) => {
+    onRemoveNudge(nudge.assignment_id);
     navigate(`/calendar`);
     onOpenChange(false);
   };
 
   const handleStartNow = (nudge: SmartNudgeType) => {
+    onRemoveNudge(nudge.assignment_id);
     navigate(`/timer`);
     onOpenChange(false);
   };
@@ -259,6 +268,14 @@ function OverdueTasksPanel({ open, onOpenChange, overdueNudges }: OverdueTasksPa
                     <p className="font-medium text-sm">{nudge.assignment_title}</p>
                     <p className="text-xs text-muted-foreground mt-1">{nudge.message}</p>
                   </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6"
+                    onClick={() => onRemoveNudge(nudge.assignment_id)}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
                 </div>
                 
                 <div className="flex flex-wrap gap-2">
@@ -302,5 +319,22 @@ function OverdueTasksPanel({ open, onOpenChange, overdueNudges }: OverdueTasksPa
         </ScrollArea>
       </SheetContent>
     </Sheet>
+  );
+}
+
+// Export standalone button component for use in other pages
+export function OverdueTasksButton() {
+  const { dismissedNudges, removeFromOverdueList } = useSmartNudges();
+  const [open, setOpen] = useState(false);
+
+  if (dismissedNudges.length === 0) return null;
+
+  return (
+    <OverdueTasksPanel
+      open={open}
+      onOpenChange={setOpen}
+      overdueNudges={dismissedNudges}
+      onRemoveNudge={removeFromOverdueList}
+    />
   );
 }
