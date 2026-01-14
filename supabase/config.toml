@@ -409,6 +409,15 @@ verify_jwt = false
 [functions.get-signed-url]
 verify_jwt = true
 
+[functions.breakdown-task]
+verify_jwt = false
+
+[functions.smart-scheduler]
+verify_jwt = false
+
+[functions.check-nudges]
+verify_jwt = false
+
 [analytics]
 enabled = true
 port = 54327
