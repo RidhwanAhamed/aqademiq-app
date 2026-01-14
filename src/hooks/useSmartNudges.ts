@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -12,16 +12,58 @@ export interface SmartNudge {
   priority: number;
 }
 
+const SESSION_STORAGE_KEY = "dismissed_nudges";
+const OVERDUE_LIST_KEY = "overdue_nudges_list";
+
 export function useSmartNudges() {
   const [nudges, setNudges] = useState<SmartNudge[]>([]);
   const [loading, setLoading] = useState(false);
   const [dismissed, setDismissed] = useState<string[]>([]);
+  const [dismissedNudges, setDismissedNudges] = useState<SmartNudge[]>([]);
   const { user } = useAuth();
+  const hasFetched = useRef(false);
+
+  // Load dismissed IDs and overdue list from sessionStorage on mount
+  useEffect(() => {
+    try {
+      const storedDismissed = sessionStorage.getItem(SESSION_STORAGE_KEY);
+      if (storedDismissed) {
+        setDismissed(JSON.parse(storedDismissed));
+      }
+      
+      const storedOverdue = sessionStorage.getItem(OVERDUE_LIST_KEY);
+      if (storedOverdue) {
+        setDismissedNudges(JSON.parse(storedOverdue));
+      }
+    } catch (err) {
+      console.error("Error loading dismissed nudges from storage:", err);
+    }
+  }, []);
+
+  // Save dismissed IDs to sessionStorage when they change
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(dismissed));
+    } catch (err) {
+      console.error("Error saving dismissed nudges to storage:", err);
+    }
+  }, [dismissed]);
+
+  // Save overdue list to sessionStorage when it changes
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(OVERDUE_LIST_KEY, JSON.stringify(dismissedNudges));
+    } catch (err) {
+      console.error("Error saving overdue nudges to storage:", err);
+    }
+  }, [dismissedNudges]);
 
   const fetchNudges = useCallback(async () => {
-    if (!user) return;
+    if (!user || hasFetched.current) return;
 
     setLoading(true);
+    hasFetched.current = true;
+    
     try {
       // First, try to call the edge function
       const { data, error } = await supabase.functions.invoke("check-nudges", {
@@ -76,13 +118,16 @@ export function useSmartNudges() {
         const rescheduleCount = assignment.reschedule_count || 0;
         const completionPercentage = assignment.completion_percentage || 0;
 
+        // Skip if already dismissed this session
+        if (dismissed.includes(assignment.id)) continue;
+
         // Skip warning: Assignment postponed 3+ times
-        if (rescheduleCount >= 3 && !dismissed.includes(assignment.id)) {
+        if (rescheduleCount >= 3) {
           generatedNudges.push({
             type: "skip_warning",
             assignment_id: assignment.id,
             assignment_title: assignment.title,
-            message: `You've postponed this ${rescheduleCount} times. Consider breaking it into smaller tasks.`,
+            message: `has been postponed ${rescheduleCount} times. Consider breaking it into smaller tasks.`,
             action_label: "Break it down",
             action_type: "breakdown",
             priority: 1,
@@ -91,13 +136,14 @@ export function useSmartNudges() {
         }
 
         // Overdue: Past due date
-        if (dueDate < now && !dismissed.includes(assignment.id)) {
+        if (dueDate < now) {
+          const daysOverdue = Math.floor((now.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
           generatedNudges.push({
             type: "overdue",
             assignment_id: assignment.id,
             assignment_title: assignment.title,
-            message: `This assignment is past due! Take action now.`,
-            action_label: "Start now",
+            message: `is ${daysOverdue} day${daysOverdue !== 1 ? 's' : ''} overdue. Let's figure out what's blocking you.`,
+            action_label: "Work on This",
             action_type: "do_now",
             priority: 0,
           });
@@ -105,13 +151,13 @@ export function useSmartNudges() {
         }
 
         // Urgent deadline: Due within 24 hours with low completion
-        if (dueDate <= oneDayAhead && dueDate > now && completionPercentage < 50 && !dismissed.includes(assignment.id)) {
+        if (dueDate <= oneDayAhead && dueDate > now && completionPercentage < 50) {
           const hoursLeft = Math.round((dueDate.getTime() - now.getTime()) / (1000 * 60 * 60));
           generatedNudges.push({
             type: "deadline_urgent",
             assignment_id: assignment.id,
             assignment_title: assignment.title,
-            message: `Due in ${hoursLeft} hours with only ${completionPercentage}% complete.`,
+            message: `is due in ${hoursLeft} hours with only ${completionPercentage}% complete.`,
             action_label: "Focus now",
             action_type: "do_now",
             priority: 1,
@@ -123,14 +169,13 @@ export function useSmartNudges() {
         if (
           (assignment.estimated_hours || 0) >= 3 &&
           !assignment.breakdown_status &&
-          completionPercentage === 0 &&
-          !dismissed.includes(assignment.id)
+          completionPercentage === 0
         ) {
           generatedNudges.push({
             type: "breakdown_suggest",
             assignment_id: assignment.id,
             assignment_title: assignment.title,
-            message: `This is a ${assignment.estimated_hours}h task. Breaking it down can help!`,
+            message: `is a ${assignment.estimated_hours}h task. Breaking it down can help!`,
             action_label: "Magic Breakdown",
             action_type: "breakdown",
             priority: 2,
@@ -141,7 +186,7 @@ export function useSmartNudges() {
       // Sort by priority (lower = more urgent)
       generatedNudges.sort((a, b) => a.priority - b.priority);
 
-      setNudges(generatedNudges.filter(n => !dismissed.includes(n.assignment_id)));
+      setNudges(generatedNudges);
     } catch (err) {
       console.error("Error generating client-side nudges:", err);
     }
@@ -189,6 +234,20 @@ export function useSmartNudges() {
     }
   }, [user]);
 
+  const addToOverdueList = useCallback((nudge: SmartNudge) => {
+    setDismissedNudges((prev) => {
+      // Avoid duplicates
+      if (prev.some(n => n.assignment_id === nudge.assignment_id)) {
+        return prev;
+      }
+      return [...prev, nudge];
+    });
+  }, []);
+
+  const removeFromOverdueList = useCallback((assignmentId: string) => {
+    setDismissedNudges((prev) => prev.filter(n => n.assignment_id !== assignmentId));
+  }, []);
+
   const snoozeNudge = useCallback((assignmentId: string, minutes: number = 60) => {
     // Temporarily dismiss, will reappear on next check
     setNudges((prev) => prev.filter((n) => n.assignment_id !== assignmentId));
@@ -196,17 +255,21 @@ export function useSmartNudges() {
     // Re-add to nudges after snooze period
     setTimeout(() => {
       setDismissed((prev) => prev.filter((id) => id !== assignmentId));
+      hasFetched.current = false; // Allow re-fetch
     }, minutes * 60 * 1000);
   }, []);
 
-  // Check for nudges on mount and periodically
+  // Fetch nudges only once on mount (not on every render)
   useEffect(() => {
-    fetchNudges();
+    if (user && !hasFetched.current) {
+      fetchNudges();
+    }
+  }, [user, fetchNudges]);
 
-    // Check every 15 minutes (reduced from 30 for better responsiveness)
-    const interval = setInterval(fetchNudges, 15 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, [fetchNudges]);
+  // Reset hasFetched when user changes
+  useEffect(() => {
+    hasFetched.current = false;
+  }, [user?.id]);
 
   const currentNudge = nudges[0] || null;
 
@@ -218,5 +281,8 @@ export function useSmartNudges() {
     dismissNudge,
     snoozeNudge,
     hasNudges: nudges.length > 0,
+    dismissedNudges,
+    addToOverdueList,
+    removeFromOverdueList,
   };
 }
