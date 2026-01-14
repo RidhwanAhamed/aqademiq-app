@@ -8,12 +8,14 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { CalendarIcon, Edit2, Save, X, Clock, Repeat, Award } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { CalendarIcon, Edit2, Save, X, Clock, Repeat, Award, ChevronDown, ListTodo } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useCourses } from "@/hooks/useCourses";
 import { AIInsightButton } from "@/components/AIInsightButton";
 import { GradeDialog } from "@/components/GradeDialog";
+import { SubtaskChecklist } from "@/components/SubtaskChecklist";
 
 interface AssignmentRowProps {
   assignment: Assignment;
@@ -24,6 +26,7 @@ interface AssignmentRowProps {
 export function AssignmentRow({ assignment, onUpdate, onToggleComplete }: AssignmentRowProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [showGradeDialog, setShowGradeDialog] = useState(false);
+  const [showSubtasks, setShowSubtasks] = useState(false);
   const [title, setTitle] = useState(assignment.title);
   const [description, setDescription] = useState(assignment.description || "");
   const [courseId, setCourseId] = useState(assignment.course_id);
@@ -33,6 +36,7 @@ export function AssignmentRow({ assignment, onUpdate, onToggleComplete }: Assign
 
   const { courses } = useCourses();
   const course = courses.find(c => c.id === assignment.course_id);
+  const showBreakdownOption = (assignment.estimated_hours ?? 0) >= 1 && !assignment.is_completed;
 
   const handleSave = async () => {
     setSaving(true);

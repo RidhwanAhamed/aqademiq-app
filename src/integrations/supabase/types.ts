@@ -248,6 +248,7 @@ export type Database = {
         Row: {
           ai_generated_tasks: Json | null
           assignment_type: string | null
+          breakdown_status: string | null
           completion_percentage: number | null
           course_id: string
           created_at: string | null
@@ -261,6 +262,7 @@ export type Database = {
           id: string
           is_completed: boolean | null
           is_recurring: boolean | null
+          last_rescheduled_at: string | null
           notes: string | null
           original_due_date: string | null
           parent_assignment_id: string | null
@@ -268,6 +270,7 @@ export type Database = {
           recurrence_end_date: string | null
           recurrence_interval: number | null
           recurrence_pattern: string | null
+          reschedule_count: number | null
           title: string
           updated_at: string | null
           user_id: string
@@ -275,6 +278,7 @@ export type Database = {
         Insert: {
           ai_generated_tasks?: Json | null
           assignment_type?: string | null
+          breakdown_status?: string | null
           completion_percentage?: number | null
           course_id: string
           created_at?: string | null
@@ -288,6 +292,7 @@ export type Database = {
           id?: string
           is_completed?: boolean | null
           is_recurring?: boolean | null
+          last_rescheduled_at?: string | null
           notes?: string | null
           original_due_date?: string | null
           parent_assignment_id?: string | null
@@ -295,6 +300,7 @@ export type Database = {
           recurrence_end_date?: string | null
           recurrence_interval?: number | null
           recurrence_pattern?: string | null
+          reschedule_count?: number | null
           title: string
           updated_at?: string | null
           user_id: string
@@ -302,6 +308,7 @@ export type Database = {
         Update: {
           ai_generated_tasks?: Json | null
           assignment_type?: string | null
+          breakdown_status?: string | null
           completion_percentage?: number | null
           course_id?: string
           created_at?: string | null
@@ -315,6 +322,7 @@ export type Database = {
           id?: string
           is_completed?: boolean | null
           is_recurring?: boolean | null
+          last_rescheduled_at?: string | null
           notes?: string | null
           original_due_date?: string | null
           parent_assignment_id?: string | null
@@ -322,6 +330,7 @@ export type Database = {
           recurrence_end_date?: string | null
           recurrence_interval?: number | null
           recurrence_pattern?: string | null
+          reschedule_count?: number | null
           title?: string
           updated_at?: string | null
           user_id?: string
@@ -1123,6 +1132,44 @@ export type Database = {
         }
         Relationships: []
       }
+      nudge_history: {
+        Row: {
+          action_taken: string | null
+          assignment_id: string | null
+          dismissed_at: string | null
+          id: string
+          nudge_type: string
+          triggered_at: string | null
+          user_id: string
+        }
+        Insert: {
+          action_taken?: string | null
+          assignment_id?: string | null
+          dismissed_at?: string | null
+          id?: string
+          nudge_type: string
+          triggered_at?: string | null
+          user_id: string
+        }
+        Update: {
+          action_taken?: string | null
+          assignment_id?: string | null
+          dismissed_at?: string | null
+          id?: string
+          nudge_type?: string
+          triggered_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nudge_history_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "assignments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       oauth_state_tokens: {
         Row: {
           created_at: string
@@ -1231,6 +1278,36 @@ export type Database = {
           onboarding_completed?: boolean | null
           study_streak?: number | null
           timezone?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      proposed_schedules: {
+        Row: {
+          created_at: string | null
+          expires_at: string | null
+          id: string
+          proposed_items: Json
+          status: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          proposed_items?: Json
+          status?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          proposed_items?: Json
+          status?: string | null
           updated_at?: string | null
           user_id?: string
         }
