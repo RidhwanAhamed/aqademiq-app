@@ -16,12 +16,15 @@ export interface Subtask {
   completed_at: string | null;
   task_type: string | null;
   created_at: string;
+  due_date: string | null;
+  scheduled_block_id?: string | null;
 }
 
 export function useSubtasks(assignmentId?: string) {
   const [subtasks, setSubtasks] = useState<Subtask[]>([]);
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [schedulingTaskId, setSchedulingTaskId] = useState<string | null>(null);
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -39,7 +42,42 @@ export function useSubtasks(assignmentId?: string) {
         .order("order_index", { ascending: true });
 
       if (error) throw error;
-      setSubtasks(data || []);
+      
+      // Map to include scheduled_block_id (stored in metadata or separate lookup)
+      const tasksWithScheduleInfo = (data || []).map(task => ({
+        ...task,
+        scheduled_block_id: null, // Will be populated from schedule_blocks lookup
+      }));
+      
+      // Check which tasks have schedule blocks
+      if (tasksWithScheduleInfo.length > 0) {
+        const { data: scheduleBlocks } = await supabase
+          .from("schedule_blocks")
+          .select("id, description")
+          .eq("user_id", user.id)
+          .eq("source", "micro_task")
+          .eq("is_active", true);
+        
+        if (scheduleBlocks) {
+          const scheduledTaskIds = new Set(
+            scheduleBlocks
+              .map(b => {
+                // Parse task ID from description (format: "Micro-task for: {assignment} - Task ID: {taskId}")
+                const match = b.description?.match(/Task ID: ([a-f0-9-]+)/);
+                return match ? match[1] : null;
+              })
+              .filter(Boolean)
+          );
+          
+          tasksWithScheduleInfo.forEach(task => {
+            if (scheduledTaskIds.has(task.id)) {
+              task.scheduled_block_id = "scheduled";
+            }
+          });
+        }
+      }
+      
+      setSubtasks(tasksWithScheduleInfo);
     } catch (err) {
       console.error("Error fetching subtasks:", err);
     } finally {
@@ -151,6 +189,99 @@ export function useSubtasks(assignmentId?: string) {
     }
   }, [toast]);
 
+  const scheduleSubtask = useCallback(async (task: Subtask) => {
+    if (!user) return;
+    
+    setSchedulingTaskId(task.id);
+    try {
+      // Get the assignment to find its due date
+      const { data: assignment } = await supabase
+        .from("assignments")
+        .select("title, due_date, course_id")
+        .eq("id", task.assignment_id)
+        .single();
+
+      if (!assignment) {
+        throw new Error("Assignment not found");
+      }
+
+      // Schedule for tomorrow or today (find a good time slot)
+      const now = new Date();
+      const scheduleDate = new Date();
+      scheduleDate.setDate(now.getDate() + 1); // Default to tomorrow
+      
+      // Find next available 30-min slot starting at 9 AM
+      const startHour = 9 + Math.floor(Math.random() * 8); // Random between 9 AM and 5 PM
+      const startTime = `${String(startHour).padStart(2, "0")}:00:00`;
+      const durationMinutes = task.estimated_minutes || 30;
+      const endHour = startHour + Math.ceil(durationMinutes / 60);
+      const endMinutes = durationMinutes % 60;
+      const endTime = `${String(endHour).padStart(2, "0")}:${String(endMinutes).padStart(2, "0")}:00`;
+
+      const { error } = await supabase
+        .from("schedule_blocks")
+        .insert({
+          user_id: user.id,
+          title: task.title,
+          description: `Micro-task for: ${assignment.title} - Task ID: ${task.id}`,
+          specific_date: scheduleDate.toISOString().split("T")[0],
+          day_of_week: scheduleDate.getDay(),
+          start_time: startTime,
+          end_time: endTime,
+          course_id: assignment.course_id,
+          is_recurring: false,
+          is_active: true,
+          source: "micro_task",
+        });
+
+      if (error) throw error;
+
+      // Update local state to show as scheduled
+      setSubtasks((prev) =>
+        prev.map((t) =>
+          t.id === task.id ? { ...t, scheduled_block_id: "scheduled" } : t
+        )
+      );
+
+      toast({
+        title: "Scheduled!",
+        description: `"${task.title}" added to calendar for ${scheduleDate.toLocaleDateString()}.`,
+      });
+    } catch (err) {
+      console.error("Error scheduling subtask:", err);
+      toast({
+        title: "Error",
+        description: "Failed to schedule task to calendar.",
+        variant: "destructive",
+      });
+    } finally {
+      setSchedulingTaskId(null);
+    }
+  }, [user, toast]);
+
+  const scheduleAllSubtasks = useCallback(async () => {
+    if (!user) return;
+    
+    const unscheduledTasks = subtasks.filter(t => !t.is_completed && !t.scheduled_block_id);
+    if (unscheduledTasks.length === 0) return;
+
+    setSchedulingTaskId("all");
+    try {
+      for (const task of unscheduledTasks) {
+        await scheduleSubtask(task);
+      }
+      
+      toast({
+        title: "All Tasks Scheduled!",
+        description: `${unscheduledTasks.length} tasks added to your calendar.`,
+      });
+    } catch (err) {
+      console.error("Error scheduling all subtasks:", err);
+    } finally {
+      setSchedulingTaskId(null);
+    }
+  }, [user, subtasks, scheduleSubtask, toast]);
+
   useEffect(() => {
     fetchSubtasks();
   }, [fetchSubtasks]);
@@ -163,6 +294,7 @@ export function useSubtasks(assignmentId?: string) {
     subtasks,
     loading,
     generating,
+    schedulingTaskId,
     completedCount,
     totalCount,
     completionPercentage,
@@ -170,5 +302,7 @@ export function useSubtasks(assignmentId?: string) {
     generateBreakdown,
     toggleSubtask,
     deleteSubtask,
+    scheduleSubtask,
+    scheduleAllSubtasks,
   };
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from "@/hooks/useAuth";
 
@@ -25,6 +25,8 @@ export interface Assignment {
   parent_assignment_id?: string | null;
   exam_id?: string | null;
   original_due_date?: string | null;
+  reschedule_count?: number | null;
+  last_rescheduled_at?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -69,7 +71,11 @@ export function useAssignments() {
     try {
       const { data, error } = await supabase
         .from("assignments")
-        .insert([{ ...assignment, user_id: user.id }])
+        .insert([{ 
+          ...assignment, 
+          user_id: user.id,
+          original_due_date: assignment.due_date, // Store original due date
+        }])
         .select()
         .single();
       if (error) throw error;
@@ -82,11 +88,39 @@ export function useAssignments() {
     }
   };
 
-  const updateAssignment = async (id: string, updates: Partial<Assignment>) => {
+  const updateAssignment = useCallback(async (id: string, updates: Partial<Assignment>) => {
+    if (!user) return false;
+    
     try {
+      // Find the current assignment to check for date changes
+      const currentAssignment = assignments.find(a => a.id === id);
+      
+      let finalUpdates = { ...updates };
+      
+      // Check if due_date is being changed (postponement detection)
+      if (updates.due_date && currentAssignment) {
+        const currentDueDate = new Date(currentAssignment.due_date);
+        const newDueDate = new Date(updates.due_date);
+        
+        // If the new date is later than the current date (postponed)
+        if (newDueDate > currentDueDate) {
+          const currentRescheduleCount = currentAssignment.reschedule_count || 0;
+          
+          finalUpdates = {
+            ...finalUpdates,
+            reschedule_count: currentRescheduleCount + 1,
+            last_rescheduled_at: new Date().toISOString(),
+            // Store original due date only on first postponement
+            original_due_date: currentAssignment.original_due_date || currentAssignment.due_date,
+          };
+          
+          console.log(`Assignment "${currentAssignment.title}" postponed. Reschedule count: ${currentRescheduleCount + 1}`);
+        }
+      }
+      
       const { error } = await supabase
         .from("assignments")
-        .update(updates)
+        .update(finalUpdates)
         .eq("id", id);
       if (error) throw error;
       await fetchAssignments();
@@ -96,7 +130,7 @@ export function useAssignments() {
       setError("Failed to update assignment");
       return false;
     }
-  };
+  }, [user, assignments]);
 
   const toggleComplete = async (id: string, completed: boolean) => {
     return updateAssignment(id, { 
