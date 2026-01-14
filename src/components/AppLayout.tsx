@@ -2,6 +2,7 @@ import { Outlet, useNavigate } from "react-router-dom";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { MobileBottomNav } from "@/components/MobileBottomNav";
+import { SmartNudge } from "@/components/SmartNudge";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { LogOut, Menu, Loader2 } from "lucide-react";
@@ -71,6 +72,9 @@ export function AppLayout() {
           )}>
             <Outlet />
           </main>
+
+          {/* Smart Nudge - Floating above bottom nav */}
+          <SmartNudge className="fixed bottom-24 left-4 right-4 z-50 lg:bottom-4 lg:left-auto lg:right-4 lg:w-96" />
 
           {/* Mobile Bottom Navigation */}
           <MobileBottomNav />

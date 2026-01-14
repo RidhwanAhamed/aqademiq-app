@@ -1,9 +1,10 @@
-import { useEffect } from "react";
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { X, Sparkles, Clock, AlertTriangle, Zap } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { X, Sparkles, Clock, AlertTriangle, Zap, Wand2, Calendar, Bell, Loader2, ChevronRight } from "lucide-react";
 import { useSmartNudges, SmartNudge as SmartNudgeType } from "@/hooks/useSmartNudges";
-import { useSubtasks } from "@/hooks/useSubtasks";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 
@@ -12,10 +13,30 @@ interface SmartNudgeProps {
 }
 
 export function SmartNudge({ className }: SmartNudgeProps) {
-  const { currentNudge, dismissNudge, snoozeNudge } = useSmartNudges();
+  const { currentNudge, dismissNudge, snoozeNudge, hasNudges, loading } = useSmartNudges();
+  const [handlingAction, setHandlingAction] = useState(false);
   const navigate = useNavigate();
 
-  if (!currentNudge) return null;
+  if (loading || !hasNudges || !currentNudge) return null;
+
+  const handleAction = async () => {
+    setHandlingAction(true);
+    switch (currentNudge.action_type) {
+      case "breakdown":
+        dismissNudge(currentNudge.assignment_id, "breakdown_started");
+        navigate(`/assignments`);
+        break;
+      case "do_now":
+        dismissNudge(currentNudge.assignment_id, "started_now");
+        navigate(`/timer`);
+        break;
+      case "reschedule":
+        dismissNudge(currentNudge.assignment_id, "rescheduling");
+        navigate(`/assignments`);
+        break;
+    }
+    setHandlingAction(false);
+  };
 
   return (
     <AnimatePresence>
@@ -23,25 +44,15 @@ export function SmartNudge({ className }: SmartNudgeProps) {
         initial={{ opacity: 0, y: 50, scale: 0.9 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: 50, scale: 0.9 }}
-        className={cn(
-          "fixed bottom-20 right-4 z-50 max-w-sm",
-          "md:bottom-6 md:right-6",
-          className
-        )}
+        transition={{ type: "spring", damping: 20, stiffness: 300 }}
+        className={className}
       >
         <NudgeCard
           nudge={currentNudge}
           onDismiss={() => dismissNudge(currentNudge.assignment_id, "dismissed")}
           onSnooze={() => snoozeNudge(currentNudge.assignment_id, 60)}
-          onAction={() => {
-            if (currentNudge.action_type === "breakdown") {
-              // Trigger breakdown - handled by parent
-              dismissNudge(currentNudge.assignment_id, "breakdown");
-            } else if (currentNudge.action_type === "do_now") {
-              navigate("/timer", { state: { assignmentId: currentNudge.assignment_id } });
-              dismissNudge(currentNudge.assignment_id, "started");
-            }
-          }}
+          onAction={handleAction}
+          isLoading={handlingAction}
         />
       </motion.div>
     </AnimatePresence>

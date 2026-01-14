@@ -38,6 +38,7 @@ import { StudyEfficiencyMetrics } from "@/components/analytics/StudyEfficiencyMe
 import { CoursePerformanceComparison } from "@/components/analytics/CoursePerformanceComparison";
 import { StudyScheduleOptimization } from "@/components/analytics/StudyScheduleOptimization";
 import { WorkloadDistributionAnalysis } from "@/components/analytics/WorkloadDistributionAnalysis";
+import { SimulationMode } from "@/components/SimulationMode";
 
 // Mobile-optimized analytics
 import { MobileAnalyticsPage } from "@/components/analytics/mobile";
@@ -129,7 +130,8 @@ export default function Analytics() {
         description:
           "Balance upcoming tasks with realistic workload distribution before conflicts surface.",
         content: (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 w-full min-w-0">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 w-full min-w-0">
+            <SimulationMode className="lg:col-span-1" />
             <StudyScheduleOptimization
               studySessions={studySessions}
               assignments={assignments}
