@@ -9,6 +9,7 @@ import { useAssignments } from "@/hooks/useAssignments";
 import { useCourses } from "@/hooks/useCourses";
 import { isSameDay, isBefore, startOfToday, isAfter, isBefore as isBeforeDate, compareAsc, compareDesc } from "date-fns";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { OverdueTasksButton } from "@/components/SmartNudge";
 
 export default function Assignments() {
   const [open, setOpen] = useState(false);
@@ -290,6 +291,9 @@ export default function Assignments() {
       </Card>
       
       <AddAssignmentDialog open={open} onOpenChange={setOpen} onCreated={() => refetch()} />
+      
+      {/* Overdue Tasks Button */}
+      <OverdueTasksButton />
     </div>
   );
 }
