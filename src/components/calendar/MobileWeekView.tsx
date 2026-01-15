@@ -10,6 +10,7 @@ import { AddCalendarEventDialog } from './AddCalendarEventDialog';
 const DAY_START_HOUR = 6;
 const DAY_END_HOUR = 22;
 const HOURS_PER_DAY = DAY_END_HOUR - DAY_START_HOUR;
+const HOUR_HEIGHT = 72; // Height of each hour slot in pixels
 
 interface MobileWeekViewProps {
   selectedDate: Date;
@@ -19,6 +20,48 @@ interface MobileWeekViewProps {
   onEventUpdate: (event: CalendarEvent, updates: Partial<CalendarEvent>) => void;
   onTimeSlotClick: (date: Date, hour: number) => void;
   conflicts?: string[];
+}
+
+// Helper to calculate overlapping event positions
+interface PositionedEvent {
+  event: CalendarEvent;
+  column: number;
+  totalColumns: number;
+}
+
+function calculateEventPositions(events: CalendarEvent[]): PositionedEvent[] {
+  if (events.length === 0) return [];
+  
+  // Sort by start time, then by end time (longer events first)
+  const sortedEvents = [...events].sort((a, b) => {
+    const startDiff = a.start.getTime() - b.start.getTime();
+    if (startDiff !== 0) return startDiff;
+    return b.end.getTime() - a.end.getTime();
+  });
+
+  const positioned: PositionedEvent[] = [];
+  const columns: { end: Date; events: CalendarEvent[] }[] = [];
+
+  for (const event of sortedEvents) {
+    let columnIndex = columns.findIndex(col => col.end <= event.start);
+    
+    if (columnIndex === -1) {
+      columnIndex = columns.length;
+      columns.push({ end: event.end, events: [event] });
+    } else {
+      columns[columnIndex].end = event.end;
+      columns[columnIndex].events.push(event);
+    }
+
+    positioned.push({
+      event,
+      column: columnIndex,
+      totalColumns: 0
+    });
+  }
+
+  const totalCols = columns.length;
+  return positioned.map(p => ({ ...p, totalColumns: totalCols }));
 }
 
 export function MobileWeekView({
@@ -51,7 +94,13 @@ export function MobileWeekView({
   const handleNextDay = () => onDateChange(addDays(selectedDate, 1));
   const handleToday = () => onDateChange(new Date());
 
-  const handleTimeSlotClick = useCallback((hour: number) => {
+  const handleTimeSlotClick = useCallback((hour: number, e: React.MouseEvent) => {
+    // Don't open dialog if clicking on an event
+    const target = e.target as HTMLElement;
+    if (target.closest('[data-event-card]')) {
+      return;
+    }
+    
     setSelectedTimeSlot({ date: selectedDate, hour });
     setShowAddDialog(true);
     onTimeSlotClick(selectedDate, hour);
@@ -62,32 +111,66 @@ export function MobileWeekView({
     [events, selectedDate]
   );
 
+  // Calculate positions for all day events
+  const positionedEvents = useMemo(() => 
+    calculateEventPositions(dayEvents),
+    [dayEvents]
+  );
+
   const getEventsForHour = useCallback((hour: number) => {
-    return dayEvents.filter(event => {
-      const eventHour = event.start.getHours();
+    return positionedEvents.filter(pe => {
+      const eventHour = pe.event.start.getHours();
       return eventHour === hour;
     });
-  }, [dayEvents]);
+  }, [positionedEvents]);
 
-  const renderEventCard = (event: CalendarEvent) => {
+  const renderEventCard = (positionedEvent: PositionedEvent) => {
+    const { event, column, totalColumns } = positionedEvent;
     const hasConflict = conflicts.includes(event.id);
     const isAdaCreated = (event.data as any)?.rotation_group === 'ada-ai';
+    
+    // Calculate vertical positioning
+    const startHour = event.start.getHours();
+    const startMinute = event.start.getMinutes();
     const durationHours = (event.end.getTime() - event.start.getTime()) / (1000 * 60 * 60);
-    const height = Math.max(durationHours * 72 - 8, 56); // 72px per hour, minimum 56px
+    
+    const top = (startHour - DAY_START_HOUR) * HOUR_HEIGHT + (startMinute / 60) * HOUR_HEIGHT;
+    const height = Math.max(durationHours * HOUR_HEIGHT - 4, 48);
+
+    // Calculate horizontal positioning for overlapping events
+    const leftOffset = 56; // Space for time label
+    const rightPadding = 8;
+    const availableWidth = `calc(100% - ${leftOffset}px - ${rightPadding}px)`;
+    
+    const width = totalColumns > 1 
+      ? `calc((100% - ${leftOffset}px - ${rightPadding}px) / ${totalColumns} - 4px)`
+      : `calc(100% - ${leftOffset}px - ${rightPadding}px)`;
+    
+    const left = totalColumns > 1 
+      ? `calc(${leftOffset}px + (100% - ${leftOffset}px - ${rightPadding}px) * ${column} / ${totalColumns} + 2px)`
+      : `${leftOffset}px`;
 
     return (
       <div
         key={event.id}
+        data-event-card="true"
         className={cn(
-          "absolute left-16 right-2 rounded-lg px-3 py-2 shadow-sm border-l-4 z-10",
+          "absolute rounded-lg px-3 py-2 shadow-sm border-l-4 z-10 overflow-hidden",
           "bg-gradient-to-r from-card to-card/90",
           hasConflict && "ring-2 ring-destructive animate-pulse"
         )}
         style={{
           borderLeftColor: `hsl(var(--${event.color || 'primary'}))`,
+          top: `${top}px`,
           height: `${height}px`,
+          width,
+          left,
+          zIndex: 10 + column,
         }}
-        onClick={() => onEventClick(event)}
+        onClick={(e) => {
+          e.stopPropagation();
+          onEventClick(event);
+        }}
       >
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
@@ -99,13 +182,15 @@ export function MobileWeekView({
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-1 text-muted-foreground mt-1">
-              <Clock className="w-3 h-3" />
-              <span className="text-xs">
-                {format(event.start, 'h:mm a')} - {format(event.end, 'h:mm a')}
-              </span>
-            </div>
-            {event.location && (
+            {height > 48 && (
+              <div className="flex items-center gap-1 text-muted-foreground mt-1">
+                <Clock className="w-3 h-3" />
+                <span className="text-xs">
+                  {format(event.start, 'h:mm a')} - {format(event.end, 'h:mm a')}
+                </span>
+              </div>
+            )}
+            {event.location && height > 72 && (
               <div className="flex items-center gap-1 text-muted-foreground mt-0.5">
                 <MapPin className="w-3 h-3" />
                 <span className="text-xs truncate">{event.location}</span>
@@ -163,30 +248,30 @@ export function MobileWeekView({
 
       {/* Day View - Single Column Timeline */}
       <Card className="overflow-hidden">
-        <div className="relative">
-          {/* Time slots */}
-          {timeSlots.map(hour => {
-            const hourEvents = getEventsForHour(hour);
-            
-            return (
-              <div
-                key={hour}
-                className="relative h-[72px] border-b border-border hover:bg-primary/5 transition-colors"
-                onClick={() => handleTimeSlotClick(hour)}
-              >
-                {/* Time label */}
-                <div className="absolute left-2 top-1 text-xs text-muted-foreground font-medium w-12">
-                  {format(new Date().setHours(hour, 0), 'h a')}
-                </div>
-                
-                {/* Hour line */}
-                <div className="absolute left-14 right-0 top-0 border-t border-border/50" />
-
-                {/* Events */}
-                {hourEvents.map(event => renderEventCard(event))}
+        <div className="relative" style={{ height: `${HOURS_PER_DAY * HOUR_HEIGHT}px` }}>
+          {/* Time slots background */}
+          {timeSlots.map((hour, index) => (
+            <div
+              key={hour}
+              className="absolute left-0 right-0 border-b border-border hover:bg-primary/5 transition-colors cursor-pointer"
+              style={{ 
+                top: `${index * HOUR_HEIGHT}px`, 
+                height: `${HOUR_HEIGHT}px` 
+              }}
+              onClick={(e) => handleTimeSlotClick(hour, e)}
+            >
+              {/* Time label */}
+              <div className="absolute left-2 top-1 text-xs text-muted-foreground font-medium w-12">
+                {format(new Date().setHours(hour, 0), 'h a')}
               </div>
-            );
-          })}
+              
+              {/* Hour line */}
+              <div className="absolute left-14 right-0 top-0 border-t border-border/50" />
+            </div>
+          ))}
+
+          {/* Events layer - rendered above time slots */}
+          {positionedEvents.map(pe => renderEventCard(pe))}
         </div>
       </Card>
 
