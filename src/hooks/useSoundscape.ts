@@ -44,7 +44,7 @@ interface UseSoundscapeReturn {
   stressLevel: number;
   studyType: StudyType;
   sessionMinutes: number;
-  layerVolumes: Record<LayerName, number> | null;
+  layerVolumes: Record<string, number> | null;
   isSupported: boolean;
   
   // Data

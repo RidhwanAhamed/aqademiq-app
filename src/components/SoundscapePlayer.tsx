@@ -327,7 +327,7 @@ export function SoundscapePlayer({ className }: SoundscapePlayerProps) {
                 <Separator />
                 <div className="space-y-1">
                   <Label className="text-xs text-muted-foreground">Active Layer Mix</Label>
-                  <div className="grid grid-cols-5 gap-1">
+                  <div className={`grid gap-1 ${Object.keys(layerVolumes).length <= 3 ? 'grid-cols-3' : Object.keys(layerVolumes).length <= 5 ? 'grid-cols-5' : 'grid-cols-6'}`}>
                     {Object.entries(layerVolumes).map(([layer, volume]) => (
                       <div key={layer} className="text-center">
                         <div 
@@ -339,7 +339,7 @@ export function SoundscapePlayer({ className }: SoundscapePlayerProps) {
                           />
                         </div>
                         <span className="text-[10px] text-muted-foreground capitalize">
-                          {layer.replace('subBass', 'sub')}
+                          {layer.replace('subBass', 'sub').replace('binaural', 'bin')}
                         </span>
                       </div>
                     ))}

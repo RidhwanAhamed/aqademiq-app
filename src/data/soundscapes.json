@@ -1,117 +1,21 @@
 {
   "soundscapes": [
     {
-      "id": "deep-focus",
-      "name": "Deep Focus",
-      "description": "Minimal, cool tone for exams, coding & problem-solving",
+      "id": "focus-deep-focus",
+      "name": "Focus - Deep Focus",
+      "category": "focus",
+      "description": "Pure ambient drone + subtle binaurals (40Hz gamma); minimal synths. For exam/coding preppers; max concentration w/o distraction.",
       "icon": "brain",
-      "bpm": 70,
-      "useCases": ["exams", "coding", "problem-solving"],
-      "layers": {
-        "pad": { "file": "pad_1.wav", "baseVolume": 60 },
-        "rhythm": { "file": "rythym.wav", "baseVolume": 30 },
-        "texture": { "file": "pad_2.wav", "baseVolume": 20 },
-        "subBass": { "file": "sub_bass.wav", "baseVolume": 15 },
-        "effects": { "file": "effects.wav", "baseVolume": 10 }
-      },
-      "adaptations": {
-        "highStress": { "pad": 70, "rhythm": 20, "texture": 30, "subBass": 25, "effects": 15 },
-        "lateNight": { "pad": 50, "rhythm": 20, "texture": 25, "subBass": 30, "effects": 20 }
-      }
-    },
-    {
-      "id": "conceptual-flow",
-      "name": "Conceptual Flow",
-      "description": "Warm, organic rhythm for essays & creative writing",
-      "icon": "pen-tool",
-      "bpm": 80,
-      "useCases": ["essays", "creative-writing"],
-      "layers": {
-        "pad": { "file": "pad_2.wav", "baseVolume": 70 },
-        "rhythm": { "file": "rythym_alt.wav", "baseVolume": 40 },
-        "texture": { "file": "pad_3.wav", "baseVolume": 25 },
-        "subBass": { "file": "sub_bass.wav", "baseVolume": 10 },
-        "effects": { "file": "effects.wav", "baseVolume": 15 }
-      },
-      "adaptations": {
-        "highStress": { "pad": 80, "rhythm": 25, "texture": 35, "subBass": 15, "effects": 20 },
-        "lateNight": { "pad": 60, "rhythm": 30, "texture": 30, "subBass": 20, "effects": 25 }
-      }
-    },
-    {
-      "id": "memorize-drill",
-      "name": "Memorize & Drill",
-      "description": "Repetitive, hypnotic beat for flashcards & formulas",
-      "icon": "repeat",
-      "bpm": 90,
-      "useCases": ["flashcards", "formulas", "vocab"],
-      "layers": {
-        "pad": { "file": "pad_3.wav", "baseVolume": 50 },
-        "rhythm": { "file": "rythym.wav", "baseVolume": 50 },
-        "texture": { "file": "pad_1.wav", "baseVolume": 15 },
-        "subBass": { "file": "sub_bass.wav", "baseVolume": 20 },
-        "effects": { "file": "effects.wav", "baseVolume": 10 }
-      },
-      "adaptations": {
-        "highStress": { "pad": 60, "rhythm": 35, "texture": 25, "subBass": 25, "effects": 15 },
-        "lateNight": { "pad": 45, "rhythm": 40, "texture": 20, "subBass": 30, "effects": 15 }
-      }
-    },
-    {
-      "id": "study-break",
-      "name": "Study Break",
-      "description": "Light, restorative sounds for 5-15 min micro-breaks",
-      "icon": "coffee",
       "bpm": 60,
-      "useCases": ["breaks", "rest", "recovery"],
+      "useCases": ["exams", "coding", "problem-solving", "analytical"],
       "layers": {
-        "pad": { "file": "pad_2.wav", "baseVolume": 80 },
-        "rhythm": { "file": "rythym_alt.wav", "baseVolume": 15 },
-        "texture": { "file": "effects.wav", "baseVolume": 60 },
-        "subBass": { "file": "sub_bass.wav", "baseVolume": 5 },
-        "effects": { "file": "pad_3.wav", "baseVolume": 30 }
+        "drone": { "file": "focus/deep-focus/drone.mp3.mp3", "baseVolume": 60 },
+        "synths": { "file": "focus/deep-focus/synths.mp3.mp3", "baseVolume": 30 },
+        "binaural": { "file": "focus/deep-focus/binaural.mp3.mp3", "baseVolume": 20 }
       },
       "adaptations": {
-        "highStress": { "pad": 85, "rhythm": 10, "texture": 70, "subBass": 10, "effects": 40 },
-        "lateNight": { "pad": 70, "rhythm": 10, "texture": 65, "subBass": 15, "effects": 35 }
-      }
-    },
-    {
-      "id": "night-mode",
-      "name": "Night Mode",
-      "description": "Deep sub-bass, grounding for late-night cramming",
-      "icon": "moon",
-      "bpm": 60,
-      "useCases": ["late-night", "cramming"],
-      "layers": {
-        "pad": { "file": "pad_1.wav", "baseVolume": 40 },
-        "rhythm": { "file": "rythym.wav", "baseVolume": 25 },
-        "texture": { "file": "effects.wav", "baseVolume": 50 },
-        "subBass": { "file": "sub_bass.wav", "baseVolume": 40 },
-        "effects": { "file": "pad_3.wav", "baseVolume": 20 }
-      },
-      "adaptations": {
-        "highStress": { "pad": 50, "rhythm": 15, "texture": 55, "subBass": 50, "effects": 30 },
-        "lateNight": { "pad": 40, "rhythm": 20, "texture": 50, "subBass": 45, "effects": 25 }
-      }
-    },
-    {
-      "id": "anxiety-down",
-      "name": "Anxiety Down",
-      "description": "Binaural, minimal, very slow for stress during sessions",
-      "icon": "heart",
-      "bpm": 55,
-      "useCases": ["stress", "anxiety", "panic"],
-      "layers": {
-        "pad": { "file": "pad_2.wav", "baseVolume": 70 },
-        "rhythm": { "file": "rythym_alt.wav", "baseVolume": 10 },
-        "texture": { "file": "pad_1.wav", "baseVolume": 40 },
-        "subBass": { "file": "sub_bass.wav", "baseVolume": 60 },
-        "effects": { "file": "effects.wav", "baseVolume": 35 }
-      },
-      "adaptations": {
-        "highStress": { "pad": 80, "rhythm": 5, "texture": 50, "subBass": 70, "effects": 45 },
-        "lateNight": { "pad": 65, "rhythm": 10, "texture": 45, "subBass": 65, "effects": 40 }
+        "highStress": { "drone": 70, "synths": 25, "binaural": 30 },
+        "lateNight": { "drone": 50, "synths": 20, "binaural": 25 }
       }
     }
   ],
@@ -121,4 +25,3 @@
     { "id": "memorization", "label": "Memorization", "description": "Flashcards, vocabulary, formulas" }
   ]
 }
-

@@ -14,9 +14,9 @@
 import soundscapesData from '@/data/soundscapes.json';
 
 // Types
-export type SoundscapeId = 'deep-focus' | 'conceptual-flow' | 'memorize-drill' | 'study-break' | 'night-mode' | 'anxiety-down';
+export type SoundscapeId = 'focus-deep-focus' | 'deep-focus' | 'conceptual-flow' | 'memorize-drill' | 'study-break' | 'night-mode' | 'anxiety-down';
 export type StudyType = 'problem-solving' | 'writing' | 'memorization';
-export type LayerName = 'pad' | 'rhythm' | 'texture' | 'subBass' | 'effects';
+export type LayerName = 'pad' | 'rhythm' | 'texture' | 'subBass' | 'effects' | 'drone' | 'synths' | 'binaural';
 
 export interface SoundscapeLayer {
   file: string;
@@ -26,14 +26,15 @@ export interface SoundscapeLayer {
 export interface SoundscapePreset {
   id: SoundscapeId;
   name: string;
+  category?: string;
   description: string;
   icon: string;
   bpm: number;
   useCases: string[];
-  layers: Record<LayerName, SoundscapeLayer>;
+  layers: Record<string, SoundscapeLayer>; // Flexible layer names
   adaptations: {
-    highStress: Record<LayerName, number>;
-    lateNight: Record<LayerName, number>;
+    highStress: Record<string, number>;
+    lateNight: Record<string, number>;
   };
 }
 
@@ -101,75 +102,126 @@ export const getStudyTypes = () => {
 
 /**
  * Load an audio file and return its buffer
+ * Supports both flat files (old) and folder paths (new structure)
  */
-const loadAudioBuffer = async (filename: string): Promise<AudioBuffer> => {
+const loadAudioBuffer = async (filePath: string): Promise<AudioBuffer> => {
   const ctx = getAudioContext();
-  const response = await fetch(`/sounds/soundscape/${filename}`);
+  // Handle both old format (just filename) and new format (folder/filename)
+  const path = filePath.includes('/') ? filePath : filePath;
+  const fullPath = `/sounds/soundscape/${path}`;
+  
+  console.log(`Loading audio from: ${fullPath}`);
+  const response = await fetch(fullPath);
+  if (!response.ok) {
+    throw new Error(`Failed to load audio: ${fullPath} (${response.status} ${response.statusText})`);
+  }
   const arrayBuffer = await response.arrayBuffer();
-  return await ctx.decodeAudioData(arrayBuffer);
+  const buffer = await ctx.decodeAudioData(arrayBuffer);
+  console.log(`Successfully loaded audio: ${fullPath} (${buffer.duration.toFixed(2)}s, ${buffer.sampleRate}Hz)`);
+  return buffer;
 };
 
 /**
  * Calculate adapted volumes based on context
+ * Works with dynamic layer names (supports both old and new structures)
  */
 export const calculateAdaptedVolumes = (
   soundscape: SoundscapePreset,
   context: AdaptationContext
-): Record<LayerName, number> => {
+): Record<string, number> => {
   const { stressLevel, sessionMinutes, timeOfDay, studyType } = context;
   const baseVolumes = soundscape.layers;
   
-  // Initialize with base volumes
-  const volumes: Record<LayerName, number> = {
-    pad: baseVolumes.pad.baseVolume,
-    rhythm: baseVolumes.rhythm.baseVolume,
-    texture: baseVolumes.texture.baseVolume,
-    subBass: baseVolumes.subBass.baseVolume,
-    effects: baseVolumes.effects.baseVolume
-  };
+  // Initialize with base volumes for all layers
+  const volumes: Record<string, number> = {};
+  Object.keys(baseVolumes).forEach((layerName) => {
+    volumes[layerName] = baseVolumes[layerName].baseVolume;
+  });
 
   // Stress adaptation (1-5 scale, 3 is neutral)
   const stressFactor = (stressLevel - 3) / 2; // -1 to 1
   
-  // Higher stress = more pad/subBass, less rhythm
-  volumes.pad = Math.min(100, volumes.pad + (stressFactor * 15));
-  volumes.rhythm = Math.max(5, volumes.rhythm - (stressFactor * 10));
-  volumes.subBass = Math.min(100, volumes.subBass + (stressFactor * 10));
-  volumes.effects = Math.min(100, volumes.effects + (stressFactor * 5));
+  // Apply stress adaptation based on layer type
+  Object.keys(volumes).forEach((layerName) => {
+    const lowerName = layerName.toLowerCase();
+    
+    // Drone/pad layers: increase with stress (calming)
+    if (lowerName.includes('drone') || lowerName.includes('pad') || lowerName.includes('binaural')) {
+      volumes[layerName] = Math.min(100, volumes[layerName] + (stressFactor * 15));
+    }
+    // Rhythm/synths layers: decrease with stress (less distracting)
+    else if (lowerName.includes('rhythm') || lowerName.includes('synth')) {
+      volumes[layerName] = Math.max(5, volumes[layerName] - (stressFactor * 10));
+    }
+    // Texture/effects: slight increase
+    else if (lowerName.includes('texture') || lowerName.includes('effect')) {
+      volumes[layerName] = Math.min(100, volumes[layerName] + (stressFactor * 5));
+    }
+    // Sub-bass: increase with stress (grounding)
+    else if (lowerName.includes('bass') || lowerName.includes('sub')) {
+      volumes[layerName] = Math.min(100, volumes[layerName] + (stressFactor * 10));
+    }
+  });
 
   // Late night adaptation (10 PM - 6 AM)
   const isLateNight = timeOfDay >= 22 || timeOfDay < 6;
   if (isLateNight) {
-    // Boost sub-bass, reduce high frequencies
-    volumes.subBass = Math.min(100, volumes.subBass * 1.3);
-    volumes.rhythm = volumes.rhythm * 0.7;
-    volumes.texture = Math.min(100, volumes.texture * 1.2);
+    Object.keys(volumes).forEach((layerName) => {
+      const lowerName = layerName.toLowerCase();
+      if (lowerName.includes('bass') || lowerName.includes('sub') || lowerName.includes('drone')) {
+        volumes[layerName] = Math.min(100, volumes[layerName] * 1.3);
+      } else if (lowerName.includes('rhythm') || lowerName.includes('synth')) {
+        volumes[layerName] = volumes[layerName] * 0.7;
+      } else if (lowerName.includes('texture')) {
+        volumes[layerName] = Math.min(100, volumes[layerName] * 1.2);
+      }
+    });
   }
 
   // Session progress adaptation (deeper focus over time)
   if (sessionMinutes > 10) {
     const progressFactor = Math.min((sessionMinutes - 10) / 30, 1); // 0-1 over 30 min
-    volumes.texture = Math.min(100, volumes.texture + (progressFactor * 10));
-    volumes.effects = Math.min(100, volumes.effects + (progressFactor * 5));
+    Object.keys(volumes).forEach((layerName) => {
+      const lowerName = layerName.toLowerCase();
+      if (lowerName.includes('texture') || lowerName.includes('binaural')) {
+        volumes[layerName] = Math.min(100, volumes[layerName] + (progressFactor * 10));
+      } else if (lowerName.includes('effect')) {
+        volumes[layerName] = Math.min(100, volumes[layerName] + (progressFactor * 5));
+      }
+    });
   }
 
   // Study type adaptation
   switch (studyType) {
     case 'problem-solving':
-      volumes.rhythm = Math.max(5, volumes.rhythm * 0.8); // Less rhythm for focus
+      Object.keys(volumes).forEach((layerName) => {
+        const lowerName = layerName.toLowerCase();
+        if (lowerName.includes('rhythm') || lowerName.includes('synth')) {
+          volumes[layerName] = Math.max(5, volumes[layerName] * 0.8);
+        }
+      });
       break;
     case 'writing':
-      volumes.pad = Math.min(100, volumes.pad * 1.1); // More warmth
-      volumes.rhythm = Math.min(100, volumes.rhythm * 1.1); // Gentle rhythm helps flow
+      Object.keys(volumes).forEach((layerName) => {
+        const lowerName = layerName.toLowerCase();
+        if (lowerName.includes('drone') || lowerName.includes('pad')) {
+          volumes[layerName] = Math.min(100, volumes[layerName] * 1.1);
+        }
+      });
       break;
     case 'memorization':
-      volumes.rhythm = Math.min(100, volumes.rhythm * 1.2); // Stronger beat for pattern
+      Object.keys(volumes).forEach((layerName) => {
+        const lowerName = layerName.toLowerCase();
+        if (lowerName.includes('rhythm') || lowerName.includes('synth')) {
+          volumes[layerName] = Math.min(100, volumes[layerName] * 1.2);
+        }
+      });
       break;
   }
 
   // Clamp all values between 0 and 100
   Object.keys(volumes).forEach((key) => {
-    volumes[key as LayerName] = Math.max(0, Math.min(100, Math.round(volumes[key as LayerName])));
+    volumes[key] = Math.max(0, Math.min(100, Math.round(volumes[key])));
   });
 
   return volumes;
@@ -186,8 +238,9 @@ export const loadSoundscape = async (soundscapeId: SoundscapeId): Promise<boolea
       return false;
     }
 
-    // Stop current playback if any
+    // Stop current playback if any and clear layers
     await stopSoundscape(false);
+    layers.clear(); // Clear old layers before loading new ones
 
     const ctx = getAudioContext();
     
@@ -197,24 +250,50 @@ export const loadSoundscape = async (soundscapeId: SoundscapeId): Promise<boolea
       masterGainNode.connect(ctx.destination);
     }
 
-    // Load all layers
-    const layerNames: LayerName[] = ['pad', 'rhythm', 'texture', 'subBass', 'effects'];
+    // Load all layers dynamically (supports both old and new layer structures)
+    const layerNames = Object.keys(soundscape.layers);
     
-    await Promise.all(layerNames.map(async (layerName) => {
+    const loadResults = await Promise.allSettled(layerNames.map(async (layerName) => {
       const layerConfig = soundscape.layers[layerName];
-      const buffer = await loadAudioBuffer(layerConfig.file);
+      if (!layerConfig) {
+        console.warn(`Layer ${layerName} not found in soundscape ${soundscapeId}`);
+        return null;
+      }
       
-      const gainNode = ctx.createGain();
-      gainNode.gain.setValueAtTime(0, ctx.currentTime); // Start muted
-      gainNode.connect(masterGainNode!);
-      
-      layers.set(layerName, {
-        source: null,
-        gainNode,
-        buffer,
-        name: layerName
-      });
+      try {
+        const buffer = await loadAudioBuffer(layerConfig.file);
+        
+        const gainNode = ctx.createGain();
+        gainNode.gain.setValueAtTime(0, ctx.currentTime); // Start muted
+        gainNode.connect(masterGainNode!);
+        
+        layers.set(layerName as LayerName, {
+          source: null,
+          gainNode,
+          buffer,
+          name: layerName as LayerName
+        });
+        
+        return layerName;
+      } catch (error) {
+        console.error(`Failed to load layer ${layerName}:`, error);
+        return null;
+      }
     }));
+    
+    // Log which layers successfully loaded
+    const loadedLayers = loadResults
+      .filter((result): result is PromiseFulfilledResult<string> => 
+        result.status === 'fulfilled' && result.value !== null
+      )
+      .map(result => result.value);
+    
+    if (loadedLayers.length === 0) {
+      console.error('No layers loaded successfully');
+      return false;
+    }
+    
+    console.log(`Loaded ${loadedLayers.length}/${layerNames.length} layers:`, loadedLayers);
 
     currentSoundscape = soundscape;
     return true;
@@ -248,8 +327,13 @@ export const playSoundscape = (fadeIn: boolean = true): boolean => {
         source.loop = true;
         source.connect(layer.gainNode);
         
-        // Set volume with optional fade
-        const targetVolume = volumes[layerName] / 100;
+        // Set volume with optional fade - use fallback if volume not found
+        const layerNameStr = String(layerName);
+        const calculatedVolume = volumes[layerNameStr];
+        const baseVolume = currentSoundscape.layers[layerNameStr]?.baseVolume ?? 0;
+        const finalVolume = calculatedVolume !== undefined ? calculatedVolume : baseVolume;
+        const targetVolume = Math.max(0, Math.min(1, finalVolume / 100)); // Clamp between 0 and 1
+        
         if (fadeIn) {
           layer.gainNode.gain.setValueAtTime(0, ctx.currentTime);
           layer.gainNode.gain.linearRampToValueAtTime(targetVolume, ctx.currentTime + 0.5);
@@ -280,35 +364,47 @@ export const playSoundscape = (fadeIn: boolean = true): boolean => {
 export const stopSoundscape = async (fadeOut: boolean = true): Promise<void> => {
   stopAdaptationLoop();
   
-  if (layers.size === 0) return;
+  if (layers.size === 0) {
+    isPlaying = false;
+    return;
+  }
 
   const ctx = getAudioContext();
 
-  layers.forEach((layer) => {
-    if (layer.source) {
-      if (fadeOut) {
-        layer.gainNode.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.3);
-        setTimeout(() => {
+  // Stop all sources
+  const stopPromises = Array.from(layers.entries()).map(([layerName, layer]) => {
+    return new Promise<void>((resolve) => {
+      if (layer.source) {
+        if (fadeOut) {
+          layer.gainNode.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.3);
+          setTimeout(() => {
+            try {
+              layer.source?.stop();
+            } catch {
+              // Ignore if already stopped
+            }
+            layer.source = null;
+            resolve();
+          }, 350);
+        } else {
           try {
-            layer.source?.stop();
+            layer.source.stop();
           } catch {
             // Ignore if already stopped
           }
           layer.source = null;
-        }, 350);
-      } else {
-        try {
-          layer.source.stop();
-        } catch {
-          // Ignore if already stopped
+          resolve();
         }
-        layer.source = null;
+      } else {
+        resolve();
       }
-    }
+    });
   });
 
+  await Promise.all(stopPromises);
+  
   if (fadeOut) {
-    await new Promise(resolve => setTimeout(resolve, 350));
+    await new Promise(resolve => setTimeout(resolve, 50)); // Small buffer
   }
   
   isPlaying = false;
@@ -327,7 +423,11 @@ export const updateMix = (context: Partial<AdaptationContext>): void => {
 
   // Smoothly transition to new volumes
   layers.forEach((layer, layerName) => {
-    const targetVolume = volumes[layerName] / 100;
+    const layerNameStr = String(layerName);
+    const calculatedVolume = volumes[layerNameStr];
+    const baseVolume = currentSoundscape.layers[layerNameStr]?.baseVolume ?? 0;
+    const finalVolume = calculatedVolume !== undefined ? calculatedVolume : baseVolume;
+    const targetVolume = Math.max(0, Math.min(1, finalVolume / 100)); // Clamp between 0 and 1
     layer.gainNode.gain.linearRampToValueAtTime(targetVolume, ctx.currentTime + 0.5);
   });
 };
