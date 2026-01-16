@@ -81,6 +81,9 @@ const VARIANT_ICONS: Record<string, React.ComponentType<{ className?: string }>>
 
 // Variant gradients (fallback if not in category)
 const VARIANT_GRADIENTS: Record<string, string> = {
+  'focus-deep-focus': 'from-blue-500/20 to-indigo-600/20 hover:from-blue-500/30 hover:to-indigo-600/30',
+  'focus-conceptual-flow': 'from-amber-500/20 to-orange-600/20 hover:from-amber-500/30 hover:to-orange-600/30',
+  'focus-memory-drill': 'from-emerald-500/20 to-teal-600/20 hover:from-emerald-500/30 hover:to-teal-600/30',
   'deep-focus': 'from-blue-500/20 to-indigo-600/20 hover:from-blue-500/30 hover:to-indigo-600/30',
   'conceptual-flow': 'from-amber-500/20 to-orange-600/20 hover:from-amber-500/30 hover:to-orange-600/30',
   'memory-drill': 'from-emerald-500/20 to-teal-600/20 hover:from-emerald-500/30 hover:to-teal-600/30',
@@ -88,6 +91,9 @@ const VARIANT_GRADIENTS: Record<string, string> = {
 };
 
 const VARIANT_BORDERS: Record<string, string> = {
+  'focus-deep-focus': 'border-blue-500',
+  'focus-conceptual-flow': 'border-amber-500',
+  'focus-memory-drill': 'border-emerald-500',
   'deep-focus': 'border-blue-500',
   'conceptual-flow': 'border-amber-500',
   'memory-drill': 'border-emerald-500',
@@ -95,6 +101,9 @@ const VARIANT_BORDERS: Record<string, string> = {
 };
 
 const VARIANT_ICON_COLORS: Record<string, string> = {
+  'focus-deep-focus': 'text-blue-500',
+  'focus-conceptual-flow': 'text-amber-500',
+  'focus-memory-drill': 'text-emerald-500',
   'deep-focus': 'text-blue-500',
   'conceptual-flow': 'text-amber-500',
   'memory-drill': 'text-emerald-500',

@@ -17,6 +17,43 @@
         "highStress": { "drone": 70, "synths": 25, "binaural": 30 },
         "lateNight": { "drone": 50, "synths": 20, "binaural": 25 }
       }
+    },
+    {
+      "id": "focus-conceptual-flow",
+      "name": "Focus - Conceptual Flow",
+      "category": "focus",
+      "description": "Classical piano/strings as primary focus with warm ambient pads. Drives creative rhythm for writing, essays, and conceptual thinking.",
+      "icon": "pen-tool",
+      "bpm": 68,
+      "useCases": ["writing", "creative-work", "conceptual-thinking", "essays"],
+      "layers": {
+        "classical": { "file": "focus/conceptual-flow/classical.mp3.mp3", "baseVolume": 70 },
+        "pads": { "file": "focus/conceptual-flow/pads.mp3.mp3", "baseVolume": 25 }
+      },
+      "adaptations": {
+        "highStress": { "classical": 75, "pads": 20 },
+        "lateNight": { "classical": 65, "pads": 30 }
+      }
+    },
+    {
+      "id": "focus-memory-drill",
+      "name": "Focus - Memorize & Drill",
+      "category": "focus",
+      "description": "Baroque strings lead with isochronic pulse engine, brown noise insulation, rain texture, and cello drone glue. Sharp, rhythmic, mathematical for flashcards, vocabulary, and repetition.",
+      "icon": "repeat",
+      "bpm": 75,
+      "useCases": ["memorization", "flashcards", "vocabulary", "repetition", "drill"],
+      "layers": {
+        "baroque": { "file": "focus/memory-drill/baroque.mp3.mp3", "baseVolume": 65 },
+        "isochronic": { "file": "focus/memory-drill/isochronic.mp3.wav", "baseVolume": 18 },
+        "brown-noise": { "file": "focus/memory-drill/brown-noise.mp3.mp3", "baseVolume": 12 },
+        "rain": { "file": "focus/memory-drill/heavyrain.mp3.mp3", "baseVolume": 10 },
+        "drone": { "file": "focus/memory-drill/drone.mp3.mp3", "baseVolume": 15 }
+      },
+      "adaptations": {
+        "highStress": { "baroque": 70, "isochronic": 20, "brown-noise": 15, "rain": 12, "drone": 18 },
+        "lateNight": { "baroque": 60, "isochronic": 15, "brown-noise": 10, "rain": 8, "drone": 12 }
+      }
     }
   ],
   "studyTypes": [

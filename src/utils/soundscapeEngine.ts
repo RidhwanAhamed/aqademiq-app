@@ -14,7 +14,7 @@
 import soundscapesData from '@/data/soundscapes.json';
 
 // Types
-export type SoundscapeId = 'focus-deep-focus' | 'deep-focus' | 'conceptual-flow' | 'memorize-drill' | 'study-break' | 'night-mode' | 'anxiety-down';
+export type SoundscapeId = 'focus-deep-focus' | 'focus-conceptual-flow' | 'focus-memory-drill' | 'deep-focus' | 'conceptual-flow' | 'memorize-drill' | 'study-break' | 'night-mode' | 'anxiety-down';
 export type StudyType = 'problem-solving' | 'writing' | 'memorization';
 export type LayerName = 'pad' | 'rhythm' | 'texture' | 'subBass' | 'effects' | 'drone' | 'synths' | 'binaural';
 
@@ -145,17 +145,21 @@ export const calculateAdaptedVolumes = (
   Object.keys(volumes).forEach((layerName) => {
     const lowerName = layerName.toLowerCase();
     
-    // Drone/pad layers: increase with stress (calming)
-    if (lowerName.includes('drone') || lowerName.includes('pad') || lowerName.includes('binaural')) {
+    // Drone/pad/brown-noise layers: increase with stress (calming)
+    if (lowerName.includes('drone') || lowerName.includes('pad') || lowerName.includes('binaural') || lowerName.includes('brown-noise') || lowerName.includes('brownnoise')) {
       volumes[layerName] = Math.min(100, volumes[layerName] + (stressFactor * 15));
     }
-    // Rhythm/synths layers: decrease with stress (less distracting)
-    else if (lowerName.includes('rhythm') || lowerName.includes('synth')) {
+    // Rhythm/synths/baroque layers: decrease with stress (less distracting)
+    else if (lowerName.includes('rhythm') || lowerName.includes('synth') || lowerName.includes('baroque') || lowerName.includes('classical')) {
       volumes[layerName] = Math.max(5, volumes[layerName] - (stressFactor * 10));
     }
-    // Texture/effects: slight increase
-    else if (lowerName.includes('texture') || lowerName.includes('effect')) {
-      volumes[layerName] = Math.min(100, volumes[layerName] + (stressFactor * 5));
+    // Isochronic pulse: decrease with stress (less stimulation when stressed)
+    else if (lowerName.includes('isochronic') || lowerName.includes('pulse')) {
+      volumes[layerName] = Math.max(5, volumes[layerName] - (stressFactor * 12));
+    }
+    // Texture/effects/rain: slight increase (calming texture)
+    else if (lowerName.includes('texture') || lowerName.includes('effect') || lowerName.includes('rain')) {
+      volumes[layerName] = Math.min(100, volumes[layerName] + (stressFactor * 8));
     }
     // Sub-bass: increase with stress (grounding)
     else if (lowerName.includes('bass') || lowerName.includes('sub')) {
@@ -168,11 +172,11 @@ export const calculateAdaptedVolumes = (
   if (isLateNight) {
     Object.keys(volumes).forEach((layerName) => {
       const lowerName = layerName.toLowerCase();
-      if (lowerName.includes('bass') || lowerName.includes('sub') || lowerName.includes('drone')) {
+      if (lowerName.includes('bass') || lowerName.includes('sub') || lowerName.includes('drone') || lowerName.includes('brown-noise') || lowerName.includes('brownnoise')) {
         volumes[layerName] = Math.min(100, volumes[layerName] * 1.3);
-      } else if (lowerName.includes('rhythm') || lowerName.includes('synth')) {
+      } else if (lowerName.includes('rhythm') || lowerName.includes('synth') || lowerName.includes('baroque') || lowerName.includes('classical') || lowerName.includes('isochronic') || lowerName.includes('pulse')) {
         volumes[layerName] = volumes[layerName] * 0.7;
-      } else if (lowerName.includes('texture')) {
+      } else if (lowerName.includes('texture') || lowerName.includes('rain')) {
         volumes[layerName] = Math.min(100, volumes[layerName] * 1.2);
       }
     });
@@ -212,7 +216,7 @@ export const calculateAdaptedVolumes = (
     case 'memorization':
       Object.keys(volumes).forEach((layerName) => {
         const lowerName = layerName.toLowerCase();
-        if (lowerName.includes('rhythm') || lowerName.includes('synth')) {
+        if (lowerName.includes('rhythm') || lowerName.includes('synth') || lowerName.includes('baroque') || lowerName.includes('isochronic') || lowerName.includes('pulse')) {
           volumes[layerName] = Math.min(100, volumes[layerName] * 1.2);
         }
       });
