@@ -45,7 +45,7 @@
       "useCases": ["memorization", "flashcards", "vocabulary", "repetition", "drill"],
       "layers": {
         "baroque": { "file": "focus/memory-drill/baroque.mp3.mp3", "baseVolume": 65 },
-        "isochronic": { "file": "focus/memory-drill/isochronic.mp3.wav", "baseVolume": 18 },
+        "isochronic": { "file": "focus/memory-drill/isochronic.mp3.mp3", "baseVolume": 18 },
         "brown-noise": { "file": "focus/memory-drill/brown-noise.mp3.mp3", "baseVolume": 12 },
         "rain": { "file": "focus/memory-drill/heavyrain.mp3.mp3", "baseVolume": 10 },
         "drone": { "file": "focus/memory-drill/drone.mp3.mp3", "baseVolume": 15 }
