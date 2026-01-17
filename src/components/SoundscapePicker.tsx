@@ -2,7 +2,7 @@
  * SoundscapePicker Component
  * 
  * Nested category/variant picker for adaptive study soundscapes.
- * First shows 4 categories (Focus, Nature, Minimal, Energy), then variants within selected category.
+ * First shows 4 categories (Focus, Nature, Minimal, Ambience), then variants within selected category.
  * 
  * Backend Integration: None required - uses local soundscape data.
  * // TODO: API -> /api/analytics/soundscape-usage (track which soundscapes are popular)
@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { SoundscapeId, SoundscapePreset } from '@/utils/soundscapeEngine';
-import { ArrowLeft, Brain, Check, Coffee, Heart, Loader2, Moon, PenTool, Repeat, Trees, Volume2, Zap } from 'lucide-react';
+import { ArrowLeft, Brain, Check, Coffee, Heart, Loader2, Moon, PenTool, Repeat, Trees, Volume2 } from 'lucide-react';
 import { useState } from 'react';
 
 interface SoundscapePickerProps {
@@ -30,7 +30,7 @@ const CATEGORIES = [
   {
     id: 'focus',
     name: 'Focus',
-    description: 'Instrumental/Classical/Ambient',
+    description: 'Instrumental/Classical',
     icon: Brain,
     color: 'blue',
     gradient: 'from-blue-500/20 to-indigo-600/20 hover:from-blue-500/30 hover:to-indigo-600/30',
@@ -52,20 +52,20 @@ const CATEGORIES = [
     name: 'Minimal',
     description: 'Ultra-Minimal Rhythms',
     icon: Volume2,
-    color: 'gray',
-    gradient: 'from-gray-500/20 to-slate-600/20 hover:from-gray-500/30 hover:to-slate-600/30',
-    border: 'border-gray-500',
-    iconColor: 'text-gray-500',
+    color: 'purple',
+    gradient: 'from-purple-500/20 to-violet-600/20 hover:from-purple-500/30 hover:to-violet-600/30',
+    border: 'border-purple-500',
+    iconColor: 'text-purple-500',
   },
   {
-    id: 'energy',
-    name: 'Energy',
-    description: 'Upbeat Motivating',
-    icon: Zap,
-    color: 'yellow',
-    gradient: 'from-amber-500/20 to-orange-600/20 hover:from-amber-500/30 hover:to-orange-600/30',
-    border: 'border-amber-500',
-    iconColor: 'text-amber-500',
+    id: 'ambience',
+    name: 'Ambience',
+    description: 'Café & Urban Ambience',
+    icon: Coffee,
+    color: 'brown',
+    gradient: 'from-amber-700/20 to-orange-800/20 hover:from-amber-700/30 hover:to-orange-800/30',
+    border: 'border-amber-700',
+    iconColor: 'text-amber-700',
   },
 ];
 
@@ -77,6 +77,7 @@ const VARIANT_ICONS: Record<string, React.ComponentType<{ className?: string }>>
   'coffee': Coffee,
   'moon': Moon,
   'heart': Heart,
+  'trees': Trees,
 };
 
 // Variant gradients (fallback if not in category)
@@ -84,6 +85,13 @@ const VARIANT_GRADIENTS: Record<string, string> = {
   'focus-deep-focus': 'from-blue-500/20 to-indigo-600/20 hover:from-blue-500/30 hover:to-indigo-600/30',
   'focus-conceptual-flow': 'from-amber-500/20 to-orange-600/20 hover:from-amber-500/30 hover:to-orange-600/30',
   'focus-memory-drill': 'from-emerald-500/20 to-teal-600/20 hover:from-emerald-500/30 hover:to-teal-600/30',
+  'nature-forest-immersion': 'from-emerald-500/20 to-teal-600/20 hover:from-emerald-500/30 hover:to-teal-600/30',
+  'nature-deep-water': 'from-cyan-500/20 to-blue-600/20 hover:from-cyan-500/30 hover:to-blue-600/30',
+  'nature-open-air': 'from-sky-500/20 to-cyan-600/20 hover:from-sky-500/30 hover:to-cyan-600/30',
+  'minimal-study-power': 'from-purple-500/20 to-violet-600/20 hover:from-purple-500/30 hover:to-violet-600/30',
+  'minimal-calm-focus': 'from-purple-400/20 to-violet-500/20 hover:from-purple-400/30 hover:to-violet-500/30',
+  'ambience-coffee-shop': 'from-amber-700/20 to-orange-800/20 hover:from-amber-700/30 hover:to-orange-800/30',
+  'ambience-rainy-library': 'from-amber-600/20 to-orange-700/20 hover:from-amber-600/30 hover:to-orange-700/30',
   'deep-focus': 'from-blue-500/20 to-indigo-600/20 hover:from-blue-500/30 hover:to-indigo-600/30',
   'conceptual-flow': 'from-amber-500/20 to-orange-600/20 hover:from-amber-500/30 hover:to-orange-600/30',
   'memory-drill': 'from-emerald-500/20 to-teal-600/20 hover:from-emerald-500/30 hover:to-teal-600/30',
@@ -94,6 +102,13 @@ const VARIANT_BORDERS: Record<string, string> = {
   'focus-deep-focus': 'border-blue-500',
   'focus-conceptual-flow': 'border-amber-500',
   'focus-memory-drill': 'border-emerald-500',
+  'nature-forest-immersion': 'border-emerald-500',
+  'nature-deep-water': 'border-cyan-500',
+  'nature-open-air': 'border-sky-500',
+  'minimal-study-power': 'border-purple-500',
+  'minimal-calm-focus': 'border-purple-400',
+  'ambience-coffee-shop': 'border-amber-700',
+  'ambience-rainy-library': 'border-amber-600',
   'deep-focus': 'border-blue-500',
   'conceptual-flow': 'border-amber-500',
   'memory-drill': 'border-emerald-500',
@@ -104,6 +119,13 @@ const VARIANT_ICON_COLORS: Record<string, string> = {
   'focus-deep-focus': 'text-blue-500',
   'focus-conceptual-flow': 'text-amber-500',
   'focus-memory-drill': 'text-emerald-500',
+  'nature-forest-immersion': 'text-emerald-500',
+  'nature-deep-water': 'text-cyan-500',
+  'nature-open-air': 'text-sky-500',
+  'minimal-study-power': 'text-purple-500',
+  'minimal-calm-focus': 'text-purple-400',
+  'ambience-coffee-shop': 'text-amber-700',
+  'ambience-rainy-library': 'text-amber-600',
   'deep-focus': 'text-blue-500',
   'conceptual-flow': 'text-amber-500',
   'memory-drill': 'text-emerald-500',
@@ -223,8 +245,8 @@ export function SoundscapePicker({
                     </div>
                     
                     {/* Name */}
-                    <h4 className="font-semibold text-sm mb-1 leading-tight h-[2.5rem] flex items-end">
-                      <span>
+                    <h4 className="font-semibold text-sm mb-1 leading-[1.25rem] min-h-[2.5rem] flex items-start">
+                      <span className="block w-full line-clamp-2">
                         {soundscape.name.includes(' - ') 
                           ? soundscape.name.split(' - ')[1] 
                           : soundscape.name}

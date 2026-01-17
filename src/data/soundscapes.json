@@ -20,7 +20,7 @@
     },
     {
       "id": "focus-conceptual-flow",
-      "name": "Focus - Conceptual Flow",
+      "name": "Focus - Creative Flow",
       "category": "focus",
       "description": "Classical piano/strings as primary focus with warm ambient pads. Drives creative rhythm for writing, essays, and conceptual thinking.",
       "icon": "pen-tool",
@@ -53,6 +53,139 @@
       "adaptations": {
         "highStress": { "baroque": 70, "isochronic": 20, "brown-noise": 15, "rain": 12, "drone": 18 },
         "lateNight": { "baroque": 60, "isochronic": 15, "brown-noise": 10, "rain": 8, "drone": 12 }
+      }
+    },
+    {
+      "id": "nature-forest-immersion",
+      "name": "Nature - Forest Immersion",
+      "category": "nature",
+      "description": "Birdsong restoration with wind spatial depth and stream masking. Post-study recovery with 15.7% mood improvement. Adapts to stress: more stream for isolation, more birdsong for restoration.",
+      "icon": "trees",
+      "bpm": 50,
+      "useCases": ["recovery", "relaxation", "post-study", "mood-improvement", "restoration"],
+      "layers": {
+        "waterstream": { "file": "nature/forest-imersion/waterstream.mp3.mp3", "baseVolume": 30 },
+        "birdsong": { "file": "nature/forest-imersion/birdsong.mp3.mp3", "baseVolume": 40 },
+        "wind": { "file": "nature/forest-imersion/wind.mp3.mp3", "baseVolume": 30 }
+      },
+      "adaptations": {
+        "highStress": { "waterstream": 70, "birdsong": 10, "wind": 20 },
+        "lateNight": { "waterstream": 25, "birdsong": 35, "wind": 35 }
+      }
+    },
+    {
+      "id": "nature-deep-water",
+      "name": "Nature - Deep Water",
+      "category": "nature",
+      "description": "Broadband masking with heavy rain shield, ocean wave rhythm, underwater isolation, bubble complexity, and whale song fascination. For high-distraction environments (cafes, loud homes) needing acoustic isolation.",
+      "icon": "trees",
+      "bpm": 55,
+      "useCases": ["sustained-attention", "high-distraction", "isolation", "long-reading", "focus"],
+      "layers": {
+        "heavy-rain": { "file": "nature/deep-water/heavy-rain.mp3", "baseVolume": 20 },
+        "ocean-waves": { "file": "nature/deep-water/ocean-waves.mp3", "baseVolume": 30 },
+        "underwater-sounds": { "file": "nature/deep-water/underwater-sounds.mp3", "baseVolume": 25 },
+        "bubbles": { "file": "nature/deep-water/bubbles.mp3", "baseVolume": 15 },
+        "whalesong": { "file": "nature/deep-water/whalesong.mp3", "baseVolume": 10 }
+      },
+      "adaptations": {
+        "highStress": { "heavy-rain": 65, "ocean-waves": 15, "underwater-sounds": 15, "bubbles": 5, "whalesong": 0 },
+        "lateNight": { "heavy-rain": 15, "ocean-waves": 35, "underwater-sounds": 30, "bubbles": 12, "whalesong": 8 }
+      }
+    },
+    {
+      "id": "nature-open-air",
+      "name": "Nature - Open Air",
+      "category": "nature",
+      "description": "Mountain wind ground, distant thunder awe, cricket rhythm, eagle depth, and grass texture. Creates sense of vastness and makes room feel larger as stress increases. Thunder triggers soft fascination, boosting creative problem-solving by up to 50%.",
+      "icon": "trees",
+      "bpm": 50,
+      "useCases": ["creative-thinking", "brainstorming", "problem-solving", "vastness", "awe"],
+      "layers": {
+        "mountain-wind": { "file": "nature/open-air/mountain-wind.mp3", "baseVolume": 30 },
+        "thunder": { "file": "nature/open-air/thunder.mp3", "baseVolume": 20 },
+        "cricket-sound": { "file": "nature/open-air/cricket-sound.mp3", "baseVolume": 20 },
+        "eagle-call": { "file": "nature/open-air/eagle-call.mp3", "baseVolume": 15 },
+        "leaves-rustling": { "file": "nature/open-air/leaves-rustling.mp3", "baseVolume": 15 }
+      },
+      "adaptations": {
+        "highStress": { "mountain-wind": 15, "thunder": 60, "cricket-sound": 5, "eagle-call": 5, "leaves-rustling": 15 },
+        "lateNight": { "mountain-wind": 25, "thunder": 15, "cricket-sound": 25, "eagle-call": 10, "leaves-rustling": 20 }
+      }
+    },
+    {
+      "id": "minimal-study-power",
+      "name": "Minimal - Study Power",
+      "category": "minimal",
+      "description": "Isochronic 40Hz drive, binaural beta/alpha push, 528Hz tone calm, and white noise mask. Tuned for procrastinators. Strong gamma/beta entrainment improves attention. 528Hz reduces cortisol as stress increases.",
+      "icon": "brain",
+      "bpm": 40,
+      "useCases": ["procrastination", "motivation", "task-starting", "attention", "working-memory"],
+      "layers": {
+        "isochronic": { "file": "Minimal/study-power/isochronic.mp3.mp3", "baseVolume": 35 },
+        "binaural": { "file": "Minimal/study-power/bimauralbeats.mp3", "baseVolume": 25 },
+        "tone-528hz": { "file": "Minimal/study-power/528hz.mp3", "baseVolume": 20 },
+        "white-noise": { "file": "Minimal/study-power/whitenoise.mp3", "baseVolume": 20 }
+      },
+      "adaptations": {
+        "highStress": { "isochronic": 15, "binaural": 15, "tone-528hz": 45, "white-noise": 25 },
+        "lateNight": { "isochronic": 30, "binaural": 20, "tone-528hz": 25, "white-noise": 18 }
+      }
+    },
+    {
+      "id": "minimal-calm-focus",
+      "name": "Minimal - Calm Focus",
+      "category": "minimal",
+      "description": "528Hz pad calm, binaural beats alertness, and white noise mask. Light 528Hz plus mild binaural keeps relaxed alertness without drowsiness. 528Hz music lowers cortisol and tension-anxiety during ongoing tasks.",
+      "icon": "brain",
+      "bpm": 35,
+      "useCases": ["relaxed-alertness", "ongoing-tasks", "stress-reduction", "calm-focus", "anxiety-reduction"],
+      "layers": {
+        "pad-528hz": { "file": "Minimal/calm-focus/528hz.mp3", "baseVolume": 50 },
+        "binaural": { "file": "Minimal/calm-focus/bimauralbeats.mp3", "baseVolume": 20 },
+        "white-noise": { "file": "Minimal/calm-focus/whitenoise.mp3", "baseVolume": 10 }
+      },
+      "adaptations": {
+        "highStress": { "pad-528hz": 65, "binaural": 10, "white-noise": 15 },
+        "lateNight": { "pad-528hz": 45, "binaural": 18, "white-noise": 12 }
+      }
+    },
+    {
+      "id": "ambience-coffee-shop",
+      "name": "Ambience - Coffee Shop",
+      "category": "ambience",
+      "description": "Coffee shop chatter, HVAC masking, plates & glass clinking, and light traffic. Classic 'coffee-shop effect': mixed chatter at medium level improves abstract thinking vs silence or loud noise. Adapts to stress with more HVAC masking.",
+      "icon": "coffee",
+      "bpm": 0,
+      "useCases": ["creative-thinking", "abstract-thinking", "cafe-ambience", "social-presence", "focus"],
+      "layers": {
+        "chatter": { "file": "Ambience/coffe-shop/coffe-shop.mp3", "baseVolume": 70 },
+        "hvac": { "file": "Ambience/coffe-shop/hvac.mp3", "baseVolume": 50 },
+        "plates-glass": { "file": "Ambience/coffe-shop/plates-glass.mp3", "baseVolume": 20 },
+        "light-traffic": { "file": "Ambience/coffe-shop/light-traffic.mp3", "baseVolume": 5 }
+      },
+      "adaptations": {
+        "highStress": { "chatter": 55, "hvac": 60, "plates-glass": 10, "light-traffic": 0 },
+        "lateNight": { "chatter": 60, "hvac": 45, "plates-glass": 15, "light-traffic": 0 }
+      }
+    },
+    {
+      "id": "ambience-rainy-library",
+      "name": "Ambience - Rainy Library",
+      "category": "ambience",
+      "description": "Gentle rain, HVAC white noise, flipping pages, and typing sounds. Balanced rain and steady typing mimic a busy study hall, supporting sustained focus. Stronger continuous rain + HVAC give more masking when stressed.",
+      "icon": "coffee",
+      "bpm": 0,
+      "useCases": ["reading", "studying", "library-ambience", "sustained-focus", "calm-focus"],
+      "layers": {
+        "rain": { "file": "Ambience/rainy-library/rain.mp3", "baseVolume": 35 },
+        "hvac": { "file": "Ambience/rainy-library/hvac.mp3", "baseVolume": 35 },
+        "flipping-pages": { "file": "Ambience/rainy-library/flipping-pages.mp3", "baseVolume": 25 },
+        "typing": { "file": "Ambience/rainy-library/typing.mp3", "baseVolume": 35 }
+      },
+      "adaptations": {
+        "highStress": { "rain": 35, "hvac": 50, "flipping-pages": 10, "typing": 15 },
+        "lateNight": { "rain": 30, "hvac": 30, "flipping-pages": 20, "typing": 30 }
       }
     }
   ],

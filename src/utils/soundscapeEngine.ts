@@ -14,7 +14,7 @@
 import soundscapesData from '@/data/soundscapes.json';
 
 // Types
-export type SoundscapeId = 'focus-deep-focus' | 'focus-conceptual-flow' | 'focus-memory-drill' | 'deep-focus' | 'conceptual-flow' | 'memorize-drill' | 'study-break' | 'night-mode' | 'anxiety-down';
+export type SoundscapeId = 'focus-deep-focus' | 'focus-conceptual-flow' | 'focus-memory-drill' | 'nature-forest-immersion' | 'nature-deep-water' | 'nature-open-air' | 'minimal-study-power' | 'minimal-calm-focus' | 'ambience-coffee-shop' | 'ambience-rainy-library' | 'deep-focus' | 'conceptual-flow' | 'memorize-drill' | 'study-break' | 'night-mode' | 'anxiety-down';
 export type StudyType = 'problem-solving' | 'writing' | 'memorization';
 export type LayerName = 'pad' | 'rhythm' | 'texture' | 'subBass' | 'effects' | 'drone' | 'synths' | 'binaural';
 
@@ -145,8 +145,342 @@ export const calculateAdaptedVolumes = (
   Object.keys(volumes).forEach((layerName) => {
     const lowerName = layerName.toLowerCase();
     
+    // Nature layers - specific adaptations for Forest Immersion
+    if (lowerName.includes('waterstream') || lowerName.includes('stream')) {
+      // Stream (Masking): Increases significantly with stress (15% → 30% → 70%)
+      // Level 1: -15%, Level 2: -10%, Level 3: 0%, Level 4: +20%, Level 5: +40%
+      if (stressLevel <= 2) {
+        // Relaxed/Calm: decrease
+        volumes[layerName] = Math.max(15, volumes[layerName] - (15 - (stressLevel - 1) * 5));
+      } else if (stressLevel >= 4) {
+        // Stressed/Very Stressed: increase
+        volumes[layerName] = Math.min(100, volumes[layerName] + ((stressLevel - 3) * 20));
+      }
+      // Level 3 (Neutral) stays at base
+    }
+    else if (lowerName.includes('birdsong') || lowerName.includes('bird')) {
+      // Birdsong (Restoration): Decreases with stress (55% → 40% → 10%)
+      // Level 1: +15%, Level 2: 0%, Level 3: 0%, Level 4: -15%, Level 5: -30%
+      if (stressLevel === 1) {
+        volumes[layerName] = Math.min(100, volumes[layerName] + 15);
+      } else if (stressLevel >= 4) {
+        volumes[layerName] = Math.max(5, volumes[layerName] - ((stressLevel - 3) * 15));
+      }
+      // Level 2-3 stay at base
+    }
+    else if (lowerName.includes('wind')) {
+      // Wind (Spatial): Complex - increases at level 2, then decreases
+      // Level 1: 0%, Level 2: +10%, Level 3: 0%, Level 4: -5%, Level 5: -10%
+      if (stressLevel === 2) {
+        volumes[layerName] = Math.min(100, volumes[layerName] + 10);
+      } else if (stressLevel >= 4) {
+        volumes[layerName] = Math.max(5, volumes[layerName] - ((stressLevel - 3) * 5));
+      }
+      // Level 1 and 3 stay at base
+    }
+    // Deep Water layers - specific adaptations
+    else if (lowerName.includes('heavy-rain') || lowerName.includes('heavyrain') || (lowerName.includes('rain') && !lowerName.includes('waterstream'))) {
+      // Heavy Rain (Shield): Increases dramatically with stress (10% → 20% → 65%)
+      // Level 1: -10%, Level 2: -10%, Level 3: 0%, Level 4: +25%, Level 5: +45%
+      if (stressLevel <= 2) {
+        volumes[layerName] = Math.max(10, volumes[layerName] - 10);
+      } else if (stressLevel === 4) {
+        volumes[layerName] = Math.min(100, volumes[layerName] + 25);
+      } else if (stressLevel === 5) {
+        volumes[layerName] = Math.min(100, volumes[layerName] + 45);
+      }
+      // Level 3 stays at base
+    }
+    else if (lowerName.includes('ocean-waves') || lowerName.includes('oceanwaves') || (lowerName.includes('waves') && !lowerName.includes('water'))) {
+      // Ocean Waves (Rhythm): Decreases with stress, peaks at level 1 (45% → 30% → 15%)
+      // Level 1: +15%, Level 2: -5%, Level 3: 0%, Level 4: -10%, Level 5: -15%
+      if (stressLevel === 1) {
+        volumes[layerName] = Math.min(100, volumes[layerName] + 15);
+      } else if (stressLevel === 2) {
+        volumes[layerName] = Math.max(5, volumes[layerName] - 5);
+      } else if (stressLevel >= 4) {
+        volumes[layerName] = Math.max(5, volumes[layerName] - ((stressLevel - 3) * 10));
+      }
+      // Level 3 stays at base
+    }
+    else if (lowerName.includes('underwater') || lowerName.includes('under-water')) {
+      // Underwater (Isolation): Peaks at level 2, then decreases (15% → 40% → 25% → 15%)
+      // Level 1: -10%, Level 2: +15%, Level 3: 0%, Level 4: -5%, Level 5: -10%
+      if (stressLevel === 1) {
+        volumes[layerName] = Math.max(5, volumes[layerName] - 10);
+      } else if (stressLevel === 2) {
+        volumes[layerName] = Math.min(100, volumes[layerName] + 15);
+      } else if (stressLevel >= 4) {
+        volumes[layerName] = Math.max(5, volumes[layerName] - ((stressLevel - 3) * 5));
+      }
+      // Level 3 stays at base
+    }
+    else if (lowerName.includes('bubbles') || lowerName.includes('bubble')) {
+      // Bubbles (Complexity): Peaks at level 2, then decreases (10% → 20% → 15% → 5%)
+      // Level 1: -5%, Level 2: +5%, Level 3: 0%, Level 4: -5%, Level 5: -10%
+      if (stressLevel === 1) {
+        volumes[layerName] = Math.max(5, volumes[layerName] - 5);
+      } else if (stressLevel === 2) {
+        volumes[layerName] = Math.min(100, volumes[layerName] + 5);
+      } else if (stressLevel >= 4) {
+        volumes[layerName] = Math.max(0, volumes[layerName] - ((stressLevel - 3) * 5));
+      }
+      // Level 3 stays at base
+    }
+    else if (lowerName.includes('whalesong') || lowerName.includes('whale-song') || lowerName.includes('whale')) {
+      // Whale Song (Soft Fascination): Decreases with stress, peaks at level 1 (20% → 10% → 0%)
+      // Level 1: +10%, Level 2: -5%, Level 3: 0%, Level 4: -5%, Level 5: -10% (to 0%)
+      if (stressLevel === 1) {
+        volumes[layerName] = Math.min(100, volumes[layerName] + 10);
+      } else if (stressLevel === 2) {
+        volumes[layerName] = Math.max(0, volumes[layerName] - 5);
+      } else if (stressLevel >= 4) {
+        volumes[layerName] = Math.max(0, volumes[layerName] - ((stressLevel - 3) * 5));
+      }
+      // Level 3 stays at base
+    }
+    // Open Air layers - specific adaptations for vastness
+    else if (lowerName.includes('mountain-wind') || (lowerName.includes('wind') && lowerName.includes('mountain'))) {
+      // Mountain Wind (The Ground): Peaks at level 2, then decreases (20% → 40% → 30% → 15%)
+      // Level 1: -10%, Level 2: +10%, Level 3: 0%, Level 4: -5%, Level 5: -15%
+      if (stressLevel === 1) {
+        volumes[layerName] = Math.max(5, volumes[layerName] - 10);
+      } else if (stressLevel === 2) {
+        volumes[layerName] = Math.min(100, volumes[layerName] + 10);
+      } else if (stressLevel >= 4) {
+        volumes[layerName] = Math.max(5, volumes[layerName] - ((stressLevel - 3) * 5));
+      }
+      // Level 3 stays at base
+    }
+    else if (lowerName.includes('thunder') && !lowerName.includes('rain')) {
+      // Thunder (The Awe): Increases dramatically with stress (10% → 20% → 60%)
+      // Level 1: -10%, Level 2: -10%, Level 3: 0%, Level 4: +15%, Level 5: +40%
+      if (stressLevel <= 2) {
+        volumes[layerName] = Math.max(5, volumes[layerName] - 10);
+      } else if (stressLevel === 4) {
+        volumes[layerName] = Math.min(100, volumes[layerName] + 15);
+      } else if (stressLevel === 5) {
+        volumes[layerName] = Math.min(100, volumes[layerName] + 40);
+      }
+      // Level 3 stays at base
+    }
+    else if (lowerName.includes('cricket') || lowerName.includes('crickets')) {
+      // Crickets (The Life/Rhythm): Peaks at level 1, then decreases (45% → 20% → 5%)
+      // Level 1: +25%, Level 2: 0%, Level 3: 0%, Level 4: -5%, Level 5: -15%
+      if (stressLevel === 1) {
+        volumes[layerName] = Math.min(100, volumes[layerName] + 25);
+      } else if (stressLevel >= 4) {
+        volumes[layerName] = Math.max(0, volumes[layerName] - ((stressLevel - 3) * 5));
+      }
+      // Level 2-3 stay at base
+    }
+    else if (lowerName.includes('eagle') || lowerName.includes('hawk') || lowerName.includes('bird-call')) {
+      // Eagle/Hawk (The Depth): Decreases with stress (10% → 15% → 5%)
+      // Level 1: -5%, Level 2: -10%, Level 3: 0%, Level 4: -5%, Level 5: -10%
+      if (stressLevel === 1) {
+        volumes[layerName] = Math.max(0, volumes[layerName] - 5);
+      } else if (stressLevel === 2) {
+        volumes[layerName] = Math.max(0, volumes[layerName] - 10);
+      } else if (stressLevel >= 4) {
+        volumes[layerName] = Math.max(0, volumes[layerName] - ((stressLevel - 3) * 5));
+      }
+      // Level 3 stays at base
+    }
+    else if (lowerName.includes('leaves-rustling') || lowerName.includes('rustling') || (lowerName.includes('grass') && !lowerName.includes('tall'))) {
+      // Grass (The Texture): Constant except peaks at level 2 (15% → 25% → 15%)
+      // Level 1: 0%, Level 2: +10%, Level 3: 0%, Level 4: 0%, Level 5: 0%
+      if (stressLevel === 2) {
+        volumes[layerName] = Math.min(100, volumes[layerName] + 10);
+      }
+      // All other levels stay at base
+    }
+    // Study Power layers - specific adaptations for procrastinators
+    else if (lowerName.includes('tone-528hz') || lowerName.includes('528hz') || lowerName.includes('528')) {
+      // 528Hz Tone (Calm): Increases dramatically with stress (10% → 20% → 45%)
+      // Level 1: -10%, Level 2: -5%, Level 3: 0%, Level 4: +15%, Level 5: +25%
+      if (stressLevel === 1) {
+        volumes[layerName] = Math.max(5, volumes[layerName] - 10);
+      } else if (stressLevel === 2) {
+        volumes[layerName] = Math.max(5, volumes[layerName] - 5);
+      } else if (stressLevel === 4) {
+        volumes[layerName] = Math.min(100, volumes[layerName] + 15);
+      } else if (stressLevel === 5) {
+        volumes[layerName] = Math.min(100, volumes[layerName] + 25);
+      }
+      // Level 3 stays at base
+    }
+    else if ((lowerName.includes('isochronic') || lowerName.includes('pulse')) && !lowerName.includes('memory')) {
+      // Isochronic 40Hz (Drive): Decreases with stress (50% → 35% → 15%)
+      // Level 1: +15%, Level 2: +10%, Level 3: 0%, Level 4: -10%, Level 5: -20%
+      if (stressLevel === 1) {
+        volumes[layerName] = Math.min(100, volumes[layerName] + 15);
+      } else if (stressLevel === 2) {
+        volumes[layerName] = Math.min(100, volumes[layerName] + 10);
+      } else if (stressLevel >= 4) {
+        volumes[layerName] = Math.max(5, volumes[layerName] - ((stressLevel - 3) * 10));
+      }
+      // Level 3 stays at base
+    }
+    else if ((lowerName.includes('binaural') || lowerName.includes('bimaural')) && !lowerName.includes('memory')) {
+      // Binaural Beta/Alpha (Push): Decreases slightly with stress (25% → 25% → 15%)
+      // Level 1-2: 0%, Level 3: 0%, Level 4: -5%, Level 5: -10%
+      if (stressLevel >= 4) {
+        volumes[layerName] = Math.max(5, volumes[layerName] - ((stressLevel - 3) * 5));
+      }
+      // Level 1-3 stay at base
+    }
+    else if (lowerName.includes('white-noise') || lowerName.includes('whitenoise')) {
+      // White Noise (Mask): Check if it's Calm Focus (base 10%) or Study Power (base 20%)
+      const baseVol = soundscape.layers[layerName]?.baseVolume || volumes[layerName];
+      if (baseVol <= 15) {
+        // Calm Focus: Mostly constant, slight increase at very stressed (10% → 10% → 15%)
+        // Level 1-4: 0%, Level 5: +5%
+        if (stressLevel === 5) {
+          volumes[layerName] = Math.min(100, volumes[layerName] + 5);
+        }
+        // Level 1-4 stay at base
+      } else {
+        // Study Power: Increases slightly with stress (15% → 20% → 25%)
+        // Level 1: -5%, Level 2: -5%, Level 3: 0%, Level 4: 0%, Level 5: +5%
+        if (stressLevel <= 2) {
+          volumes[layerName] = Math.max(5, volumes[layerName] - 5);
+        } else if (stressLevel === 5) {
+          volumes[layerName] = Math.min(100, volumes[layerName] + 5);
+        }
+        // Level 3-4 stay at base
+      }
+    }
+    // Calm Focus specific - 528Hz Pad (different from Study Power tone-528hz)
+    else if (lowerName.includes('pad-528hz') || (lowerName.includes('528hz') && lowerName.includes('pad'))) {
+      // 528Hz Pad (Calm Focus): Increases with stress (30% → 50% → 65%)
+      // Level 1: -20%, Level 2: -10%, Level 3: 0%, Level 4: +10%, Level 5: +15%
+      if (stressLevel === 1) {
+        volumes[layerName] = Math.max(5, volumes[layerName] - 20);
+      } else if (stressLevel === 2) {
+        volumes[layerName] = Math.max(5, volumes[layerName] - 10);
+      } else if (stressLevel === 4) {
+        volumes[layerName] = Math.min(100, volumes[layerName] + 10);
+      } else if (stressLevel === 5) {
+        volumes[layerName] = Math.min(100, volumes[layerName] + 15);
+      }
+      // Level 3 stays at base
+    }
+    // Calm Focus binaural (base 20%, different from Study Power base 25%)
+    else if ((lowerName.includes('binaural') || lowerName.includes('bimaural')) && !lowerName.includes('memory') && !lowerName.includes('study-power')) {
+      // Check base volume to distinguish Calm Focus from Study Power
+      const baseVol = soundscape.layers[layerName]?.baseVolume || volumes[layerName];
+      if (baseVol === 20) {
+        // Calm Focus Binaural: Decreases with stress (20% → 20% → 10%)
+        // Level 1-3: 0%, Level 4: -5%, Level 5: -10%
+        if (stressLevel >= 4) {
+          volumes[layerName] = Math.max(5, volumes[layerName] - ((stressLevel - 3) * 5));
+        }
+        // Level 1-3 stay at base
+      } else if (baseVol === 25) {
+        // Study Power Binaural: Decreases slightly with stress (25% → 25% → 15%)
+        // Level 1-2: 0%, Level 3: 0%, Level 4: -5%, Level 5: -10%
+        if (stressLevel >= 4) {
+          volumes[layerName] = Math.max(5, volumes[layerName] - ((stressLevel - 3) * 5));
+        }
+        // Level 1-3 stay at base
+      }
+    }
+    // Coffee Shop layers - specific adaptations for café ambience
+    else if (soundscape.id === 'ambience-coffee-shop') {
+      if (lowerName.includes('chatter') || lowerName.includes('coffe-shop') || lowerName.includes('coffee-shop')) {
+        // Chatter: Peaks at neutral, decreases at extremes (50% → 70% → 55%)
+        // Level 1: -20%, Level 2: -10%, Level 3: 0%, Level 4: -5%, Level 5: -15%
+        if (stressLevel === 1) {
+          volumes[layerName] = Math.max(5, volumes[layerName] - 20);
+        } else if (stressLevel === 2) {
+          volumes[layerName] = Math.max(5, volumes[layerName] - 10);
+        } else if (stressLevel === 4) {
+          volumes[layerName] = Math.max(5, volumes[layerName] - 5);
+        } else if (stressLevel === 5) {
+          volumes[layerName] = Math.max(5, volumes[layerName] - 15);
+        }
+        // Level 3 stays at base
+      } else if (lowerName.includes('hvac')) {
+        // HVAC: Increases with stress for masking (40% → 50% → 60%)
+        // Level 1: -10%, Level 2: -5%, Level 3: 0%, Level 4: +5%, Level 5: +10%
+        if (stressLevel === 1) {
+          volumes[layerName] = Math.max(5, volumes[layerName] - 10);
+        } else if (stressLevel === 2) {
+          volumes[layerName] = Math.max(5, volumes[layerName] - 5);
+        } else if (stressLevel === 4) {
+          volumes[layerName] = Math.min(100, volumes[layerName] + 5);
+        } else if (stressLevel === 5) {
+          volumes[layerName] = Math.min(100, volumes[layerName] + 10);
+        }
+        // Level 3 stays at base
+      } else if (lowerName.includes('plates-glass') || lowerName.includes('plates') || lowerName.includes('glass')) {
+        // Plates/Glass: Peaks at neutral, decreases with stress (10% → 20% → 10%)
+        // Level 1: -10%, Level 2: -5%, Level 3: 0%, Level 4: -5%, Level 5: -10%
+        if (stressLevel === 1) {
+          volumes[layerName] = Math.max(0, volumes[layerName] - 10);
+        } else if (stressLevel === 2) {
+          volumes[layerName] = Math.max(0, volumes[layerName] - 5);
+        } else if (stressLevel >= 4) {
+          volumes[layerName] = Math.max(0, volumes[layerName] - ((stressLevel - 3) * 5));
+        }
+        // Level 3 stays at base
+      } else if (lowerName.includes('light-traffic') || lowerName.includes('traffic')) {
+        // Light Traffic: Only at calm/neutral, zero at extremes (0% → 5% → 0%)
+        // Level 1: -5%, Level 2: 0%, Level 3: 0%, Level 4: -5%, Level 5: -5%
+        if (stressLevel === 1 || stressLevel >= 4) {
+          volumes[layerName] = Math.max(0, volumes[layerName] - 5);
+        }
+        // Level 2-3 stay at base
+      }
+    }
+    // Rainy Library layers - specific adaptations for library ambience
+    else if (soundscape.id === 'ambience-rainy-library') {
+      if (lowerName.includes('rain') && !lowerName.includes('heavy')) {
+        // Rain: Moderate increase with stress, but HVAC takes priority (25% → 35% → 35%)
+        // Level 1: -10%, Level 2: -5%, Level 3: 0%, Level 4: 0%, Level 5: 0%
+        if (stressLevel === 1) {
+          volumes[layerName] = Math.max(5, volumes[layerName] - 10);
+        } else if (stressLevel === 2) {
+          volumes[layerName] = Math.max(5, volumes[layerName] - 5);
+        }
+        // Level 3-5 stay at base (35%) - HVAC takes priority for masking
+      } else if (lowerName.includes('hvac') || lowerName.includes('white-bed') || lowerName.includes('whitebed')) {
+        // HVAC/White Bed: Increases significantly with stress for masking (35% → 35% → 50%)
+        // Level 1-3: 0%, Level 4: +5%, Level 5: +15%
+        if (stressLevel === 4) {
+          volumes[layerName] = Math.min(100, volumes[layerName] + 5);
+        } else if (stressLevel === 5) {
+          volumes[layerName] = Math.min(100, volumes[layerName] + 15);
+        }
+        // Level 1-3 stay at base
+      } else if (lowerName.includes('flipping-pages') || lowerName.includes('pages') || lowerName.includes('flipping')) {
+        // Flipping Pages: Decreases with stress (30% → 25% → 10%)
+        // Level 1: +5%, Level 2: +5%, Level 3: 0%, Level 4: -15%, Level 5: -15%
+        if (stressLevel <= 2) {
+          volumes[layerName] = Math.min(100, volumes[layerName] + 5);
+        } else if (stressLevel === 4) {
+          volumes[layerName] = Math.max(0, volumes[layerName] - 15);
+        } else if (stressLevel === 5) {
+          volumes[layerName] = Math.max(0, volumes[layerName] - 15);
+        }
+        // Level 3 stays at base
+      } else if (lowerName.includes('typing')) {
+        // Typing: Peaks at neutral, decreases with stress (20% → 35% → 15%)
+        // Level 1: -15%, Level 2: -10%, Level 3: 0%, Level 4: -20%, Level 5: -20%
+        if (stressLevel === 1) {
+          volumes[layerName] = Math.max(0, volumes[layerName] - 15);
+        } else if (stressLevel === 2) {
+          volumes[layerName] = Math.max(0, volumes[layerName] - 10);
+        } else if (stressLevel === 4) {
+          volumes[layerName] = Math.max(0, volumes[layerName] - 20);
+        } else if (stressLevel === 5) {
+          volumes[layerName] = Math.max(0, volumes[layerName] - 20);
+        }
+        // Level 3 stays at base
+      }
+    }
     // Drone/pad/brown-noise layers: increase with stress (calming)
-    if (lowerName.includes('drone') || lowerName.includes('pad') || lowerName.includes('binaural') || lowerName.includes('brown-noise') || lowerName.includes('brownnoise')) {
+    else if (lowerName.includes('drone') || lowerName.includes('pad') || lowerName.includes('binaural') || lowerName.includes('brown-noise') || lowerName.includes('brownnoise')) {
       volumes[layerName] = Math.min(100, volumes[layerName] + (stressFactor * 15));
     }
     // Rhythm/synths/baroque layers: decrease with stress (less distracting)
