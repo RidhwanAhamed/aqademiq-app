@@ -177,8 +177,12 @@ export function AdaAIChat({
   const [isExecutingAction, setIsExecutingAction] = useState(false);
   const [userCourses, setUserCourses] = useState<Array<{ id: string; name: string; code?: string }>>([]);
   
+  // Course context for RAG filtering
+  const [currentCourseId, setCurrentCourseId] = useState<string | null>(null);
+  
   // File attachment (ChatGPT style)
   const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [pendingFileCourseId, setPendingFileCourseId] = useState<string | null>(null);
   const [pendingFileStatus, setPendingFileStatus] = useState('');
   
   // Mode selector state
@@ -475,6 +479,7 @@ export function AdaAIChat({
   const handleRemoveFile = useCallback(() => {
     setPendingFile(null);
     setPendingFileStatus('');
+    setPendingFileCourseId(null);
   }, []);
 
   // Upload and index file for RAG
@@ -576,6 +581,49 @@ export function AdaAIChat({
     ];
     const lowerMessage = message.toLowerCase();
     return scheduleKeywords.some(keyword => lowerMessage.includes(keyword));
+  }, []);
+
+  // Detect course context from user message
+  // Looks for course names/codes mentioned in the message to filter document RAG
+  const detectCourseFromMessage = useCallback((message: string, courses: Array<{ id: string; name: string; code?: string }>): string | null => {
+    if (!message || courses.length === 0) return null;
+    
+    const lowerMessage = message.toLowerCase();
+    
+    // Common patterns that indicate course-specific context
+    const courseIndicators = [
+      'in my', 'for my', 'from my', 'about my', 'regarding my',
+      'in the', 'for the', 'from the', 'about the',
+      'course', 'class', 'subject', 'module', 'lecture'
+    ];
+    
+    // Check if message has course-related context
+    const hasCourseContext = courseIndicators.some(indicator => lowerMessage.includes(indicator));
+    
+    // Try to match against known courses
+    for (const course of courses) {
+      const courseName = course.name.toLowerCase();
+      const courseCode = course.code?.toLowerCase() || '';
+      
+      // Direct name match
+      if (lowerMessage.includes(courseName)) {
+        return course.id;
+      }
+      
+      // Course code match
+      if (courseCode && lowerMessage.includes(courseCode)) {
+        return course.id;
+      }
+      
+      // Partial name match (for longer course names)
+      const nameWords = courseName.split(/\s+/).filter(w => w.length > 3);
+      const matchingWords = nameWords.filter(word => lowerMessage.includes(word));
+      if (matchingWords.length >= 2 || (matchingWords.length === 1 && hasCourseContext)) {
+        return course.id;
+      }
+    }
+    
+    return null;
   }, []);
 
   // Enhanced file upload
@@ -1644,13 +1692,20 @@ export function AdaAIChat({
         await handleChatBadgeUnlock(nextCount);
       }
 
+      // Detect course context from message or pending file
+      const detectedCourseId = pendingFileCourseId || currentCourseId || detectCourseFromMessage(userMessage, userCourses);
+      
       const { data: aiResponse, error } = await supabase.functions.invoke('ai-chat', {
         body: { 
           message: userMessage || 'What can you tell me about this file?',
           conversation_id: conversationId,
+          course_id: detectedCourseId,
           just_indexed_file_id: fileId
         }
       });
+      
+      // Clear pending file course after sending
+      setPendingFileCourseId(null);
 
       if (error) throw error;
 

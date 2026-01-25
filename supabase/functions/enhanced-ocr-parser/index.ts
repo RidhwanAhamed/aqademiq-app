@@ -261,31 +261,208 @@ async function primaryOCR(
 async function fallbackOCR(fileBuffer: Uint8Array, fileType: string): Promise<OCRResult> {
   const startTime = Date.now();
   
-  // Simulate Tesseract.js or alternative OCR processing
-  // In a real implementation, this would use a different OCR service
-  console.log('Fallback OCR processing with enhanced algorithms...');
+  console.log('Fallback OCR processing...', { fileType });
   
   try {
-    // Simulate enhanced image preprocessing and OCR
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    // Basic fallback text extraction (in real implementation, use Tesseract.js)
-    const fallbackText = "Fallback OCR text extraction - would use Tesseract.js or similar";
-    
-    return {
-      text: fallbackText,
-      confidence: 0.7,
-      method: 'fallback',
-      processingTime: Date.now() - startTime,
-      metadata: {
-        note: 'Fallback OCR method used - consider improving image quality'
+    // Handle DOCX files - they are ZIP archives containing XML
+    if (fileType.includes('wordprocessingml') || fileType.includes('msword') || fileType.includes('docx')) {
+      console.log('Detected DOCX file, extracting text from XML structure...');
+      const docxText = await extractTextFromDocx(fileBuffer);
+      
+      if (docxText && docxText.length > 50) {
+        return {
+          text: docxText,
+          confidence: 0.95, // DOCX extraction is highly reliable
+          method: 'fallback',
+          processingTime: Date.now() - startTime,
+          metadata: {
+            note: 'Text extracted from DOCX XML structure',
+            extraction_method: 'docx_xml_parser'
+          }
+        };
       }
-    };
+    }
+    
+    // Handle plain text files
+    if (fileType.includes('text/plain') || fileType.includes('text/markdown')) {
+      const textDecoder = new TextDecoder('utf-8');
+      const plainText = textDecoder.decode(fileBuffer);
+      
+      if (plainText && plainText.length > 10) {
+        return {
+          text: plainText,
+          confidence: 1.0,
+          method: 'fallback',
+          processingTime: Date.now() - startTime,
+          metadata: {
+            note: 'Plain text file read directly',
+            extraction_method: 'text_decoder'
+          }
+        };
+      }
+    }
+    
+    // For other file types, return error instead of placeholder
+    console.log('Unsupported file type for fallback OCR:', fileType);
+    throw new Error(`Fallback OCR not available for file type: ${fileType}. Please use a PDF or image file.`);
     
   } catch (error) {
     console.error('Fallback OCR failed:', error);
-    throw new Error('Fallback OCR processing failed');
+    throw new Error('Fallback OCR processing failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
   }
+}
+
+/**
+ * Extract text content from DOCX files
+ * DOCX files are ZIP archives containing XML files
+ * The main content is in word/document.xml
+ */
+async function extractTextFromDocx(fileBuffer: Uint8Array): Promise<string> {
+  try {
+    // DOCX is a ZIP file - we need to find and parse the document.xml
+    // The ZIP file format has local file headers followed by file data
+    
+    const zipData = fileBuffer;
+    const textContent: string[] = [];
+    
+    // Find all local file headers in the ZIP
+    let offset = 0;
+    while (offset < zipData.length - 4) {
+      // Look for local file header signature (0x04034b50)
+      if (zipData[offset] === 0x50 && zipData[offset + 1] === 0x4B && 
+          zipData[offset + 2] === 0x03 && zipData[offset + 3] === 0x04) {
+        
+        // Parse local file header
+        const fileNameLength = zipData[offset + 26] | (zipData[offset + 27] << 8);
+        const extraFieldLength = zipData[offset + 28] | (zipData[offset + 29] << 8);
+        const compressedSize = zipData[offset + 18] | (zipData[offset + 19] << 8) | 
+                              (zipData[offset + 20] << 16) | (zipData[offset + 21] << 24);
+        const compressionMethod = zipData[offset + 8] | (zipData[offset + 9] << 8);
+        
+        const fileNameStart = offset + 30;
+        const fileNameBytes = zipData.slice(fileNameStart, fileNameStart + fileNameLength);
+        const fileName = new TextDecoder().decode(fileNameBytes);
+        
+        const dataStart = fileNameStart + fileNameLength + extraFieldLength;
+        
+        // We're interested in word/document.xml (main content)
+        if (fileName === 'word/document.xml' && compressionMethod === 0) {
+          // Uncompressed - read directly
+          const xmlData = zipData.slice(dataStart, dataStart + compressedSize);
+          const xmlString = new TextDecoder().decode(xmlData);
+          const extractedText = extractTextFromXml(xmlString);
+          if (extractedText) textContent.push(extractedText);
+        } else if (fileName === 'word/document.xml' && compressionMethod === 8) {
+          // Deflate compressed - use DecompressionStream
+          try {
+            const compressedData = zipData.slice(dataStart, dataStart + compressedSize);
+            const decompressedData = await inflateData(compressedData);
+            const xmlString = new TextDecoder().decode(decompressedData);
+            const extractedText = extractTextFromXml(xmlString);
+            if (extractedText) textContent.push(extractedText);
+          } catch (decompressError) {
+            console.error('Decompression failed for document.xml:', decompressError);
+          }
+        }
+        
+        // Move to next entry
+        offset = dataStart + compressedSize;
+      } else {
+        offset++;
+      }
+    }
+    
+    const finalText = textContent.join('\n\n').trim();
+    console.log(`Extracted ${finalText.length} characters from DOCX`);
+    return finalText;
+    
+  } catch (error) {
+    console.error('DOCX extraction error:', error);
+    return '';
+  }
+}
+
+/**
+ * Inflate (decompress) deflate-compressed data
+ */
+async function inflateData(compressedData: Uint8Array): Promise<Uint8Array> {
+  // Add zlib header for raw deflate data
+  const zlibData = new Uint8Array(compressedData.length + 2);
+  zlibData[0] = 0x78; // CMF
+  zlibData[1] = 0x9C; // FLG
+  zlibData.set(compressedData, 2);
+  
+  try {
+    const ds = new DecompressionStream('deflate');
+    const writer = ds.writable.getWriter();
+    const reader = ds.readable.getReader();
+    
+    writer.write(compressedData);
+    writer.close();
+    
+    const chunks: Uint8Array[] = [];
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+    }
+    
+    // Combine chunks
+    const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0);
+    const result = new Uint8Array(totalLength);
+    let position = 0;
+    for (const chunk of chunks) {
+      result.set(chunk, position);
+      position += chunk.length;
+    }
+    
+    return result;
+  } catch (e) {
+    console.error('Inflate failed:', e);
+    throw e;
+  }
+}
+
+/**
+ * Extract text content from DOCX XML
+ * Finds all <w:t> elements and extracts their text
+ */
+function extractTextFromXml(xmlString: string): string {
+  const textParts: string[] = [];
+  
+  // Match all <w:t ...>text</w:t> elements
+  const textRegex = /<w:t[^>]*>([^<]*)<\/w:t>/g;
+  let match;
+  
+  while ((match = textRegex.exec(xmlString)) !== null) {
+    if (match[1]) {
+      textParts.push(match[1]);
+    }
+  }
+  
+  // Also handle paragraph breaks by looking for <w:p> elements
+  // Replace </w:p> with newlines to preserve paragraph structure
+  let structuredText = xmlString
+    .replace(/<\/w:p>/g, '\n')
+    .replace(/<w:br[^>]*\/>/g, '\n');
+  
+  // Now extract just the text
+  const textOnlyRegex = /<w:t[^>]*>([^<]*)<\/w:t>/g;
+  const structuredParts: string[] = [];
+  let lastEnd = 0;
+  
+  while ((match = textOnlyRegex.exec(structuredText)) !== null) {
+    // Check for newlines between last match and this one
+    const between = structuredText.slice(lastEnd, match.index);
+    if (between.includes('\n')) {
+      structuredParts.push('\n');
+    }
+    structuredParts.push(match[1]);
+    lastEnd = match.index + match[0].length;
+  }
+  
+  const result = structuredParts.join('').replace(/\n{3,}/g, '\n\n').trim();
+  return result || textParts.join(' ');
 }
 
 async function hybridOCR(primaryResult: OCRResult, fallbackResult: OCRResult): Promise<OCRResult> {

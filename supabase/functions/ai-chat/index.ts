@@ -912,7 +912,7 @@ ${calendarData.summary}
     }
 
     // ==========================================================================
-    // DOCUMENT RAG
+    // DOCUMENT RAG (Enhanced with Grounding)
     // ==========================================================================
     let documentContext = '';
     if (userId && openaiApiKey) {
@@ -920,14 +920,44 @@ ${calendarData.summary}
         const embedding = await generateQueryEmbedding(message, openaiApiKey);
         if (embedding) {
           const docs = await searchDocuments(supabase, userId, embedding, course_id);
+          console.log(`Document RAG: Found ${docs.length} relevant documents for course_id: ${course_id || 'any'}`);
+          
           if (docs.length > 0) {
             documentContext = `
-## User's Uploaded Documents
-${docs.map((d, i) => `[Source ${i + 1}: ${d.file_name || 'Document'}]\n${d.content}`).join('\n\n---\n\n')}
+## 📚 RELEVANT COURSE DOCUMENTS (MANDATORY REFERENCE SOURCE)
+
+**GROUNDING RULES - CRITICAL:**
+1. For questions about course materials, textbooks, syllabi, or uploaded content: Answer ONLY using information from these documents
+2. If the answer is NOT in these documents, say: "I don't see that information in your uploaded course materials."
+3. NEVER generate information from general knowledge when documents are available
+4. Always cite which document you're referencing (e.g., "According to Document 1...")
+5. If asked to summarize, use ONLY the content below - do not add external information
+
+${docs.map((d: any, i: number) => `
+### 📄 Document ${i + 1}: ${d.file_name || 'Untitled Document'}
+- **Course**: ${d.course_name || 'General'}
+- **Type**: ${d.source_type || 'document'}
+- **Relevance Score**: ${((d.similarity || 0) * 100).toFixed(0)}%
+
+**Content:**
+${d.content}
+`).join('\n---\n')}
+
+---
+**END OF DOCUMENTS** - Base your response ONLY on the content above for document-related questions.
+`;
+          } else {
+            // No documents found - add instruction for transparency
+            documentContext = `
+## 📚 DOCUMENT STATUS
+No relevant uploaded documents found for this query${course_id ? ' in the selected course' : ''}.
+If the user is asking about course materials, inform them that you don't have any uploaded materials to reference.
 `;
           }
         }
-      } catch {}
+      } catch (docError) {
+        console.error('Document RAG error:', docError);
+      }
     }
 
     // ==========================================================================
@@ -973,13 +1003,31 @@ Timezone: ${userTimezone || 'UTC'}
 - Help students manage their academic schedules
 - Create/update/delete calendar events, assignments, exams, study sessions
 - Provide study tips and academic advice
-- Use provided calendar data and documents to answer questions
+- Answer questions using ONLY provided calendar data and uploaded documents
 
 ${ACTION_SPEC}
 
 ${userContext}
 ${calendarContext}
 ${documentContext}
+
+## ⚠️ GROUNDING RULES (CRITICAL - FOLLOW STRICTLY):
+
+### For Document/Course Material Questions:
+1. **ONLY** use content from "RELEVANT COURSE DOCUMENTS" section above
+2. If documents are provided, base your answer **exclusively** on their content
+3. If asked to summarize/explain course materials: Use **ONLY** the provided documents
+4. If the answer isn't in the documents, say: "I don't see that information in your uploaded course materials. Would you like to upload more files?"
+5. **Always cite your source**: "According to [Document name]..." or "Based on your uploaded [file type]..."
+6. **NEVER** make up information or use general knowledge for document-based questions
+
+### For Calendar/Schedule Questions:
+1. Use the calendar data provided in "USER'S CALENDAR DATA" section
+2. Do not invent events, times, or appointments
+
+### For General Questions:
+1. If no documents are relevant AND it's not a calendar question, you may use general knowledge
+2. But always be transparent: "Based on general academic best practices..."
 
 ## Response Guidelines:
 1. Use markdown formatting
