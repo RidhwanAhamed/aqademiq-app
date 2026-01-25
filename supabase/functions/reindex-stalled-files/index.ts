@@ -65,7 +65,8 @@ serve(async (req) => {
 
     console.log(`Reindex job started for user: ${targetUserId}, dry_run: ${dry_run}, limit: ${limit}`);
 
-    // Find stalled files: status is 'ocr_completed' or 'uploaded' with ocr_text but no embeddings
+    // Find stalled files: any status EXCEPT 'indexed' (which means embeddings exist)
+    // This catches all stalled statuses: ocr_completed, uploaded, advanced_parsed, parsed, indexing, embedding_failed, etc.
     let query = supabase
       .from('file_uploads')
       .select(`
@@ -80,7 +81,7 @@ serve(async (req) => {
         display_name
       `)
       .eq('user_id', targetUserId)
-      .in('status', ['ocr_completed', 'uploaded', 'indexing', 'embedding_failed']);
+      .neq('status', 'indexed'); // All non-indexed files are potentially stalled
 
     if (file_id) {
       query = query.eq('id', file_id);

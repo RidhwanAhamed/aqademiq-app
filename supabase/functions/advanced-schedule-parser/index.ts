@@ -172,6 +172,38 @@ serve(async (req) => {
       })
       .eq('id', file_id);
 
+    // IMPORTANT: Trigger embedding generation so files don't get stuck
+    // This ensures the file content becomes searchable in RAG
+    console.log(`Triggering embedding generation for file ${file_id}...`);
+    try {
+      const embeddingResult = await supabase.functions.invoke('generate-embeddings', {
+        body: {
+          file_upload_id: file_id,
+          course_id: fileData.course_id,
+          source_type: fileData.source_type || 'other',
+          metadata: {
+            file_name: fileData.file_name,
+            display_name: fileData.display_name || fileData.file_name,
+            parsed_by: 'advanced-schedule-parser',
+          },
+        },
+      });
+      
+      if (embeddingResult.error) {
+        console.error('Embedding generation failed (non-blocking):', embeddingResult.error);
+        // Don't fail the entire operation - embeddings can be retried later
+      } else {
+        console.log(`Embeddings generated: ${embeddingResult.data?.embeddings_stored || 0} chunks`);
+        // Update status to indexed
+        await supabase
+          .from('file_uploads')
+          .update({ status: 'indexed' })
+          .eq('id', file_id);
+      }
+    } catch (embError) {
+      console.error('Embedding error (non-blocking):', embError);
+    }
+
     // Auto-add to calendar if requested
     let calendarResults = null;
     if (auto_add_to_calendar && user_id) {
