@@ -871,6 +871,45 @@ serve(async (req) => {
     console.log('Processing:', message.substring(0, 100));
 
     // ==========================================================================
+    // SPECIAL COMMAND: REINDEX FILES
+    // ==========================================================================
+    const reindexPattern = /\b(reindex|re-index|regenerate embeddings?|fix stalled|index.*files?)\b/i;
+    if (userId && reindexPattern.test(message.toLowerCase())) {
+      console.log('Reindex command detected, triggering reindex-stalled-files...');
+      try {
+        const reindexResult = await supabase.functions.invoke('reindex-stalled-files', {
+          body: { 
+            user_id: userId, 
+            dry_run: false, 
+            limit: 50 
+          },
+        });
+        
+        if (reindexResult.error) {
+          return new Response(JSON.stringify({ 
+            response: `❌ Reindex failed: ${reindexResult.error.message || 'Unknown error'}. Please try again later.`
+          }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+        
+        const data = reindexResult.data;
+        const response = data.success_count > 0
+          ? `✅ **Reindexing complete!**\n\n- **Processed:** ${data.processed} files\n- **Successfully indexed:** ${data.success_count}\n- **Failed:** ${data.failed_count}\n- **Skipped:** ${data.skipped_count}\n\nYour files should now be searchable. Try asking me about your course materials!`
+          : data.processed === 0
+            ? `ℹ️ No files need reindexing. All your uploaded files are already indexed and searchable!`
+            : `⚠️ Reindexing attempted but encountered issues:\n- Failed: ${data.failed_count}\n- Skipped: ${data.skipped_count}\n\nPlease check if your files have valid text content.`;
+        
+        return new Response(JSON.stringify({ response }), { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        });
+      } catch (reindexError) {
+        console.error('Reindex error:', reindexError);
+        return new Response(JSON.stringify({ 
+          response: '❌ Failed to trigger reindexing. Please try again later.'
+        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+    }
+
+    // ==========================================================================
     // BUILD CONTEXT WINDOW WITH SUMMARIZATION
     // ==========================================================================
     let conversationHistory: Array<{ role: string; content: string }> = [];
