@@ -966,16 +966,66 @@ If the user is asking about course materials, inform them that you don't have an
     let userContext = '';
     if (userId) {
       try {
-        const [coursesResult, assignmentsResult, examsResult, statsResult] = await Promise.all([
+        const [coursesResult, assignmentsResult, examsResult, filesResult, statsResult] = await Promise.all([
           supabase.from('courses').select('id, name, code').eq('user_id', userId).eq('is_active', true).limit(10),
           supabase.from('assignments').select('id, title, due_date, is_completed, courses(name)').eq('user_id', userId).order('due_date').limit(20),
           supabase.from('exams').select('id, title, exam_date, courses(name)').eq('user_id', userId).gte('exam_date', new Date().toISOString()).limit(10),
+          supabase.from('file_uploads').select('id, file_name, display_name, source_type, status, course_id, courses(name), created_at').eq('user_id', userId).order('created_at', { ascending: false }).limit(50),
           supabase.from('user_stats').select('current_streak').eq('user_id', userId).single()
         ]);
 
         const courses = coursesResult.data || [];
         const assignments = assignmentsResult.data || [];
         const exams = examsResult.data || [];
+        const files = filesResult.data || [];
+
+        // Group files by course for better organization
+        const filesByCourse: Record<string, any[]> = {};
+        const uncategorizedFiles: any[] = [];
+        
+        for (const file of files) {
+          const courseName = (file.courses as { name: string } | null)?.name || null;
+          if (courseName) {
+            if (!filesByCourse[courseName]) {
+              filesByCourse[courseName] = [];
+            }
+            filesByCourse[courseName].push(file);
+          } else {
+            uncategorizedFiles.push(file);
+          }
+        }
+
+        // Format files section
+        let filesSection = '';
+        if (files.length > 0) {
+          filesSection = '\n### 📁 UPLOADED FILES:\n';
+          
+          // Files by course
+          for (const [courseName, courseFiles] of Object.entries(filesByCourse)) {
+            filesSection += `\n**${courseName}:**\n`;
+            for (const f of courseFiles) {
+              const statusIcon = f.status === 'indexed' ? '✅' : f.status === 'processing' ? '⏳' : f.status === 'ocr_completed' ? '📝' : '📄';
+              const displayName = f.display_name || f.file_name;
+              const sourceType = f.source_type || 'document';
+              filesSection += `- ${statusIcon} "${displayName}" (${sourceType}, ID: ${f.id})\n`;
+            }
+          }
+          
+          // Uncategorized files
+          if (uncategorizedFiles.length > 0) {
+            filesSection += '\n**Uncategorized:**\n';
+            for (const f of uncategorizedFiles) {
+              const statusIcon = f.status === 'indexed' ? '✅' : f.status === 'processing' ? '⏳' : '📄';
+              const displayName = f.display_name || f.file_name;
+              filesSection += `- ${statusIcon} "${displayName}" (ID: ${f.id})\n`;
+            }
+          }
+          
+          filesSection += `\n_Total: ${files.length} file(s) uploaded_\n`;
+          filesSection += `_Status legend: ✅ = indexed/ready, ⏳ = processing, 📝 = OCR done, 📄 = uploaded_\n`;
+        } else {
+          filesSection = '\n### 📁 UPLOADED FILES:\n- No files uploaded yet\n';
+        }
 
         userContext = `
 ## User Context (${new Date().toISOString().split('T')[0]}):
@@ -988,7 +1038,7 @@ ${assignments.map((a: any) => `- "${a.title}" (ID: ${a.id}, Due: ${a.due_date?.s
 
 ### EXAMS:
 ${exams.map((e: any) => `- "${e.title}" (ID: ${e.id}, Date: ${e.exam_date?.split('T')[0]})`).join('\n') || '- No exams'}
-
+${filesSection}
 Timezone: ${userTimezone || 'UTC'}
 `;
       } catch {}
