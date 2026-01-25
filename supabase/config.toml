@@ -418,6 +418,9 @@ verify_jwt = false
 [functions.check-nudges]
 verify_jwt = false
 
+[functions.reindex-stalled-files]
+verify_jwt = false
+
 [analytics]
 enabled = true
 port = 54327
