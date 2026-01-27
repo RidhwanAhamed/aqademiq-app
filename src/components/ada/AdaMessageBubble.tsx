@@ -3,7 +3,6 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { format } from 'date-fns';
 import {
   Bot,
   User,
@@ -210,11 +209,6 @@ export const AdaMessageBubble = memo(function AdaMessageBubble({
             )}
           </div>
         )}
-        
-        {/* Timestamp */}
-        <div className="text-[10px] sm:text-xs text-muted-foreground px-1">
-          {format(new Date(message.created_at), 'HH:mm')}
-        </div>
         
         {/* Reactions */}
         {message.reactions && message.reactions.length > 0 && (
