@@ -78,17 +78,23 @@ export function AppSidebar() {
       {/* Header */}
       <div className="p-4 border-b">
         <div className="flex items-center justify-between">
-          {!collapsed && (
-            <div className="flex items-center space-x-2">
-              <div className="w-8 h-8 rounded-lg bg-gradient-primary flex items-center justify-center">
-                <BookOpen className="w-4 h-4 text-white" />
+          {!collapsed ? (
+            <>
+              <div className="flex items-center space-x-2">
+                <div className="w-8 h-8 rounded-lg bg-gradient-primary flex items-center justify-center">
+                  <BookOpen className="w-4 h-4 text-white" />
+                </div>
+                <span className="font-bold text-lg bg-gradient-primary bg-clip-text text-transparent">
+                  Aqademiq
+                </span>
               </div>
-              <span className="font-bold text-lg bg-gradient-primary bg-clip-text text-transparent">
-                Aqademiq
-              </span>
+              <SidebarTrigger className="h-8 w-8" />
+            </>
+          ) : (
+            <div className="w-full flex justify-center">
+              <SidebarTrigger className="h-8 w-8" />
             </div>
           )}
-          <SidebarTrigger className="h-8 w-8" />
         </div>
       </div>
 

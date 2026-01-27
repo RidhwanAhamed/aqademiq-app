@@ -130,19 +130,28 @@ export default function Analytics() {
         description:
           "Balance upcoming tasks with realistic workload distribution before conflicts surface.",
         content: (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 w-full min-w-0">
-            <SimulationMode className="lg:col-span-1" />
-            <StudyScheduleOptimization
-              studySessions={studySessions}
-              assignments={assignments}
-              exams={exams}
-              courses={courses}
-            />
-            <WorkloadDistributionAnalysis
-              assignments={assignments}
-              exams={exams}
-              courses={courses}
-            />
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6 w-full min-w-0">
+            {/* Top row on smaller widths: optimization + distribution */}
+            <div className="order-1 xl:order-2">
+              <StudyScheduleOptimization
+                studySessions={studySessions}
+                assignments={assignments}
+                exams={exams}
+                courses={courses}
+              />
+            </div>
+            <div className="order-2 xl:order-3">
+              <WorkloadDistributionAnalysis
+                assignments={assignments}
+                exams={exams}
+                courses={courses}
+              />
+            </div>
+
+            {/* Workload Capacity card (SimulationMode) moves below on narrower layouts */}
+            <div className="order-3 xl:order-1 lg:col-span-2 xl:col-span-1">
+              <SimulationMode className="h-full" />
+            </div>
           </div>
         ),
       },
