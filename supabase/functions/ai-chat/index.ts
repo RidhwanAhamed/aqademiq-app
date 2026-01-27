@@ -1023,7 +1023,8 @@ If the user is asking about course materials, inform them that you don't have an
         const uncategorizedFiles: any[] = [];
         
         for (const file of files) {
-          const courseName = (file.courses as { name: string } | null)?.name || null;
+          const coursesArray = file.courses as Array<{ name: string }> | null;
+          const courseName = coursesArray?.[0]?.name || null;
           if (courseName) {
             if (!filesByCourse[courseName]) {
               filesByCourse[courseName] = [];

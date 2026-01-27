@@ -397,7 +397,7 @@ async function inflateData(compressedData: Uint8Array): Promise<Uint8Array> {
     const writer = ds.writable.getWriter();
     const reader = ds.readable.getReader();
     
-    writer.write(compressedData);
+    writer.write(new Uint8Array(compressedData.buffer.slice(compressedData.byteOffset, compressedData.byteOffset + compressedData.byteLength)));
     writer.close();
     
     const chunks: Uint8Array[] = [];
