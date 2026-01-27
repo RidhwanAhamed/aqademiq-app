@@ -204,7 +204,7 @@ serve(async (req) => {
     const tasksForAI = assignments.map((a) => ({
       id: a.id,
       title: a.title,
-      course: (a.courses as { name: string } | null)?.name || "Unknown",
+      course: (a.courses as Array<{ name: string }> | null)?.[0]?.name || "Unknown",
       due_date: a.due_date,
       estimated_hours: a.estimated_hours || 1,
       priority: a.priority || 3,
