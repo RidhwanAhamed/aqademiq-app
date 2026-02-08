@@ -54,7 +54,7 @@ export function AddCalendarEventDialog({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { courses } = useCourses();
-  const { addScheduleBlock } = useSchedule();
+  const { addScheduleBlock, scheduleBlocks } = useSchedule();
   const { toast } = useToast();
 
   // Set initial values when dialog opens
@@ -88,6 +88,30 @@ export function AddCalendarEventDialog({
     }
   }, [open]);
 
+  // Prevent creating overlapping schedule events on the same date.
+  // Back-to-back events (e.g. 10:00–11:00 and 11:00–12:00) are allowed.
+  const hasOverlapOnDate = (
+    date: string,
+    startTime: string,
+    endTime: string
+  ): boolean => {
+    if (!date) return false;
+
+    const newStart = new Date(`${date}T${startTime}`);
+    const newEnd = new Date(`${date}T${endTime}`);
+
+    return scheduleBlocks.some((block) => {
+      // Only check non-recurring blocks with a specific_date on that same day
+      if (!block.specific_date || block.specific_date !== date) return false;
+
+      const existingStart = new Date(`${block.specific_date}T${block.start_time}`);
+      const existingEnd = new Date(`${block.specific_date}T${block.end_time}`);
+
+      // Overlap if intervals intersect (but allow touching edges)
+      return newStart < existingEnd && newEnd > existingStart;
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -114,6 +138,16 @@ export function AddCalendarEventDialog({
       toast({
         title: "Error",
         description: "Please set start and end times",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Prevent accidentally creating overlapping events on the same day.
+    if (hasOverlapOnDate(formData.date, formData.start_time, formData.end_time)) {
+      toast({
+        title: "Time conflict",
+        description: "You already have another event in this time range on that day.",
         variant: "destructive",
       });
       return;
