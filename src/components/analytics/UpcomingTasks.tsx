@@ -1,9 +1,8 @@
 import React, { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { format, differenceInDays, isToday, isTomorrow, isThisWeek } from "date-fns";
-import { Target, Award, Clock, AlertTriangle, Calendar, BookOpen } from "lucide-react";
+import { format, isToday, isTomorrow, differenceInDays } from "date-fns";
+import { Calendar as CalendarIcon, Clock, Target, Award, AlertTriangle } from "lucide-react";
 
 interface UpcomingTasksProps {
   assignments: any[];
@@ -18,283 +17,111 @@ interface TaskItem {
   dueDate: Date;
   course: any;
   priority?: number;
-  isCompleted?: boolean;
   description?: string;
   estimatedHours?: number;
-  examType?: string;
-  location?: string;
 }
 
 export function UpcomingTasks({ assignments, exams, courses }: UpcomingTasksProps) {
-  // Combine and sort upcoming tasks
   const upcomingTasks = useMemo(() => {
     const now = new Date();
     const tasks: TaskItem[] = [];
 
-    // Add upcoming assignments
     assignments
-      .filter(assignment => {
-        const dueDate = new Date(assignment.due_date);
-        return dueDate > now && !assignment.is_completed;
-      })
+      .filter(assignment => new Date(assignment.due_date) > now && !assignment.is_completed)
       .forEach(assignment => {
-        const course = courses.find(c => c.id === assignment.course_id);
         tasks.push({
           id: assignment.id,
           title: assignment.title,
           type: 'assignment',
           dueDate: new Date(assignment.due_date),
-          course,
+          course: courses.find(c => c.id === assignment.course_id),
           priority: assignment.priority,
-          isCompleted: assignment.is_completed,
           description: assignment.description,
           estimatedHours: assignment.estimated_hours,
         });
       });
 
-    // Add upcoming exams
     exams
-      .filter(exam => {
-        const examDate = new Date(exam.exam_date);
-        return examDate > now;
-      })
+      .filter(exam => new Date(exam.exam_date) > now)
       .forEach(exam => {
-        const course = courses.find(c => c.id === exam.course_id);
         tasks.push({
           id: exam.id,
           title: exam.title,
           type: 'exam',
           dueDate: new Date(exam.exam_date),
-          course,
+          course: courses.find(c => c.id === exam.course_id),
           description: exam.notes,
-          examType: exam.exam_type,
-          location: exam.location,
         });
       });
 
-    // Sort by due date
-    return tasks.sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime());
+    return tasks.sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime()).slice(0, 5); // Show top 5
   }, [assignments, exams, courses]);
 
-  // Get tasks for different time periods
-  const todayTasks = upcomingTasks.filter(task => isToday(task.dueDate));
-  const tomorrowTasks = upcomingTasks.filter(task => isTomorrow(task.dueDate));
-  const thisWeekTasks = upcomingTasks.filter(task => isThisWeek(task.dueDate) && !isToday(task.dueDate) && !isTomorrow(task.dueDate));
-  const nextWeekTasks = upcomingTasks.filter(task => {
-    const daysDiff = differenceInDays(task.dueDate, new Date());
-    return daysDiff > 7 && daysDiff <= 14;
-  });
+  const getDayLabel = (date: Date) => {
+    if (isToday(date)) return "TODAY";
+    if (isTomorrow(date)) return "TMRW";
+    return format(date, "MMM d").toUpperCase();
+  }
 
   const getPriorityColor = (priority?: number) => {
-    if (!priority) return 'text-muted-foreground';
-    switch (priority) {
-      case 1: return 'text-destructive';
-      case 2: return 'text-warning';
-      case 3: return 'text-primary';
-      default: return 'text-muted-foreground';
-    }
-  };
-
-  const getPriorityBadge = (priority?: number) => {
-    if (!priority) return null;
-    switch (priority) {
-      case 1: return <Badge variant="destructive" className="text-xs">High</Badge>;
-      case 2: return <Badge variant="secondary" className="text-xs">Medium</Badge>;
-      case 3: return <Badge variant="outline" className="text-xs">Low</Badge>;
-      default: return null;
-    }
-  };
-
-  const getDueDateBadge = (dueDate: Date) => {
-    const daysDiff = differenceInDays(dueDate, new Date());
-    
-    if (isToday(dueDate)) {
-      return <Badge variant="destructive" className="text-xs">Today</Badge>;
-    } else if (isTomorrow(dueDate)) {
-      return <Badge variant="secondary" className="text-xs">Tomorrow</Badge>;
-    } else if (daysDiff <= 3) {
-      return <Badge variant="outline" className="text-xs">{daysDiff} days</Badge>;
-    } else if (daysDiff <= 7) {
-      return <Badge variant="outline" className="text-xs">This week</Badge>;
-    } else {
-      return <Badge variant="outline" className="text-xs">{daysDiff} days</Badge>;
-    }
-  };
-
-  const TaskCard = ({ task }: { task: TaskItem }) => (
-    <div className="p-4 rounded-lg border bg-card hover:bg-muted/20 transition-colors">
-      <div className="flex items-start justify-between mb-2">
-        <div className="flex items-center gap-2">
-          {task.type === 'assignment' ? (
-            <Target className="w-4 h-4 text-primary" />
-          ) : (
-            <Award className="w-4 h-4 text-warning" />
-          )}
-          <span className="font-medium text-sm">{task.title}</span>
-        </div>
-        <div className="flex items-center gap-1">
-          {getDueDateBadge(task.dueDate)}
-          {getPriorityBadge(task.priority)}
-        </div>
-      </div>
-      
-      <div className="space-y-1">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <BookOpen className="w-3 h-3" />
-          <span>{task.course?.name || 'Unknown Course'}</span>
-        </div>
-        
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Calendar className="w-3 h-3" />
-          <span>{format(task.dueDate, 'MMM d, yyyy • h:mm a')}</span>
-        </div>
-
-        {task.type === 'assignment' && task.estimatedHours && (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Clock className="w-3 h-3" />
-            <span>~{task.estimatedHours}h estimated</span>
-          </div>
-        )}
-
-        {task.type === 'exam' && task.examType && (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Award className="w-3 h-3" />
-            <span>{task.examType}</span>
-          </div>
-        )}
-
-        {task.type === 'exam' && task.location && (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <AlertTriangle className="w-3 h-3" />
-            <span>{task.location}</span>
-          </div>
-        )}
-      </div>
-    </div>
-  );
+    if (priority === 1) return "text-destructive border-destructive/20 bg-destructive/10";
+    if (priority === 2) return "text-amber-500 border-amber-500/20 bg-amber-500/10";
+    return "text-muted-foreground border-border/50 bg-secondary/50";
+  }
 
   return (
-    <Card className="bg-gradient-card">
-      <CardHeader>
+    <Card className="bg-gradient-to-br from-card/50 to-muted/20 border-border/50 backdrop-blur-sm overflow-hidden h-full flex flex-col hover:shadow-md transition-shadow">
+      <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
-            <Calendar className="w-5 h-5 text-primary" />
-            Upcoming Tasks
+          <CardTitle className="flex items-center gap-2 text-base">
+            <CalendarIcon className="w-5 h-5 text-primary" />
+            Upcoming
           </CardTitle>
-          <Badge variant="outline" className="text-xs">
-            {upcomingTasks.length} total
-          </Badge>
+          <Badge variant="outline" className="text-xs">{upcomingTasks.length}</Badge>
         </div>
       </CardHeader>
-      
-      <CardContent>
+
+      <CardContent className="flex-1 overflow-y-auto pr-1 space-y-2">
         {upcomingTasks.length === 0 ? (
-          <div className="text-center py-12 text-muted-foreground">
-            <Calendar className="w-12 h-12 mx-auto mb-4 opacity-50" />
-            <p className="text-lg font-medium mb-2">No Upcoming Tasks</p>
-            <p className="text-sm">
-              All caught up! No assignments or exams due soon.
-            </p>
+          <div className="flex flex-col items-center justify-center h-40 text-muted-foreground">
+            <CalendarIcon className="w-10 h-10 mb-2 opacity-20" />
+            <p className="text-sm">No upcoming tasks</p>
           </div>
         ) : (
-          <div className="space-y-6">
-            {/* Today's Tasks */}
-            {todayTasks.length > 0 && (
-              <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <AlertTriangle className="w-4 h-4 text-destructive" />
-                  <h3 className="font-semibold text-destructive">Due Today</h3>
-                  <Badge variant="destructive" className="text-xs">
-                    {todayTasks.length}
-                  </Badge>
-                </div>
-                <div className="space-y-2">
-                  {todayTasks.map(task => (
-                    <TaskCard key={task.id} task={task} />
-                  ))}
-                </div>
+          upcomingTasks.map(task => (
+            <div key={task.id} className="group relative flex items-start gap-3 p-2 rounded-lg hover:bg-white/5 transition-colors border border-transparent hover:border-border/30">
+              {/* Date Block */}
+              <div className={`
+                    flex flex-col items-center justify-center w-12 h-12 rounded-lg border text-xs font-bold leading-none shrink-0
+                    ${isToday(task.dueDate) ? 'bg-destructive/10 border-destructive/30 text-destructive' : 'bg-background/40 border-border/40 text-muted-foreground'}
+               `}>
+                <span>{getDayLabel(task.dueDate)}</span>
               </div>
-            )}
 
-            {/* Tomorrow's Tasks */}
-            {tomorrowTasks.length > 0 && (
-              <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <Clock className="w-4 h-4 text-warning" />
-                  <h3 className="font-semibold text-warning">Due Tomorrow</h3>
-                  <Badge variant="secondary" className="text-xs">
-                    {tomorrowTasks.length}
-                  </Badge>
+              <div className="min-w-0 flex-1">
+                <div className="flex justify-between items-start">
+                  <h4 className="font-medium text-sm truncate pr-2">{task.title}</h4>
+                  {task.type === 'exam' && <Badge variant="secondary" className="text-[10px] h-4 px-1">Exam</Badge>}
                 </div>
-                <div className="space-y-2">
-                  {tomorrowTasks.map(task => (
-                    <TaskCard key={task.id} task={task} />
-                  ))}
-                </div>
-              </div>
-            )}
+                <p className="text-xs text-muted-foreground truncate">{task.course?.name}</p>
 
-            {/* This Week's Tasks */}
-            {thisWeekTasks.length > 0 && (
-              <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <Target className="w-4 h-4 text-primary" />
-                  <h3 className="font-semibold">This Week</h3>
-                  <Badge variant="outline" className="text-xs">
-                    {thisWeekTasks.length}
-                  </Badge>
-                </div>
-                <div className="space-y-2">
-                  {thisWeekTasks.map(task => (
-                    <TaskCard key={task.id} task={task} />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Next Week's Tasks */}
-            {nextWeekTasks.length > 0 && (
-              <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <Calendar className="w-4 h-4 text-muted-foreground" />
-                  <h3 className="font-semibold text-muted-foreground">Next Week</h3>
-                  <Badge variant="outline" className="text-xs">
-                    {nextWeekTasks.length}
-                  </Badge>
-                </div>
-                <div className="space-y-2">
-                  {nextWeekTasks.map(task => (
-                    <TaskCard key={task.id} task={task} />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Summary */}
-            <div className="pt-4 border-t">
-              <div className="grid grid-cols-2 gap-4 text-center">
-                <div>
-                  <div className="text-2xl font-bold text-primary">
-                    {upcomingTasks.filter(t => t.type === 'assignment').length}
+                <div className="flex items-center gap-3 mt-1.5">
+                  <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                    <Clock className="w-3 h-3" />
+                    {format(task.dueDate, "h:mm a")}
                   </div>
-                  <div className="text-sm text-muted-foreground">
-                    Assignments
-                  </div>
-                </div>
-                <div>
-                  <div className="text-2xl font-bold text-primary">
-                    {upcomingTasks.filter(t => t.type === 'exam').length}
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    Exams
-                  </div>
+                  {task.estimatedHours && (
+                    <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                      <Target className="w-3 h-3" />
+                      {task.estimatedHours}h
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
-          </div>
+          ))
         )}
       </CardContent>
     </Card>
   );
 }
-

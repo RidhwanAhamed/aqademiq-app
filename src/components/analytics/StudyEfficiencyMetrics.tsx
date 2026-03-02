@@ -2,8 +2,8 @@ import React, { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { format, subDays, startOfDay, endOfDay } from "date-fns";
-import { Brain, Clock, Target, Zap, TrendingUp, AlertTriangle } from "lucide-react";
+import { subDays, format } from "date-fns";
+import { Brain, Clock, Target, Zap, TrendingUp, AlertTriangle, Monitor, Sparkles, Lightbulb, Trophy } from "lucide-react";
 
 interface StudyEfficiencyMetricsProps {
   studySessions: any[];
@@ -19,7 +19,8 @@ interface EfficiencyMetric {
   trend: 'up' | 'down' | 'stable';
   description: string;
   icon: React.ReactNode;
-  color: string;
+  colorClass: string; // Tailwnd text-color
+  bgGradient: string; // Tailwnd bg-gradient-to-br
 }
 
 export function StudyEfficiencyMetrics({ studySessions, assignments, courses }: StudyEfficiencyMetricsProps) {
@@ -44,9 +45,9 @@ export function StudyEfficiencyMetrics({ studySessions, assignments, courses }: 
     const focusScores = recentSessions
       .filter(session => session.focus_score !== null && session.focus_score !== undefined)
       .map(session => session.focus_score);
-    
-    const avgFocusScore = focusScores.length > 0 
-      ? focusScores.reduce((sum, score) => sum + score, 0) / focusScores.length 
+
+    const avgFocusScore = focusScores.length > 0
+      ? focusScores.reduce((sum, score) => sum + score, 0) / focusScores.length
       : 0;
 
     // 2. Study Time vs Planned Time Efficiency
@@ -60,14 +61,14 @@ export function StudyEfficiencyMetrics({ studySessions, assignments, courses }: 
 
     const timeEfficiency = plannedVsActual.length > 0
       ? plannedVsActual.reduce((sum, session) => {
-          const efficiency = session.planned > 0 ? (session.actual / session.planned) * 100 : 0;
-          return sum + Math.min(efficiency, 200); // Cap at 200% to avoid outliers
-        }, 0) / plannedVsActual.length
+        const efficiency = session.planned > 0 ? (session.actual / session.planned) * 100 : 0;
+        return sum + Math.min(efficiency, 200); // Cap at 200% to avoid outliers
+      }, 0) / plannedVsActual.length
       : 100;
 
     // 3. Assignment Completion Rate vs Study Time
-    const completedAssignments = assignments.filter(assignment => 
-      assignment.is_completed && 
+    const completedAssignments = assignments.filter(assignment =>
+      assignment.is_completed &&
       new Date(assignment.updated_at || assignment.created_at) >= last30Days
     );
 
@@ -79,13 +80,13 @@ export function StudyEfficiencyMetrics({ studySessions, assignments, courses }: 
       return total;
     }, 0);
 
-    const productivityRate = totalStudyHours > 0 
+    const productivityRate = totalStudyHours > 0
       ? (completedAssignments.length / totalStudyHours) * 10 // Assignments per 10 hours
       : 0;
 
     // 4. Study Consistency (days with study sessions)
     const studyDays = new Set(
-      recentSessions.map(session => 
+      recentSessions.map(session =>
         format(new Date(session.actual_start || session.scheduled_start), 'yyyy-MM-dd')
       )
     ).size;
@@ -93,7 +94,7 @@ export function StudyEfficiencyMetrics({ studySessions, assignments, courses }: 
     const consistencyRate = (studyDays / 30) * 100;
 
     // 5. Session Completion Rate
-    const totalSessions = studySessions.filter(session => 
+    const totalSessions = studySessions.filter(session =>
       new Date(session.scheduled_start) >= last30Days
     ).length;
 
@@ -121,177 +122,171 @@ export function StudyEfficiencyMetrics({ studySessions, assignments, courses }: 
     const recentFocusScores = recent7DaySessions
       .filter(session => session.focus_score !== null && session.focus_score !== undefined)
       .map(session => session.focus_score);
-    
-    const recentAvgFocus = recentFocusScores.length > 0 
-      ? recentFocusScores.reduce((sum, score) => sum + score, 0) / recentFocusScores.length 
+
+    const recentAvgFocus = recentFocusScores.length > 0
+      ? recentFocusScores.reduce((sum, score) => sum + score, 0) / recentFocusScores.length
       : 0;
 
     const previousFocusScores = previous7Days
       .filter(session => session.focus_score !== null && session.focus_score !== undefined)
       .map(session => session.focus_score);
-    
-    const previousAvgFocus = previousFocusScores.length > 0 
-      ? previousFocusScores.reduce((sum, score) => sum + score, 0) / previousFocusScores.length 
+
+    const previousAvgFocus = previousFocusScores.length > 0
+      ? previousFocusScores.reduce((sum, score) => sum + score, 0) / previousFocusScores.length
       : 0;
 
-    const focusTrend = recentAvgFocus > previousAvgFocus + 0.5 ? 'up' : 
-                      recentAvgFocus < previousAvgFocus - 0.5 ? 'down' : 'stable';
+    const focusTrend = recentAvgFocus > previousAvgFocus + 0.5 ? 'up' :
+      recentAvgFocus < previousAvgFocus - 0.5 ? 'down' : 'stable';
 
-    return [
-      {
-        name: "Focus Score",
-        value: avgFocusScore,
-        maxValue: 10,
-        percentage: (avgFocusScore / 10) * 100,
-        trend: focusTrend,
-        description: "Average focus quality during study sessions",
-        icon: <Brain className="w-4 h-4" />,
-        color: "text-primary"
-      },
-      {
-        name: "Time Efficiency",
-        value: timeEfficiency,
-        maxValue: 200,
-        percentage: Math.min((timeEfficiency / 200) * 100, 100),
-        trend: timeEfficiency > 110 ? 'up' : timeEfficiency < 90 ? 'down' : 'stable',
-        description: "Actual vs planned study time ratio",
-        icon: <Clock className="w-4 h-4" />,
-        color: "text-warning"
-      },
-      {
-        name: "Productivity Rate",
-        value: productivityRate,
-        maxValue: 5,
-        percentage: Math.min((productivityRate / 5) * 100, 100),
-        trend: productivityRate > 2 ? 'up' : productivityRate < 1 ? 'down' : 'stable',
-        description: "Assignments completed per 10 study hours",
-        icon: <Target className="w-4 h-4" />,
-        color: "text-success"
-      },
-      {
-        name: "Study Consistency",
-        value: consistencyRate,
-        maxValue: 100,
-        percentage: consistencyRate,
-        trend: consistencyRate > 70 ? 'up' : consistencyRate < 40 ? 'down' : 'stable',
-        description: "Percentage of days with study sessions",
-        icon: <TrendingUp className="w-4 h-4" />,
-        color: "text-info"
-      },
-      {
-        name: "Session Completion",
-        value: completionRate,
-        maxValue: 100,
-        percentage: completionRate,
-        trend: completionRate > 80 ? 'up' : completionRate < 60 ? 'down' : 'stable',
-        description: "Percentage of planned sessions completed",
-        icon: <Zap className="w-4 h-4" />,
-        color: "text-purple-500"
-      },
-      {
-        name: "Avg Session Duration",
-        value: avgSessionDuration,
-        maxValue: 120,
-        percentage: Math.min((avgSessionDuration / 120) * 100, 100),
-        trend: avgSessionDuration > 60 ? 'up' : avgSessionDuration < 30 ? 'down' : 'stable',
-        description: "Average study session length in minutes",
-        icon: <Clock className="w-4 h-4" />,
-        color: "text-orange-500"
+    return {
+      metrics: [
+        {
+          name: "Focus Score",
+          value: avgFocusScore,
+          maxValue: 10,
+          percentage: (avgFocusScore / 10) * 100,
+          trend: focusTrend,
+          description: "Quality of focus",
+          icon: <Brain className="w-5 h-5" />,
+          colorClass: "text-violet-500",
+          bgGradient: "from-violet-500/10 to-violet-500/5",
+        },
+        {
+          name: "Efficiency",
+          value: timeEfficiency,
+          maxValue: 200,
+          percentage: Math.min((timeEfficiency / 200) * 100, 100),
+          trend: timeEfficiency > 110 ? 'up' : timeEfficiency < 90 ? 'down' : 'stable',
+          description: "Actual vs Planned",
+          icon: <Zap className="w-5 h-5" />,
+          colorClass: "text-amber-500",
+          bgGradient: "from-amber-500/10 to-amber-500/5",
+        },
+        {
+          name: "Productivity",
+          value: productivityRate,
+          maxValue: 5,
+          percentage: Math.min((productivityRate / 5) * 100, 100),
+          trend: productivityRate > 2 ? 'up' : productivityRate < 1 ? 'down' : 'stable',
+          description: "Tasks / 10h",
+          icon: <Target className="w-5 h-5" />,
+          colorClass: "text-emerald-500",
+          bgGradient: "from-emerald-500/10 to-emerald-500/5",
+        },
+        {
+          name: "Consistency",
+          value: consistencyRate,
+          maxValue: 100,
+          percentage: consistencyRate,
+          trend: consistencyRate > 70 ? 'up' : consistencyRate < 40 ? 'down' : 'stable',
+          description: "Days studied",
+          icon: <TrendingUp className="w-5 h-5" />,
+          colorClass: "text-blue-500",
+          bgGradient: "from-blue-500/10 to-blue-500/5",
+        },
+        {
+          name: "Completion",
+          value: completionRate,
+          maxValue: 100,
+          percentage: completionRate,
+          trend: completionRate > 80 ? 'up' : completionRate < 60 ? 'down' : 'stable',
+          description: "Sessions finished",
+          icon: <Sparkles className="w-5 h-5" />,
+          colorClass: "text-pink-500",
+          bgGradient: "from-pink-500/10 to-pink-500/5",
+        },
+        {
+          name: "Duration",
+          value: avgSessionDuration,
+          maxValue: 120,
+          percentage: Math.min((avgSessionDuration / 120) * 100, 100),
+          trend: avgSessionDuration > 60 ? 'up' : avgSessionDuration < 30 ? 'down' : 'stable',
+          description: "Avg minutes",
+          icon: <Monitor className="w-5 h-5" />,
+          colorClass: "text-cyan-500",
+          bgGradient: "from-cyan-500/10 to-cyan-500/5",
+        }
+      ] as EfficiencyMetric[],
+      insights: {
+        focusUpgrade: avgFocusScore > 7 ? "High focus is saving you ~2h/week." : "Improving focus could save you 2h/week.",
+        consistencyWin: consistencyRate > 60 ? "Consistency streak is building habits." : "Try studying at the same time daily.",
+        totalHours: totalStudyHours
       }
-    ] as EfficiencyMetric[];
+    };
   }, [studySessions, assignments]);
 
-  const getTrendIcon = (trend: string) => {
-    switch (trend) {
-      case 'up': return <TrendingUp className="w-3 h-3 text-success" />;
-      case 'down': return <AlertTriangle className="w-3 h-3 text-destructive" />;
-      default: return <div className="w-3 h-3 rounded-full bg-muted-foreground" />;
-    }
-  };
-
-  const getTrendColor = (trend: string) => {
-    switch (trend) {
-      case 'up': return 'text-success';
-      case 'down': return 'text-destructive';
-      default: return 'text-muted-foreground';
-    }
-  };
-
   return (
-    <Card className="bg-gradient-card">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
+    <Card className="bg-gradient-to-br from-card/50 to-muted/20 border-border/50 backdrop-blur-sm shadow-none h-full flex flex-col">
+      <CardHeader className="pb-4">
+        <CardTitle className="flex items-center gap-2 text-base">
           <Brain className="w-5 h-5 text-primary" />
-          Study Efficiency Metrics
+          Study Impact & Efficiency
         </CardTitle>
       </CardHeader>
-      
-      <CardContent>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {efficiencyMetrics.map((metric, index) => (
-            <div key={index} className="p-4 rounded-lg border bg-card/50">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <div className={metric.color}>
-                    {metric.icon}
-                  </div>
-                  <span className="font-medium text-sm">{metric.name}</span>
+
+      <CardContent className="space-y-6 flex-1 flex flex-col">
+        {/* Metrics Grid */}
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+          {efficiencyMetrics.metrics.slice(0, 6).map((metric, index) => (
+            <div
+              key={index}
+              className={`
+                    relative p-3 rounded-xl border border-border/40 
+                    bg-gradient-to-br ${metric.bgGradient} backdrop-blur-sm
+                    hover:scale-[1.02] transition-transform duration-300
+                    flex flex-col justify-between
+                `}
+            >
+              <div className="flex justify-between items-start mb-2">
+                <div className={`p-1.5 rounded-lg bg-background/50 border border-border/20 ${metric.colorClass}`}>
+                  {metric.icon}
                 </div>
-                <div className="flex items-center gap-1">
-                  {getTrendIcon(metric.trend)}
-                  <span className={`text-xs ${getTrendColor(metric.trend)}`}>
-                    {metric.trend}
-                  </span>
-                </div>
+                {metric.trend === 'up' && <TrendingUp className="w-3 h-3 text-emerald-500" />}
+                {metric.trend === 'down' && <TrendingUp className="w-3 h-3 text-rose-500 rotate-180" />}
               </div>
-              
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-2xl font-bold">
-                    {metric.name === "Avg Session Duration" 
-                      ? `${Math.round(metric.value)}m`
-                      : metric.name === "Productivity Rate"
-                      ? `${metric.value.toFixed(1)}`
-                      : `${metric.value.toFixed(1)}`
-                    }
+
+              <div>
+                <div className="flex items-baseline gap-1">
+                  <span className={`text-xl font-bold ${metric.colorClass}`}>
+                    {metric.name === "Duration" ? Math.round(metric.value) : metric.name === "Productivity" ? metric.value.toFixed(1) : Math.round(metric.value)}
                   </span>
-                  <span className="text-sm text-muted-foreground">
-                    {metric.percentage.toFixed(0)}%
-                  </span>
+                  {metric.name !== "Focus Score" && metric.name !== "Productivity" && metric.name !== "Efficiency" && metric.name !== "Duration" && <span className="text-xs text-muted-foreground">%</span>}
                 </div>
-                
-                <Progress 
-                  value={metric.percentage} 
-                  className="h-2"
-                />
-                
-                <p className="text-xs text-muted-foreground">
-                  {metric.description}
-                </p>
+                <p className="text-[10px] text-muted-foreground uppercase font-medium tracking-wide mt-0.5">{metric.name}</p>
               </div>
             </div>
           ))}
         </div>
 
-        {/* Overall Efficiency Score */}
-        <div className="mt-6 p-4 bg-muted/20 rounded-lg">
-          <div className="flex items-center justify-between mb-2">
-            <h4 className="font-medium">Overall Study Efficiency</h4>
-            <Badge variant="outline">
-              {Math.round(efficiencyMetrics.reduce((sum, metric) => sum + metric.percentage, 0) / efficiencyMetrics.length)}%
-            </Badge>
+        {/* Impact Insight Section */}
+        <div className="mt-auto pt-4 border-t border-border/30">
+          <div className="bg-primary/5 rounded-xl p-4 border border-primary/10 flex items-start gap-4 transition-all hover:bg-primary/10">
+            <div className="p-2 bg-primary/20 rounded-full text-primary shrink-0">
+              <Lightbulb className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="font-semibold text-sm text-foreground flex items-center gap-2">
+                Weekly Impact
+                <Badge variant="secondary" className="text-[10px] uppercase font-bold px-1.5 h-5">AI Insight</Badge>
+              </h4>
+              <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                By using Aqademiq this week, you realized <strong>{efficiencyMetrics.insights.totalHours.toFixed(1)} hours</strong> of productive study. {efficiencyMetrics.insights.focusUpgrade} {efficiencyMetrics.insights.consistencyWin}
+              </p>
+              <div className="mt-3 flex gap-2">
+                <div className="flex items-center gap-1.5 text-[10px] font-medium text-emerald-600 bg-emerald-500/10 px-2 py-1 rounded-md border border-emerald-500/20">
+                  <Trophy className="w-3 h-3" />
+                  Beat Procrastination
+                </div>
+                <div className="flex items-center gap-1.5 text-[10px] font-medium text-blue-600 bg-blue-500/10 px-2 py-1 rounded-md border border-blue-500/20">
+                  <Zap className="w-3 h-3" />
+                  Boosted Focus
+                </div>
+              </div>
+            </div>
           </div>
-          <Progress 
-            value={efficiencyMetrics.reduce((sum, metric) => sum + metric.percentage, 0) / efficiencyMetrics.length} 
-            className="h-3"
-          />
-          <p className="text-sm text-muted-foreground mt-2">
-            Based on focus quality, time management, productivity, and consistency metrics.
-          </p>
         </div>
+
       </CardContent>
     </Card>
   );
 }
-
-

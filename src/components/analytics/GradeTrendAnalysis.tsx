@@ -1,9 +1,9 @@
 import React, { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
-import { format, subWeeks, startOfWeek, endOfWeek } from "date-fns";
-import { TrendingUp, TrendingDown, Minus, Award, Target } from "lucide-react";
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
+import { format, startOfWeek } from "date-fns";
+import { TrendingUp, TrendingDown, Minus, Award, GraduationCap, Crown, Target } from "lucide-react";
 
 interface GradeTrendAnalysisProps {
   assignments: any[];
@@ -24,8 +24,7 @@ export function GradeTrendAnalysis({ assignments, exams, courses }: GradeTrendAn
   // Calculate grade trends over time
   const gradeTrendData = useMemo(() => {
     const allGrades: GradeDataPoint[] = [];
-    const now = new Date();
-    
+
     // Process assignments with grades
     assignments
       .filter(assignment => assignment.grade_points !== null && assignment.grade_points !== undefined)
@@ -65,7 +64,7 @@ export function GradeTrendAnalysis({ assignments, exams, courses }: GradeTrendAn
 
     // Group by week and calculate weighted averages
     const weeklyData = new Map<string, { week: string; grades: GradeDataPoint[]; avgGrade: number; trend: string }>();
-    
+
     allGrades.forEach(grade => {
       const weekKey = grade.week;
       if (!weeklyData.has(weekKey)) {
@@ -84,7 +83,7 @@ export function GradeTrendAnalysis({ assignments, exams, courses }: GradeTrendAn
       const totalWeight = weekData.grades.reduce((sum, grade) => sum + grade.weight, 0);
       const weightedSum = weekData.grades.reduce((sum, grade) => sum + (grade.grade * grade.weight), 0);
       weekData.avgGrade = totalWeight > 0 ? weightedSum / totalWeight : 0;
-      
+
       return weekData;
     });
 
@@ -108,28 +107,48 @@ export function GradeTrendAnalysis({ assignments, exams, courses }: GradeTrendAn
     return weeklyArray.slice(-12); // Last 12 weeks
   }, [assignments, exams, courses]);
 
-  // Calculate overall statistics
+  // Calculate overall statistics and insights
   const stats = useMemo(() => {
     const allGrades = gradeTrendData.flatMap(week => week.grades);
     const totalGrades = allGrades.length;
     const avgGrade = totalGrades > 0 ? allGrades.reduce((sum, grade) => sum + grade.grade, 0) / totalGrades : 0;
-    
-    const improvingWeeks = gradeTrendData.filter(week => week.trend === 'improving').length;
-    const decliningWeeks = gradeTrendData.filter(week => week.trend === 'declining').length;
-    const stableWeeks = gradeTrendData.filter(week => week.trend === 'stable').length;
 
-    const recentTrend = gradeTrendData.length >= 2 
+    const recentTrend = gradeTrendData.length >= 2
       ? gradeTrendData[gradeTrendData.length - 1].avgGrade - gradeTrendData[gradeTrendData.length - 2].avgGrade
       : 0;
+
+    const trendDirection = recentTrend > 0.3 ? 'improving' : recentTrend < -0.3 ? 'declining' : 'stable';
+
+    // Forecast / Insight Logic
+    let insight = "Keep logging grades to see your mastery forecast.";
+    let masteryLevel = "Novice";
+    let forecastColor = "text-muted-foreground";
+
+    if (avgGrade >= 9) {
+      masteryLevel = "Grandmaster";
+      insight = "You are performing at an elite level. Maintenance is key.";
+      forecastColor = "text-yellow-500";
+    } else if (avgGrade >= 7.5) {
+      masteryLevel = "Scholar";
+      insight = trendDirection === 'improving'
+        ? "Your trajectory suggests you'll hit 'Grandmaster' tier soon."
+        : "Solid performance, but watch out for small dips.";
+      forecastColor = "text-purple-500";
+    } else if (avgGrade >= 5) {
+      masteryLevel = "Apprentice";
+      insight = "You're building foundations. Focus on consistency to level up.";
+      forecastColor = "text-blue-500";
+    }
 
     return {
       totalGrades,
       avgGrade: Math.round(avgGrade * 100) / 100,
-      improvingWeeks,
-      decliningWeeks,
-      stableWeeks,
       recentTrend: Math.round(recentTrend * 100) / 100,
-      trendDirection: recentTrend > 0.3 ? 'improving' : recentTrend < -0.3 ? 'declining' : 'stable'
+      trendDirection,
+      masteryLevel,
+      insight,
+      forecastColor,
+      projectedGrade: Math.min(10, avgGrade + (trendDirection === 'improving' ? 0.5 : 0))
     };
   }, [gradeTrendData]);
 
@@ -137,21 +156,15 @@ export function GradeTrendAnalysis({ assignments, exams, courses }: GradeTrendAn
     if (active && payload && payload.length) {
       const data = payload[0].payload;
       return (
-        <div className="bg-card p-3 border border-border rounded-lg shadow-lg">
-          <p className="font-medium mb-2">{label}</p>
+        <div className="bg-card/90 backdrop-blur-md p-3 border border-border rounded-lg shadow-lg">
+          <p className="font-medium mb-1">{label}</p>
           <div className="space-y-1">
-            <p className="text-primary">
-              <span className="font-medium">{data.avgGrade.toFixed(2)}</span> average grade
+            <p className="text-primary font-bold text-lg">
+              {data.avgGrade.toFixed(2)}
             </p>
-            <p className="text-sm text-muted-foreground">
-              {data.grades.length} grade{data.grades.length !== 1 ? 's' : ''} recorded
+            <p className="text-xs text-muted-foreground">
+              {data.grades.length} items graded
             </p>
-            <div className="flex items-center gap-1">
-              {data.trend === 'improving' && <TrendingUp className="w-3 h-3 text-success" />}
-              {data.trend === 'declining' && <TrendingDown className="w-3 h-3 text-destructive" />}
-              {data.trend === 'stable' && <Minus className="w-3 h-3 text-muted-foreground" />}
-              <span className="text-xs capitalize">{data.trend}</span>
-            </div>
           </div>
         </div>
       );
@@ -159,154 +172,88 @@ export function GradeTrendAnalysis({ assignments, exams, courses }: GradeTrendAn
     return null;
   };
 
-  const getTrendIcon = (trend: string) => {
-    switch (trend) {
-      case 'improving': return <TrendingUp className="w-4 h-4 text-success" />;
-      case 'declining': return <TrendingDown className="w-4 h-4 text-destructive" />;
-      default: return <Minus className="w-4 h-4 text-muted-foreground" />;
-    }
-  };
-
-  const getTrendColor = (trend: string) => {
-    switch (trend) {
-      case 'improving': return '#10B981';
-      case 'declining': return '#EF4444';
-      default: return '#6B7280';
-    }
-  };
-
   return (
-    <Card className="bg-gradient-card">
-      <CardHeader>
+    <Card className="bg-gradient-to-br from-card/50 to-muted/20 border-border/50 backdrop-blur-sm overflow-hidden h-full flex flex-col group hover:shadow-lg hover:border-primary/20 transition-all">
+      <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
-            <Award className="w-5 h-5 text-primary" />
-            Grade Trend Analysis
+          <CardTitle className="flex items-center gap-2 text-base">
+            <GraduationCap className="w-5 h-5 text-primary" />
+            Academic Mastery
           </CardTitle>
-          <div className="flex items-center gap-2">
-            {getTrendIcon(stats.trendDirection)}
-            <Badge variant="outline" className="text-xs">
-              {stats.trendDirection}
-            </Badge>
-          </div>
+          <Badge variant="outline" className={`capitalize ${stats.trendDirection === 'improving' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-secondary'}`}>
+            {stats.trendDirection}
+          </Badge>
         </div>
       </CardHeader>
-      
-      <CardContent>
+
+      <CardContent className="flex-1 flex flex-col min-h-0">
         {gradeTrendData.length === 0 ? (
-          <div className="text-center py-12 text-muted-foreground">
-            <Award className="w-12 h-12 mx-auto mb-4 opacity-50" />
-            <p className="text-lg font-medium mb-2">No Grade Data</p>
-            <p className="text-sm">
-              No graded assignments or exams found to analyze trends.
-            </p>
+          <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground py-8">
+            <Award className="w-12 h-12 mb-4 opacity-20" />
+            <p className="text-sm font-medium">Log grades to unlock mastery insights</p>
           </div>
         ) : (
-          <div className="space-y-4">
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={gradeTrendData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-                <XAxis 
-                  dataKey="week" 
-                  className="text-sm"
-                  tick={{ fontSize: 12 }}
-                />
-                <YAxis 
-                  domain={[0, 10]}
-                  className="text-sm"
-                  tick={{ fontSize: 12 }}
-                  label={{ value: 'Grade (10.0 scale)', angle: -90, position: 'insideLeft' }}
-                />
-                <Tooltip content={<CustomTooltip />} />
-                <ReferenceLine y={7.0} stroke="#10B981" strokeDasharray="5 5" label="Good (7.0)" />
-                <ReferenceLine y={8.5} stroke="#059669" strokeDasharray="5 5" label="Excellent (8.5)" />
-                <Line
-                  type="monotone"
-                  dataKey="avgGrade"
-                  stroke="#5183F5"
-                  strokeWidth={3}
-                  dot={{ r: 5, fill: '#5183F5' }}
-                  activeDot={{ r: 7, fill: '#5183F5' }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-
-            {/* Summary Statistics */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 pt-4 border-t">
-              <div className="text-center">
-                <div className="text-2xl font-bold text-primary">
-                  {stats.avgGrade}
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  Average Grade
+          <>
+            {/* Mastery Header */}
+            <div className="flex items-end justify-between mb-4">
+              <div>
+                <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">Current Tier</p>
+                <div className="flex items-center gap-2">
+                  <h3 className={`text-2xl font-black ${stats.forecastColor} drop-shadow-sm`}>
+                    {stats.masteryLevel}
+                  </h3>
+                  {stats.masteryLevel === 'Grandmaster' && <Crown className="w-5 h-5 text-yellow-500 fill-yellow-500" />}
                 </div>
               </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-primary">
-                  {stats.totalGrades}
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  Total Grades
-                </div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-success">
-                  {stats.improvingWeeks}
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  Improving Weeks
-                </div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-destructive">
-                  {stats.decliningWeeks}
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  Declining Weeks
-                </div>
+              <div className="text-right">
+                <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">GPA Est.</p>
+                <p className="text-2xl font-bold">{stats.avgGrade.toFixed(1)}<span className="text-sm text-muted-foreground">/10</span></p>
               </div>
             </div>
 
-            {/* Trend Analysis */}
-            <div className="p-3 bg-muted/20 rounded-lg">
-              <div className="flex items-center gap-2 mb-2">
-                {getTrendIcon(stats.trendDirection)}
-                <span className="text-sm font-medium">Recent Trend Analysis</span>
-              </div>
-              <div className="text-sm text-muted-foreground">
-                {stats.trendDirection === 'improving' && `Your grades are improving! Recent trend shows +${stats.recentTrend} points.`}
-                {stats.trendDirection === 'declining' && `Your grades are declining. Recent trend shows ${stats.recentTrend} points. Consider reviewing study strategies.`}
-                {stats.trendDirection === 'stable' && `Your grades are stable. Recent trend shows minimal change (${stats.recentTrend} points).`}
+            {/* Chart */}
+            <div className="flex-1 min-h-[160px] w-full relative">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={gradeTrendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="colorAvgGrade" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor={stats.trendDirection === 'improving' ? '#10B981' : '#8B5CF6'} stopOpacity={0.4} />
+                      <stop offset="95%" stopColor={stats.trendDirection === 'improving' ? '#10B981' : '#8B5CF6'} stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  {/* Target Line Description */}
+                  <Tooltip content={<CustomTooltip />} cursor={{ stroke: 'rgba(255,255,255,0.2)' }} />
+                  <ReferenceLine y={stats.projectedGrade} strokeDasharray="3 3" strokeOpacity={0.5} stroke="currentColor" />
+
+                  <Area
+                    type="monotone"
+                    dataKey="avgGrade"
+                    stroke={stats.trendDirection === 'improving' ? '#10B981' : '#8B5CF6'}
+                    strokeWidth={3}
+                    fillOpacity={1}
+                    fill="url(#colorAvgGrade)"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+              <div className="absolute top-2 right-2 flex items-center gap-1 bg-background/50 backdrop-blur px-2 py-1 rounded text-[10px] text-muted-foreground border border-border/30">
+                <Target className="w-3 h-3" /> Target: {stats.projectedGrade.toFixed(1)}
               </div>
             </div>
 
-            {/* Weekly Breakdown */}
-            <div className="space-y-2">
-              <h4 className="font-medium text-sm">Weekly Performance</h4>
-              <div className="space-y-1 max-h-32 overflow-y-auto">
-                {gradeTrendData.slice(-6).map((week, index) => (
-                  <div key={index} className="flex items-center justify-between p-2 rounded bg-muted/20">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium">{week.week}</span>
-                      <Badge variant="outline" className="text-xs">
-                        {week.grades.length} grades
-                      </Badge>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium">
-                        {week.avgGrade.toFixed(2)}
-                      </span>
-                      {getTrendIcon(week.trend)}
-                    </div>
-                  </div>
-                ))}
+            {/* Impact/Insight Footer */}
+            <div className="mt-4 p-3 rounded-lg bg-primary/5 border border-primary/10 flex items-start gap-3">
+              <div className="p-1.5 bg-background rounded-full border border-border/20 shadow-sm shrink-0">
+                <TrendingUp className="w-4 h-4 text-primary" />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-foreground">Forecast</p>
+                <p className="text-xs text-muted-foreground leading-tight">{stats.insight}</p>
               </div>
             </div>
-          </div>
+
+          </>
         )}
       </CardContent>
     </Card>
   );
 }
-
-
