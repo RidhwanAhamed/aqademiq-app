@@ -2,7 +2,7 @@ import React, { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
-import { Award, TrendingUp, TrendingDown, Minus, BookOpen, Target } from "lucide-react";
+import { Award, TrendingUp, TrendingDown, Minus, BookOpen, Crown, Zap } from "lucide-react";
 
 interface CoursePerformanceComparisonProps {
   courses: any[];
@@ -33,15 +33,15 @@ export function CoursePerformanceComparison({ courses, assignments, exams, study
       // Get assignments and exams for this course
       const courseAssignments = assignments.filter(a => a.course_id === course.id);
       const courseExams = exams.filter(e => e.course_id === course.id);
-      
+
       // Calculate average grade
       const allGrades = [
         ...courseAssignments.filter(a => a.grade_points !== null).map(a => a.grade_points),
         ...courseExams.filter(e => e.grade_points !== null).map(e => e.grade_points)
       ];
-      
-      const avgGrade = allGrades.length > 0 
-        ? allGrades.reduce((sum, grade) => sum + grade, 0) / allGrades.length 
+
+      const avgGrade = allGrades.length > 0
+        ? allGrades.reduce((sum, grade) => sum + grade, 0) / allGrades.length
         : 0;
 
       // Calculate completion rate
@@ -50,10 +50,10 @@ export function CoursePerformanceComparison({ courses, assignments, exams, study
       const completionRate = totalAssignments > 0 ? (completedAssignments / totalAssignments) * 100 : 0;
 
       // Calculate study hours
-      const courseStudySessions = studySessions.filter(s => 
+      const courseStudySessions = studySessions.filter(s =>
         s.course_id === course.id && s.status === 'completed' && s.actual_start && s.actual_end
       );
-      
+
       const studyHours = courseStudySessions.reduce((total, session) => {
         const duration = new Date(session.actual_end).getTime() - new Date(session.actual_start).getTime();
         return total + (duration / (1000 * 60 * 60)); // Convert to hours
@@ -101,24 +101,16 @@ export function CoursePerformanceComparison({ courses, assignments, exams, study
     if (active && payload && payload.length) {
       const data = payload[0].payload;
       return (
-        <div className="bg-card p-3 border border-border rounded-lg shadow-lg">
+        <div className="bg-card/90 backdrop-blur-md p-3 border border-border rounded-lg shadow-lg">
           <p className="font-medium mb-2">{data.courseName}</p>
           <div className="space-y-1">
-            <p className="text-primary">
-              <span className="font-medium">{data.performanceScore}%</span> performance score
+            <p className="text-primary font-bold">
+              {data.performanceScore} <span className="text-xs font-normal text-muted-foreground">Score</span>
             </p>
-            <p className="text-sm text-muted-foreground">
-              Avg Grade: {data.avgGrade}/10
-            </p>
-            <p className="text-sm text-muted-foreground">
-              Completion: {data.completionRate}%
-            </p>
-            <p className="text-sm text-muted-foreground">
-              Study Hours: {data.studyHours}h
-            </p>
-            <p className="text-sm text-muted-foreground">
-              Workload: {data.totalWorkload} items
-            </p>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground">
+              <span>Grade: <span className="text-foreground">{data.avgGrade}</span></span>
+              <span>Hours: <span className="text-foreground">{data.studyHours}</span></span>
+            </div>
           </div>
         </div>
       );
@@ -128,153 +120,100 @@ export function CoursePerformanceComparison({ courses, assignments, exams, study
 
   const getTrendIcon = (trend: string) => {
     switch (trend) {
-      case 'improving': return <TrendingUp className="w-4 h-4 text-success" />;
-      case 'declining': return <TrendingDown className="w-4 h-4 text-destructive" />;
-      default: return <Minus className="w-4 h-4 text-muted-foreground" />;
-    }
-  };
-
-  const getTrendColor = (trend: string) => {
-    switch (trend) {
-      case 'improving': return 'text-success';
-      case 'declining': return 'text-destructive';
-      default: return 'text-muted-foreground';
+      case 'improving': return <TrendingUp className="w-3 h-3 text-emerald-500" />;
+      case 'declining': return <TrendingDown className="w-3 h-3 text-rose-500" />;
+      default: return <Minus className="w-3 h-3 text-muted-foreground" />;
     }
   };
 
   return (
-    <Card className="bg-gradient-card">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
+    <Card className="bg-gradient-to-br from-card/50 to-muted/20 border-border/50 backdrop-blur-sm overflow-hidden h-full flex flex-col hover:shadow-md transition-shadow">
+      <CardHeader className="pb-2">
+        <CardTitle className="flex items-center gap-2 text-base">
           <BookOpen className="w-5 h-5 text-primary" />
-          Course Performance Comparison
+          Course Performance
         </CardTitle>
       </CardHeader>
-      
-      <CardContent>
+
+      <CardContent className="flex-1 min-h-0 flex flex-col">
         {sortedCourses.length === 0 ? (
-          <div className="text-center py-12 text-muted-foreground">
-            <BookOpen className="w-12 h-12 mx-auto mb-4 opacity-50" />
-            <p className="text-lg font-medium mb-2">No Course Data</p>
-            <p className="text-sm">
-              No courses with assignments or exams found for comparison.
-            </p>
+          <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground py-8">
+            <BookOpen className="w-12 h-12 mb-4 opacity-20" />
+            <p className="text-sm font-medium">No Course Data</p>
           </div>
         ) : (
           <div className="space-y-6">
-            {/* Performance Chart */}
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={sortedCourses} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-                <XAxis 
-                  dataKey="courseCode" 
-                  className="text-sm"
-                  tick={{ fontSize: 12 }}
-                />
-                <YAxis 
-                  domain={[0, 100]}
-                  className="text-sm"
-                  tick={{ fontSize: 12 }}
-                  label={{ value: 'Performance Score (%)', angle: -90, position: 'insideLeft' }}
-                />
-                <Tooltip content={<CustomTooltip />} />
-                <Bar dataKey="performanceScore" radius={[4, 4, 0, 0]}>
-                  {sortedCourses.map((course, index) => (
-                    <Cell key={`cell-${index}`} fill={course.color} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+            {/* Top Performer Highlight */}
+            {sortedCourses.length > 0 && (
+              <div className="bg-gradient-to-r from-yellow-500/10 via-amber-500/10 to-transparent p-3 rounded-xl border border-yellow-500/20 flex items-center gap-3">
+                <div className="h-10 w-10 rounded-full bg-yellow-500/20 flex items-center justify-center text-yellow-600 dark:text-yellow-400">
+                  <Crown className="w-5 h-5" />
+                </div>
+                <div>
+                  <p className="text-xs uppercase text-yellow-600/80 font-bold tracking-wide">Top Performer</p>
+                  <p className="font-bold text-foreground">{sortedCourses[0].courseName}</p>
+                </div>
+                <div className="ml-auto text-right">
+                  <span className="text-2xl font-black text-yellow-600/90">{sortedCourses[0].performanceScore}</span>
+                  <span className="text-xs text-yellow-600/60 ml-1">Score</span>
+                </div>
+              </div>
+            )}
 
-            {/* Course Rankings */}
-            <div className="space-y-3">
-              <h4 className="font-medium text-sm">Course Rankings</h4>
-              <div className="space-y-2">
+            {/* Performance Chart */}
+            <div className="h-[200px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={sortedCourses} margin={{ top: 5, right: 0, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.1)" />
+                  <XAxis
+                    dataKey="courseCode"
+                    className="text-xs"
+                    tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
+                    axisLine={false}
+                    tickLine={false}
+                    dy={5}
+                  />
+                  <YAxis
+                    domain={[0, 100]}
+                    className="text-xs"
+                    tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.05)' }} />
+                  <Bar dataKey="performanceScore" radius={[6, 6, 6, 6]} barSize={32}>
+                    {sortedCourses.map((course, index) => (
+                      <Cell key={`cell-${index}`} fill={index === 0 ? '#EAB308' : '#3B82F6'} fillOpacity={index === 0 ? 1 : 0.6} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Compact Rankings List */}
+            <div className="space-y-2">
+              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Leaderboard</h4>
+              <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1 scrollbar-thin">
                 {sortedCourses.map((course, index) => (
-                  <div key={course.courseId} className="flex items-center justify-between p-3 rounded-lg border bg-card/50">
+                  <div key={course.courseId} className="flex items-center justify-between p-2 rounded-lg bg-background/40 hover:bg-background/60 transition-colors border border-border/30">
                     <div className="flex items-center gap-3">
-                      <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary font-bold text-sm">
+                      <span className={`text-xs font-bold w-5 h-5 flex items-center justify-center rounded-full ${index < 3 ? 'bg-primary/20 text-primary' : 'text-muted-foreground'}`}>
                         {index + 1}
-                      </div>
+                      </span>
                       <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">{course.courseName}</span>
-                          <Badge variant="outline" className="text-xs">
-                            {course.courseCode}
-                          </Badge>
-                        </div>
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                          <span>Grade: {course.avgGrade}/10</span>
-                          <span>Completion: {course.completionRate}%</span>
-                          <span>Study: {course.studyHours}h</span>
-                        </div>
+                        <p className="text-sm font-medium leading-none">{course.courseName}</p>
+                        <p className="text-[10px] text-muted-foreground mt-1">Grade: {course.avgGrade}</p>
                       </div>
                     </div>
+
                     <div className="flex items-center gap-2">
-                      <span className="text-lg font-bold text-primary">
-                        {course.performanceScore}%
-                      </span>
-                      <div className={`${getTrendColor(course.trend)}`}>
-                        {getTrendIcon(course.trend)}
+                      <div className="text-right">
+                        <p className="text-sm font-bold">{course.performanceScore}</p>
                       </div>
+                      {getTrendIcon(course.trend)}
                     </div>
                   </div>
                 ))}
-              </div>
-            </div>
-
-            {/* Summary Statistics */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 pt-4 border-t">
-              <div className="text-center">
-                <div className="text-2xl font-bold text-primary">
-                  {sortedCourses.length}
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  Active Courses
-                </div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-primary">
-                  {Math.round(sortedCourses.reduce((sum, course) => sum + course.avgGrade, 0) / sortedCourses.length * 100) / 100}
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  Avg Grade
-                </div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-primary">
-                  {Math.round(sortedCourses.reduce((sum, course) => sum + course.completionRate, 0) / sortedCourses.length)}
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  Avg Completion
-                </div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-primary">
-                  {Math.round(sortedCourses.reduce((sum, course) => sum + course.studyHours, 0))}
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  Total Study Hours
-                </div>
-              </div>
-            </div>
-
-            {/* Performance Insights */}
-            <div className="p-3 bg-muted/20 rounded-lg">
-              <div className="flex items-center gap-2 mb-2">
-                <Target className="w-4 h-4 text-primary" />
-                <span className="text-sm font-medium">Performance Insights</span>
-              </div>
-              <div className="text-sm text-muted-foreground space-y-1">
-                {sortedCourses.length > 0 && (
-                  <>
-                    <p>• Your strongest course is <strong>{sortedCourses[0].courseName}</strong> with {sortedCourses[0].performanceScore}% performance score</p>
-                    {sortedCourses.length > 1 && (
-                      <p>• Consider focusing more study time on <strong>{sortedCourses[sortedCourses.length - 1].courseName}</strong> to improve overall performance</p>
-                    )}
-                    <p>• Overall average performance across all courses: {Math.round(sortedCourses.reduce((sum, course) => sum + course.performanceScore, 0) / sortedCourses.length)}%</p>
-                  </>
-                )}
               </div>
             </div>
           </div>
@@ -283,5 +222,3 @@ export function CoursePerformanceComparison({ courses, assignments, exams, study
     </Card>
   );
 }
-
-

@@ -1,10 +1,19 @@
 import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, TrendingUp, TrendingDown, Clock, Calendar, RefreshCw } from "lucide-react";
+import {
+  AlertTriangle,
+  TrendingUp,
+  Clock,
+  RefreshCw,
+  Zap,
+  Brain,
+  CheckCircle2,
+  Skull
+} from "lucide-react";
 import { useWorkloadSimulation } from "@/hooks/useWorkloadSimulation";
 import { cn } from "@/lib/utils";
 
@@ -25,12 +34,12 @@ export function SimulationMode({ className }: SimulationModeProps) {
 
   if (loading && !simulation) {
     return (
-      <Card className={cn("animate-pulse", className)}>
+      <Card className={cn("animate-pulse h-full", className)}>
         <CardHeader>
           <div className="h-6 w-32 bg-muted rounded" />
         </CardHeader>
         <CardContent>
-          <div className="h-32 bg-muted rounded" />
+          <div className="h-48 bg-muted rounded" />
         </CardContent>
       </Card>
     );
@@ -38,176 +47,162 @@ export function SimulationMode({ className }: SimulationModeProps) {
 
   if (!simulation || !simulationData) {
     return (
-      <Card className={className}>
-        <CardContent className="pt-6">
-          <div className="text-center text-muted-foreground">
-            <Clock className="h-8 w-8 mx-auto mb-2 opacity-50" />
-            <p>No pending tasks to simulate</p>
-          </div>
+      <Card className={cn("h-full bg-gradient-to-br from-card to-muted/20", className)}>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Brain className="h-5 w-5 text-primary" />
+            Future Self Simulator
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-6 flex flex-col items-center justify-center text-center h-[200px]">
+          <CoffeeBreakState />
         </CardContent>
       </Card>
     );
   }
 
-  const statusColors = {
-    green: "from-green-500 to-emerald-500",
-    yellow: "from-amber-500 to-yellow-500",
-    red: "from-red-500 to-rose-500",
+  // Calculate "Panic Level" based on daily required hours
+  // Assuming > 6 hours/day is panic mode
+  const dailyHours = simulation.dailyRequiredHours;
+  const panicLevel = Math.min(100, (dailyHours / 8) * 100);
+
+  const getStressLevel = (hours: number) => {
+    if (hours < 2) return { label: "Chill Mode", color: "text-emerald-500", icon: CheckCircle2 };
+    if (hours < 4) return { label: "Balanced", color: "text-blue-500", icon: Brain };
+    if (hours < 6) return { label: "Heavy Grind", color: "text-orange-500", icon: Zap };
+    return { label: "Burnout Risk", color: "text-rose-600", icon: Skull };
   };
 
-  const statusBg = {
-    green: "bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800",
-    yellow: "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800",
-    red: "bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800",
-  };
+  const stressInfo = getStressLevel(dailyHours);
+  const StressIcon = stressInfo.icon;
 
   return (
-    <Card className={cn("overflow-hidden", className)}>
+    <Card className={cn("overflow-hidden bg-gradient-to-br from-card to-muted/10 border-border/50 h-full flex flex-col", className)}>
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-lg flex items-center gap-2">
-            <Calendar className="h-5 w-5" />
-            Workload Capacity
+          <CardTitle className="text-base flex items-center gap-2">
+            <Zap className="h-5 w-5 text-yellow-500 fill-yellow-500" />
+            Procrastination Simulator
           </CardTitle>
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8"
+            className="h-7 w-7 opacity-50 hover:opacity-100"
             onClick={fetchWorkloadData}
             disabled={loading}
           >
-            <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
+            <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
           </Button>
         </div>
       </CardHeader>
-      
-      <CardContent className="space-y-4">
-        {/* Capacity Bar */}
-        <div className="relative">
-          <div className="h-8 bg-muted rounded-full overflow-hidden">
-            <motion.div
-              className={cn(
-                "h-full rounded-full bg-gradient-to-r",
-                statusColors[simulation.status]
-              )}
-              initial={{ width: 0 }}
-              animate={{
-                width: `${Math.min(100, (simulation.totalTaskHours / (simulation.availableFreeHours || 1)) * 100)}%`,
-              }}
-              transition={{ duration: 0.5, ease: "easeOut" }}
-            />
-          </div>
-          <div className="absolute inset-0 flex items-center justify-center">
-            <span className="text-xs font-medium text-white drop-shadow-md">
-              {simulation.totalTaskHours.toFixed(1)}h / {simulation.availableFreeHours.toFixed(1)}h
-            </span>
-          </div>
-        </div>
 
-        {/* Status Indicator */}
-        <div className={cn("rounded-lg border p-3", statusBg[simulation.status])}>
-          <div className="flex items-start gap-3">
-            {simulation.status === "red" ? (
-              <AlertTriangle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
-            ) : simulation.status === "yellow" ? (
-              <TrendingDown className="h-5 w-5 text-amber-500 flex-shrink-0 mt-0.5" />
-            ) : (
-              <TrendingUp className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
-            )}
-            <div>
-              <p className="text-sm font-medium">{simulation.warningMessage}</p>
-              {simulation.status !== "green" && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  Daily study needed: {simulation.dailyRequiredHours.toFixed(1)} hours
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
+      <CardContent className="space-y-6 flex-1 flex flex-col justify-between">
 
-        {/* Delay Simulator */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium">Simulate Delay</span>
-            <Badge variant="outline">
-              {delayDays === 0 ? "No delay" : `+${delayDays} day${delayDays > 1 ? "s" : ""}`}
+        {/* Interactive Slider Section */}
+        <div className="space-y-4 pt-2">
+          <div className="flex justify-between items-center px-1">
+            <span className="text-sm font-medium text-muted-foreground uppercase tracking-wide">If I wait...</span>
+            <Badge variant={delayDays === 0 ? "outline" : "secondary"} className="text-sm font-bold px-3">
+              {delayDays === 0 ? "I Start Now" : `${delayDays} Days`}
             </Badge>
           </div>
-          
-          <Slider
-            value={[delayDays]}
-            onValueChange={([value]) => setDelayDays(value)}
-            max={7}
-            step={1}
-            className="w-full"
-          />
-          
-          <div className="flex justify-between text-xs text-muted-foreground">
-            <span>Today</span>
-            <span>+7 days</span>
+
+          <div className="relative pt-2 pb-1">
+            <Slider
+              defaultValue={[0]}
+              value={[delayDays]}
+              onValueChange={([value]) => setDelayDays(value)}
+              max={7}
+              step={1}
+              className="cursor-pointer"
+            />
+            <div className="flex justify-between mt-2 text-[10px] text-muted-foreground font-medium uppercase tracking-widest">
+              <span>Today</span>
+              <span>Next Week</span>
+            </div>
           </div>
         </div>
 
-        {/* Task Summary */}
-        {simulationData.assignments.length > 0 && (
-          <div className="space-y-2">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-              Upcoming Tasks ({simulationData.assignments.length})
-            </p>
-            <div className="space-y-1 max-h-32 overflow-y-auto">
-              {simulationData.assignments.slice(0, 5).map((a, i) => (
-                <div key={i} className="flex items-center justify-between text-sm">
-                  <span className="truncate flex-1 mr-2">{a.title}</span>
-                  <Badge variant="secondary" className="text-xs">
-                    {a.hours}h
-                  </Badge>
-                </div>
-              ))}
-              {simulationData.assignments.length > 5 && (
-                <p className="text-xs text-muted-foreground">
-                  +{simulationData.assignments.length - 5} more tasks
-                </p>
-              )}
+        {/* Impact Visualization */}
+        <div className="bg-background/50 border border-border/50 rounded-xl p-4 relative overflow-hidden group">
+          <div className={`absolute top-0 left-0 w-1 h-full ${stressInfo.color.replace('text-', 'bg-')}`} />
+
+          <div className="flex justify-between items-start mb-2">
+            <div>
+              <p className="text-xs text-muted-foreground uppercase tracking-wide font-semibold">Daily Workload</p>
+              <div className="flex items-baseline gap-1 mt-0.5">
+                <span className={`text-3xl font-black ${stressInfo.color}`}>
+                  {dailyHours.toFixed(1)}h
+                </span>
+                <span className="text-sm text-muted-foreground">/ day</span>
+              </div>
+            </div>
+            <div className={`flex flex-col items-end ${stressInfo.color}`}>
+              <StressIcon className="w-8 h-8 mb-1 opacity-80" />
+              <span className="text-xs font-bold uppercase">{stressInfo.label}</span>
             </div>
           </div>
-        )}
+
+          {/* Contextual Impact Message */}
+          <div className="mt-3 pt-3 border-t border-border/30">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={delayDays}
+                initial={{ opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -5 }}
+                className="text-sm font-medium leading-relaxed"
+              >
+                {delayDays === 0 ? (
+                  <span className="text-emerald-500 flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4" />
+                    You're saving your future self from stress. Great choice!
+                  </span>
+                ) : (
+                  <span className={dailyHours > 4 ? "text-rose-500" : "text-orange-500"}>
+                    Waiting {delayDays} days adds <span className="font-bold underline">{(delayDays * 0.5).toFixed(1)}h</span> to every future day's load.
+                  </span>
+                )}
+              </motion.div>
+            </AnimatePresence>
+          </div>
+        </div>
+
+        {/* Stress Meter Bar */}
+        <div className="space-y-1.5">
+          <div className="flex justify-between text-xs text-muted-foreground">
+            <span>Stress Meter</span>
+            <span>{Math.round(panicLevel)}%</span>
+          </div>
+          <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
+            <motion.div
+              className={cn(
+                "h-full rounded-full transition-all duration-500",
+                panicLevel < 30 ? "bg-emerald-500" :
+                  panicLevel < 60 ? "bg-blue-500" :
+                    panicLevel < 80 ? "bg-orange-500" : "bg-rose-600"
+              )}
+              initial={{ width: 0 }}
+              animate={{ width: `${panicLevel}%` }}
+            />
+          </div>
+        </div>
+
       </CardContent>
     </Card>
   );
 }
 
-// Compact version for dashboard
-export function PanicButton({ onClick }: { onClick?: () => void }) {
-  const { simulation, fetchWorkloadData } = useWorkloadSimulation();
-  const [hasLoaded, setHasLoaded] = useState(false);
-
-  useEffect(() => {
-    if (!hasLoaded) {
-      fetchWorkloadData();
-      setHasLoaded(true);
-    }
-  }, [fetchWorkloadData, hasLoaded]);
-
-  const statusColors = {
-    green: "bg-green-500",
-    yellow: "bg-amber-500",
-    red: "bg-red-500",
-  };
-
+function CoffeeBreakState() {
   return (
-    <Button
-      variant="outline"
-      size="sm"
-      onClick={onClick}
-      className="gap-2"
-    >
-      <span
-        className={cn(
-          "h-2 w-2 rounded-full",
-          simulation ? statusColors[simulation.status] : "bg-muted"
-        )}
-      />
-      Capacity Check
-    </Button>
-  );
+    <div className="flex flex-col items-center gap-3">
+      <div className="p-3 bg-emerald-100 dark:bg-emerald-900/30 rounded-full text-emerald-600 dark:text-emerald-400">
+        <Clock className="w-6 h-6" />
+      </div>
+      <div>
+        <p className="font-semibold">All Caught Up!</p>
+        <p className="text-sm text-muted-foreground">No pending tasks to simulate.</p>
+      </div>
+    </div>
+  )
 }

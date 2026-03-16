@@ -3,8 +3,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { addDays, format, subWeeks } from "date-fns";
-import { Target, CheckCircle, Clock, AlertTriangle } from "lucide-react";
+import { format, subWeeks } from "date-fns";
+import { Target, CheckCircle, Clock, AlertTriangle, ArrowUpRight, Rocket, ShieldCheck, Umbrella } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
 
 interface AssignmentsOverviewProps {
   assignments: any[];
@@ -30,13 +31,6 @@ const presets = [
     range: () => {
       const now = new Date();
       return { start: subWeeks(now, 4), end: now };
-    },
-  },
-  {
-    label: "Past 3 Months",
-    range: () => {
-      const now = new Date();
-      return { start: subWeeks(now, 12), end: now };
     },
   },
   {
@@ -69,17 +63,34 @@ export function AssignmentsOverview({ assignments, courses }: AssignmentsOvervie
     });
   }, [assignments, selectedCourse, range]);
 
-  // Calculate statistics
+  // Calculate statistics & Insights
   const stats = useMemo(() => {
     const total = filteredAssignments.length;
     const completed = filteredAssignments.filter(a => a.is_completed).length;
     const pending = total - completed;
-    const overdue = filteredAssignments.filter(a => 
+    const overdue = filteredAssignments.filter(a =>
       !a.is_completed && new Date(a.due_date) < new Date()
     ).length;
     const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
 
-    return { total, completed, pending, overdue, completionRate };
+    let insight = "Clear tasks to unlock free time.";
+    let statusColor = "text-muted-foreground";
+
+    if (completionRate > 90) {
+      insight = "Mission Accomplished. You are completely on top of your workload.";
+      statusColor = "text-emerald-500";
+    } else if (completionRate > 70) {
+      insight = "Strong velocity. You're clearing major hurdles efficiently.";
+      statusColor = "text-blue-500";
+    } else if (overdue > 0) {
+      insight = "Critical Alert: Overdue tasks are creating backend pressure.";
+      statusColor = "text-rose-500";
+    } else {
+      insight = "Steady pace. Reducing pending tasks will free up your weekend.";
+      statusColor = "text-amber-500";
+    }
+
+    return { total, completed, pending, overdue, completionRate, insight, statusColor };
   }, [filteredAssignments]);
 
   const handlePresetChange = (preset: typeof presets[0]) => {
@@ -97,141 +108,97 @@ export function AssignmentsOverview({ assignments, courses }: AssignmentsOvervie
   ];
 
   return (
-    <Card className="bg-gradient-card w-full min-w-0 overflow-hidden">
-      <CardHeader>
+    <Card className="bg-gradient-to-br from-card/50 to-muted/20 border-border/50 backdrop-blur-sm overflow-hidden h-full flex flex-col hover:shadow-md transition-shadow group">
+      <CardHeader className="pb-2 space-y-3">
         <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
-            <Target className="w-5 h-5 text-primary" />
-            Assignments Overview
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Rocket className="w-5 h-5 text-primary" />
+            Mission Control
           </CardTitle>
-          <Badge variant="outline" className="text-xs">
-            {format(range.start, "MMM d")} - {format(range.end, "MMM d")}
-          </Badge>
-        </div>
-        
-        {/* Filters */}
-        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 items-start sm:items-center">
-          {/* Course Filter */}
-          <div className="flex items-center gap-2 w-full sm:w-auto">
-            <span className="text-xs sm:text-sm text-muted-foreground whitespace-nowrap">Course:</span>
-            <Select value={selectedCourse} onValueChange={setSelectedCourse}>
-              <SelectTrigger className="w-full sm:w-40 h-8 text-xs sm:text-sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {allCourses.map((course) => (
-                  <SelectItem key={course.id} value={course.id}>
-                    {course.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Date Range Presets */}
-          <div className="flex gap-1 flex-wrap w-full sm:w-auto">
+          <div className="flex gap-1.5">
             {presets.map((preset) => (
               <Button
                 key={preset.label}
-                variant={range.preset === preset.label ? "default" : "outline"}
+                variant={range.preset === preset.label ? "secondary" : "ghost"}
                 size="sm"
                 onClick={() => handlePresetChange(preset)}
-                className="text-[10px] sm:text-xs px-2 sm:px-3 h-7 sm:h-8"
+                className={`h-7 px-3 text-xs rounded-full ${range.preset === preset.label ? 'bg-primary/10 text-primary hover:bg-primary/20' : 'text-muted-foreground hover:text-foreground'}`}
               >
                 {preset.label}
               </Button>
             ))}
           </div>
         </div>
+
+        {/* Course Filter */}
+        <div className="w-full">
+          <Select value={selectedCourse} onValueChange={setSelectedCourse}>
+            <SelectTrigger className="w-full h-8 text-xs sm:text-sm bg-background/50 border-border/40 hover:bg-background/80 transition-colors">
+              <SelectValue placeholder="Select Course" />
+            </SelectTrigger>
+            <SelectContent>
+              {allCourses.map((course) => (
+                <SelectItem key={course.id} value={course.id}>
+                  {course.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </CardHeader>
-      
-      <CardContent>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
-          {/* Total Assignments */}
-          <div className="text-center space-y-2">
-            <div className="flex items-center justify-center gap-2">
-              <Target className="w-5 h-5 text-primary" />
-              <span className="text-sm font-medium text-muted-foreground">Total</span>
+
+      <CardContent className="flex-1 flex flex-col min-h-0 pt-2 gap-4">
+        {/* Main Status Cards Grid */}
+        <div className="grid grid-cols-2 gap-3 flex-1">
+
+          {/* Clearance Rate (Primary Metric) */}
+          <div className="col-span-2 relative bg-background/40 border border-border/30 rounded-xl p-4 flex items-center justify-between overflow-hidden">
+            <div className="z-10">
+              <p className="text-xs font-semibold uppercase text-muted-foreground tracking-wider mb-1">Clearance Rate</p>
+              <div className="flex items-baseline gap-2">
+                <span className={`text-4xl font-black ${stats.statusColor}`}>{stats.completionRate}%</span>
+                <span className="text-sm font-medium text-muted-foreground">velocity</span>
+              </div>
             </div>
-            <div className="text-3xl font-bold text-primary">
-              {stats.total}
+            <div className="h-16 w-16 rounded-full border-4 border-muted flex items-center justify-center bg-background/50">
+              <span className="text-2xl">{stats.completionRate >= 100 ? "Use" : stats.completionRate >= 50 ? "⚡" : "🚧"}</span>
             </div>
-            <div className="text-xs text-muted-foreground">
-              assignments
-            </div>
+            {/* Progress Bar Background */}
+            <div className="absolute bottom-0 left-0 h-1 bg-gradient-to-r from-primary/50 to-secondary/50 transition-all duration-1000" style={{ width: `${stats.completionRate}%` }} />
           </div>
 
-          {/* Completed Assignments */}
-          <div className="text-center space-y-2">
-            <div className="flex items-center justify-center gap-2">
-              <CheckCircle className="w-5 h-5 text-success" />
-              <span className="text-sm font-medium text-muted-foreground">Completed</span>
+          {/* Pending / Overdue Visuals */}
+          <div className="relative bg-amber-500/5 border border-amber-500/10 rounded-xl p-3 flex flex-col justify-between group-hover:bg-amber-500/10 transition-colors">
+            <div className="flex justify-between items-start">
+              <span className="text-[10px] font-bold uppercase text-amber-600 tracking-wider">Queue</span>
+              <Clock className="w-3 h-3 text-amber-600" />
             </div>
-            <div className="text-3xl font-bold text-success">
-              {stats.completed}
-            </div>
-            <div className="text-xs text-muted-foreground">
-              {stats.completionRate}% completion rate
-            </div>
+            <p className="text-2xl font-bold text-amber-700 dark:text-amber-400 mt-1">{stats.pending}</p>
+            <p className="text-[10px] text-amber-600/70">Tasks Remaining</p>
           </div>
 
-          {/* Pending Assignments */}
-          <div className="text-center space-y-2">
-            <div className="flex items-center justify-center gap-2">
-              <Clock className="w-5 h-5 text-warning" />
-              <span className="text-sm font-medium text-muted-foreground">Pending</span>
+          <div className="relative bg-rose-500/5 border border-rose-500/10 rounded-xl p-3 flex flex-col justify-between group-hover:bg-rose-500/10 transition-colors">
+            <div className="flex justify-between items-start">
+              <span className="text-[10px] font-bold uppercase text-rose-600 tracking-wider">Critical</span>
+              <AlertTriangle className="w-3 h-3 text-rose-600" />
             </div>
-            <div className="text-3xl font-bold text-warning">
-              {stats.pending}
-            </div>
-            <div className="text-xs text-muted-foreground">
-              not completed
-            </div>
-          </div>
-
-          {/* Overdue Assignments */}
-          <div className="text-center space-y-2">
-            <div className="flex items-center justify-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-destructive" />
-              <span className="text-sm font-medium text-muted-foreground">Overdue</span>
-            </div>
-            <div className="text-3xl font-bold text-destructive">
-              {stats.overdue}
-            </div>
-            <div className="text-xs text-muted-foreground">
-              past due date
-            </div>
+            <p className="text-2xl font-bold text-rose-700 dark:text-rose-400 mt-1">{stats.overdue}</p>
+            <p className="text-[10px] text-rose-600/70">Late Items</p>
           </div>
         </div>
 
-        {/* Progress Bar */}
-        {stats.total > 0 && (
-          <div className="mt-6 space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Completion Progress</span>
-              <span className="font-medium">{stats.completionRate}%</span>
-            </div>
-            <div className="w-full bg-muted rounded-full h-2">
-              <div 
-                className="bg-primary h-2 rounded-full transition-all duration-500"
-                style={{ width: `${stats.completionRate}%` }}
-              />
-            </div>
+        {/* Insight Footer */}
+        <div className="bg-secondary/20 rounded-lg p-3 border border-border/40 flex gap-3 items-center">
+          <div className="p-2 bg-primary/10 rounded-full text-primary shrink-0">
+            <ShieldCheck className="w-4 h-4" />
           </div>
-        )}
+          <div>
+            <p className="text-xs font-bold text-foreground">Mission Status</p>
+            <p className="text-xs text-muted-foreground leading-tight">{stats.insight}</p>
+          </div>
+        </div>
 
-        {/* Empty State */}
-        {stats.total === 0 && (
-          <div className="text-center py-8 text-muted-foreground">
-            <Target className="w-12 h-12 mx-auto mb-4 opacity-50" />
-            <p className="text-lg font-medium mb-2">No Assignments Found</p>
-            <p className="text-sm">
-              No assignments match the selected filters for this period.
-            </p>
-          </div>
-        )}
       </CardContent>
     </Card>
   );
 }
-
