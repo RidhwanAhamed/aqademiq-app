@@ -105,7 +105,7 @@ export default defineConfig(({ command, mode }) => {
       VitePWA({
          disable: command === 'serve' && !enableDevPWA,
        registerType: 'autoUpdate',
-       includeAssets: ['favicon.ico', 'assets/*.png', 'lovable-uploads/*.png', 'offline.html'],
+       includeAssets: ['favicon.ico', 'aqademiq-logo.png', 'assets/*.png', 'lovable-uploads/*.png', 'offline.html'],
        manifest: {
         name: 'Aqademiq - Intelligent Academic Organizer',
         short_name: 'Aqademiq',
@@ -119,13 +119,13 @@ export default defineConfig(({ command, mode }) => {
         categories: ['education', 'productivity', 'lifestyle'],
         icons: [
           {
-            src: '/assets/aqademiq-icon.png',
+            src: '/aqademiq-logo.png',
             sizes: '192x192',
             type: 'image/png',
             purpose: 'any maskable'
           },
           {
-            src: '/assets/aqademiq-icon.png',
+            src: '/aqademiq-logo.png',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'any maskable'
@@ -137,28 +137,28 @@ export default defineConfig(({ command, mode }) => {
             short_name: 'Home',
             description: 'Open your academic dashboard',
             url: '/',
-            icons: [{ src: '/assets/aqademiq-icon.png', sizes: '192x192' }]
+            icons: [{ src: '/aqademiq-logo.png', sizes: '192x192' }]
           },
           {
             name: 'Ada Assistant',
             short_name: 'Ada',
             description: 'Chat with Ada AI assistant',
             url: '/ada',
-            icons: [{ src: '/assets/aqademiq-icon.png', sizes: '192x192' }]
+            icons: [{ src: '/aqademiq-logo.png', sizes: '192x192' }]
           },
           {
             name: 'Study Timer',
             short_name: 'Timer',
             description: 'Start a study session',
             url: '/timer',
-            icons: [{ src: '/assets/aqademiq-icon.png', sizes: '192x192' }]
+            icons: [{ src: '/aqademiq-logo.png', sizes: '192x192' }]
           },
           {
             name: 'Calendar',
             short_name: 'Calendar',
             description: 'View your schedule',
             url: '/calendar',
-            icons: [{ src: '/assets/aqademiq-icon.png', sizes: '192x192' }]
+            icons: [{ src: '/aqademiq-logo.png', sizes: '192x192' }]
           }
         ]
       },

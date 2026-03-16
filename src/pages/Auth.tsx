@@ -438,18 +438,13 @@ export default function Auth() {
         <Card className="backdrop-blur-xl bg-card/80 border-border/50 shadow-2xl">
           <CardHeader className="space-y-4 text-center">
             <div className="flex items-center justify-center">
-              <div className="h-12 w-12 flex items-center justify-center">
-                <img 
-                  src="/assets/aqademiq-icon.png" 
-                  alt="Aqademiq" 
-                  className="h-12 w-12 rounded-xl"
-                />
-              </div>
+              <img 
+                src="/aqademiq-logo.png" 
+                alt="Aqademiq" 
+                className="h-14 w-auto rounded-xl shadow-card"
+              />
             </div>
             <div>
-              <CardTitle className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-                Aqademiq
-              </CardTitle>
               <p className="text-muted-foreground">
                 {activeTab === 'signin' ? 'Welcome back to your academic journey' :
                  activeTab === 'signup' ? 'Start your academic journey today' :

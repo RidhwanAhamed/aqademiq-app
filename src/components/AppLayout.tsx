@@ -15,7 +15,6 @@ export function AppLayout() {
   const navigate = useNavigate();
   const { isKeyboardVisible } = useKeyboardHeight();
 
-  // Redirect to auth if not authenticated
   useEffect(() => {
     if (!loading && !user) {
       navigate('/auth');
@@ -34,7 +33,7 @@ export function AppLayout() {
   }
 
   if (!user) {
-    return null; // Will redirect via useEffect
+    return null;
   }
 
   return (
@@ -49,19 +48,23 @@ export function AppLayout() {
               <SidebarTrigger className="h-9 w-9">
                 <Menu className="h-4 w-4" />
               </SidebarTrigger>
-              <span className="font-bold text-lg bg-gradient-primary bg-clip-text text-transparent">
-                Aqademiq
-              </span>
+              <img
+                src="/aqademiq-logo.png"
+                alt="Aqademiq"
+                className="h-8 w-auto rounded-md"
+              />
             </div>
             <div className="flex items-center h-14">
-              <Button 
-                onClick={() => signOut()}
-                variant="ghost" 
-                size="icon"
-                className="h-9 w-9"
-              >
-                <LogOut className="h-4 w-4" />
-              </Button>
+              {user ? (
+                <Button 
+                  onClick={() => signOut()}
+                  variant="ghost" 
+                  size="icon"
+                  className="h-9 w-9"
+                >
+                  <LogOut className="h-4 w-4" />
+                </Button>
+              ) : null}
             </div>
           </header>
 
