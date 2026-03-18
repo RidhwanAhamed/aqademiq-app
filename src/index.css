@@ -168,7 +168,7 @@ All colors MUST be HSL.
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans;
     background-image:
       radial-gradient(circle at 50% 15%, hsl(var(--primary) / 0.24), transparent 24rem),
       radial-gradient(circle at 50% 45%, hsl(var(--accent) / 0.14), transparent 32rem),
