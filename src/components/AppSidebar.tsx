@@ -13,11 +13,13 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { useAuth } from "@/hooks/useAuth";
+import { useIsAdmin } from "@/hooks/useDataDictionary";
 import {
   BarChart3,
   BookOpen,
   Calendar,
   Clock,
+  Database,
   Home,
   LogOut,
   MessageSquare,
