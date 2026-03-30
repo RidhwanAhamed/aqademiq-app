@@ -145,6 +145,11 @@ const App = () => (
                           </Suspense>
                         } />
                         <Route path="settings" element={<Settings />} />
+                        <Route path="admin/data-dictionary" element={
+                          <Suspense fallback={<OfflineSuspenseFallback pageName="Data Dictionary" />}>
+                            <DataDictionary />
+                          </Suspense>
+                        } />
                       </Route>
                       {/* Catch-all route for 404 page */}
                       <Route path="*" element={<NotFound />} />
