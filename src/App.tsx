@@ -32,6 +32,7 @@ const AboutAdaAI = offlineLazy(() => import("./pages/AboutAdaAI"));
 const Analytics = offlineLazy(() => import("./pages/AdvancedAnalytics"));
 const Marketplace = offlineLazy(() => import("./pages/Marketplace"));
 const CornellNotes = offlineLazy(() => import("./pages/CornellNotes"));
+const DataDictionary = offlineLazy(() => import("./pages/DataDictionary"));
 
 // Import all auth and core page components
 import Index from "./pages/Index";
@@ -144,6 +145,11 @@ const App = () => (
                           </Suspense>
                         } />
                         <Route path="settings" element={<Settings />} />
+                        <Route path="admin/data-dictionary" element={
+                          <Suspense fallback={<OfflineSuspenseFallback pageName="Data Dictionary" />}>
+                            <DataDictionary />
+                          </Suspense>
+                        } />
                       </Route>
                       {/* Catch-all route for 404 page */}
                       <Route path="*" element={<NotFound />} />

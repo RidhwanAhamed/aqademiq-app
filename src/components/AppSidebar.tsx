@@ -13,11 +13,13 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { useAuth } from "@/hooks/useAuth";
+import { useIsAdmin } from "@/hooks/useDataDictionary";
 import {
   BarChart3,
   BookOpen,
   Calendar,
   Clock,
+  Database,
   Home,
   LogOut,
   MessageSquare,
@@ -55,6 +57,7 @@ const bottomItems = [
 export function AppSidebar() {
   const { state } = useSidebar();
   const { signOut } = useAuth();
+  const isAdmin = useIsAdmin();
   const collapsed = state === "collapsed";
   const location = useLocation();
   const currentPath = location.pathname;
@@ -148,6 +151,37 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {/* Admin Section */}
+        {isAdmin && (
+          <SidebarGroup>
+            <SidebarGroupLabel className={collapsed ? "sr-only" : ""}>
+              Admin
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <NavLink
+                      to="/admin/data-dictionary"
+                      className={getNavClass(isActive("/admin/data-dictionary"))}
+                    >
+                      <Database className="w-5 h-5" />
+                      {!collapsed && (
+                        <div className="flex items-center justify-between flex-1 ml-3">
+                          <span>Data Dictionary</span>
+                          <Badge variant="secondary" className="text-xs px-2 py-0.5 ml-2">
+                            Admin
+                          </Badge>
+                        </div>
+                      )}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
 
         {/* Bottom Navigation */}
         <SidebarGroup className="mt-auto">
