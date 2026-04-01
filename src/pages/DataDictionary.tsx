@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useIsAdmin, useDataDictionaryAuth } from '@/hooks/useDataDictionary';
@@ -17,6 +17,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
   Collapsible,
   CollapsibleContent,
@@ -38,8 +39,11 @@ import {
   Table2,
   Layers,
   Clock,
+  GitBranch,
 } from 'lucide-react';
 import { toast } from 'sonner';
+
+const SchemaERDiagram = lazy(() => import('@/components/SchemaERDiagram'));
 
 const ADMIN_EMAIL = 'mohammed.aswath07@gmail.com';
 
