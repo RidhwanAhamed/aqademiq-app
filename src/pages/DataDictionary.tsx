@@ -61,11 +61,17 @@ export default function DataDictionary() {
 
   const [search, setSearch] = useState('');
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<string>('tables');
   const [expandedCategories, setExpandedCategories] = useState<Set<TableCategory>>(
     new Set(TABLE_CATEGORIES)
   );
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [copiedField, setCopiedField] = useState<string | null>(null);
+
+  const handleDiagramTableSelect = useCallback((tableName: string) => {
+    setSelectedTable(tableName);
+    setActiveTab('tables');
+  }, []);
 
   // Redirect non-admins
   useEffect(() => {
