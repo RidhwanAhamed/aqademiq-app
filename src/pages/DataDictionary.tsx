@@ -511,6 +511,7 @@ export default function DataDictionary() {
           )}
         </ScrollArea>
       </div>
+      )}
     </div>
   );
 }
