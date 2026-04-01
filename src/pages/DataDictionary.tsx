@@ -202,28 +202,55 @@ export default function DataDictionary() {
         </div>
       </div>
 
-      {/* Stats Bar */}
-      <div className="flex items-center gap-6 px-6 py-3 border-b bg-muted/30 text-sm">
-        <span className="flex items-center gap-1.5 text-muted-foreground">
-          <Table2 className="w-4 h-4" />
-          <strong className="text-foreground">{dataDictionary.length}</strong> tables
-        </span>
-        <span className="flex items-center gap-1.5 text-muted-foreground">
-          <Layers className="w-4 h-4" />
-          <strong className="text-foreground">
-            {dataDictionary.reduce((s, t) => s + t.fields.length, 0)}
-          </strong>{' '}
-          fields
-        </span>
-        <span className="flex items-center gap-1.5 text-muted-foreground">
-          <ArrowRight className="w-4 h-4" />
-          <strong className="text-foreground">
-            {dataDictionary.reduce((s, t) => s + t.relationships.length, 0)}
-          </strong>{' '}
-          relationships
-        </span>
+      {/* Stats Bar + View Tabs */}
+      <div className="flex items-center justify-between px-6 py-3 border-b bg-muted/30 text-sm">
+        <div className="flex items-center gap-6">
+          <span className="flex items-center gap-1.5 text-muted-foreground">
+            <Table2 className="w-4 h-4" />
+            <strong className="text-foreground">{dataDictionary.length}</strong> tables
+          </span>
+          <span className="flex items-center gap-1.5 text-muted-foreground">
+            <Layers className="w-4 h-4" />
+            <strong className="text-foreground">
+              {dataDictionary.reduce((s, t) => s + t.fields.length, 0)}
+            </strong>{' '}
+            fields
+          </span>
+          <span className="flex items-center gap-1.5 text-muted-foreground">
+            <ArrowRight className="w-4 h-4" />
+            <strong className="text-foreground">
+              {dataDictionary.reduce((s, t) => s + t.relationships.length, 0)}
+            </strong>{' '}
+            relationships
+          </span>
+        </div>
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="h-8">
+            <TabsTrigger value="tables" className="text-xs gap-1.5 h-7 px-3">
+              <Table2 className="w-3.5 h-3.5" />
+              Tables
+            </TabsTrigger>
+            <TabsTrigger value="diagram" className="text-xs gap-1.5 h-7 px-3">
+              <GitBranch className="w-3.5 h-3.5" />
+              Schema Diagram
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
       </div>
 
+      {activeTab === 'diagram' ? (
+        <div className="flex-1 relative">
+          <Suspense
+            fallback={
+              <div className="flex items-center justify-center h-full">
+                <RefreshCw className="w-6 h-6 animate-spin text-primary" />
+              </div>
+            }
+          >
+            <SchemaERDiagram onTableSelect={handleDiagramTableSelect} />
+          </Suspense>
+        </div>
+      ) : (
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
         <div className="w-72 border-r flex flex-col bg-card/30">
