@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Settings as SettingsIcon, User, Bell, Palette, Shield, Moon, Sun, Monitor, Download, Smartphone, CheckCircle2, Trophy } from "lucide-react";
+import { DeleteAccountDialog } from "@/components/DeleteAccountDialog";
 import { useAuth } from "@/hooks/useAuth";
 import { useTheme } from "next-themes";
 import { useState, useEffect } from "react";
