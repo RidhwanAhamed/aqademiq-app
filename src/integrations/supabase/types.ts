@@ -2270,6 +2270,15 @@ export type Database = {
           title: string
         }[]
       }
+      get_streak_leaderboard: {
+        Args: { p_limit?: number }
+        Returns: {
+          full_name: string
+          rank: number
+          study_streak: number
+          user_id: string
+        }[]
+      }
       get_user_google_tokens: {
         Args: { p_user_id: string }
         Returns: {
@@ -2277,6 +2286,15 @@ export type Database = {
           expires_at: string
           refresh_token: string
           scope: string
+        }[]
+      }
+      get_user_streak_rank: {
+        Args: { p_user_id: string }
+        Returns: {
+          full_name: string
+          rank: number
+          study_streak: number
+          user_id: string
         }[]
       }
       hard_delete_user_data: { Args: { p_user_id: string }; Returns: Json }
