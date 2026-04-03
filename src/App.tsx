@@ -146,6 +146,11 @@ const App = () => (
                           </Suspense>
                         } />
                         <Route path="settings" element={<Settings />} />
+                        <Route path="leaderboard" element={
+                          <Suspense fallback={<OfflineSuspenseFallback pageName="Leaderboard" />}>
+                            <Leaderboard />
+                          </Suspense>
+                        } />
                         <Route path="admin/data-dictionary" element={
                           <Suspense fallback={<OfflineSuspenseFallback pageName="Data Dictionary" />}>
                             <DataDictionary />
