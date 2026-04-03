@@ -19,7 +19,10 @@ export function useStreakLeaderboard(limit = 50) {
     queryFn: async () => {
       const { data, error } = await supabase.functions.invoke(
         "streak-leaderboard",
-        { body: null, headers: {} }
+        {
+          method: "GET",
+          headers: {},
+        }
       );
 
       if (error) throw error;
