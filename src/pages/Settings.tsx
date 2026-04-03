@@ -309,6 +309,12 @@ export default function Settings() {
                 >
                   Sign Out
                 </Button>
+                <div className="pt-4 border-t border-destructive/20">
+                  <p className="text-xs text-muted-foreground mb-3">
+                    Permanently delete your account and all associated data. This cannot be undone.
+                  </p>
+                  <DeleteAccountDialog />
+                </div>
               </CardContent>
             </Card>
           </div>
