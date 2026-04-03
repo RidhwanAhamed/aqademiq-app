@@ -20,7 +20,7 @@ import {
   Calendar,
   Clock,
   Database,
-  Flame,
+  
   Home,
   LogOut,
   MessageSquare,
@@ -49,7 +49,6 @@ const mainItems: NavItem[] = [
   { title: "Assignments", url: "/assignments", icon: Target },
   { title: "Study Timer", url: "/timer", icon: Clock },
   { title: "Analytics", url: "/analytics", icon: BarChart3 },
-  { title: "Leaderboard", url: "/leaderboard", icon: Flame },
 ];
 
 const bottomItems = [

@@ -7,8 +7,9 @@ import { useExams } from "@/hooks/useExams";
 import { useUserStats } from "@/hooks/useUserStats";
 import { supabase } from "@/integrations/supabase/client";
 import { addDays, format, isAfter, isBefore } from "date-fns";
-import { Brain, Calendar, Clock, Plus, Target, Zap } from "lucide-react";
+import { Brain, Calendar, Clock, Plus, Target, Trophy, Zap } from "lucide-react";
 import { useState } from "react";
+import { useStreakPercentile } from "@/hooks/useStreakPercentile";
 import { AddAssignmentDialog } from "./AddAssignmentDialog";
 import { AddStudySessionDialog } from "./AddStudySessionDialog";
 import { AIInsightModal } from "./analytics/AIInsightModal";
@@ -32,6 +33,7 @@ export function Dashboard() {
   const { assignments } = useAssignments();
   const { exams } = useExams();
   const { stats } = useUserStats();
+  const { data: streakPercentile } = useStreakPercentile();
 
   // Get user's first name for personalized greeting
   const userName = user?.user_metadata?.first_name || 
@@ -185,6 +187,20 @@ export function Dashboard() {
               <div className="text-center">
                 <div className="text-2xl sm:text-3xl font-bold text-warning">{stats?.current_streak || 0}</div>
                 <p className="text-xs sm:text-sm text-muted-foreground">days in a row</p>
+                
+                {/* Percentile Rank */}
+                {streakPercentile && (
+                  <div className="mt-3 flex items-center justify-center gap-1.5">
+                    <Trophy className="w-3.5 h-3.5 text-primary" />
+                    <span className="text-xs font-semibold text-primary">
+                      Top {streakPercentile.topPercent}%
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      of all users
+                    </span>
+                  </div>
+                )}
+
                 <div className="mt-3 sm:mt-4 flex justify-center space-x-1">
                   {[...Array(Math.min(stats?.current_streak || 0, 7))].map((_, i) => (
                     <div 
