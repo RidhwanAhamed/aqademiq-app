@@ -33,6 +33,7 @@ export function Dashboard() {
   const { assignments } = useAssignments();
   const { exams } = useExams();
   const { stats } = useUserStats();
+  const { data: streakPercentile } = useStreakPercentile();
 
   // Get user's first name for personalized greeting
   const userName = user?.user_metadata?.first_name || 
