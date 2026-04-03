@@ -33,6 +33,7 @@ const Analytics = offlineLazy(() => import("./pages/AdvancedAnalytics"));
 const Marketplace = offlineLazy(() => import("./pages/Marketplace"));
 const CornellNotes = offlineLazy(() => import("./pages/CornellNotes"));
 const DataDictionary = offlineLazy(() => import("./pages/DataDictionary"));
+const Leaderboard = offlineLazy(() => import("./pages/Leaderboard"));
 
 // Import all auth and core page components
 import Index from "./pages/Index";
