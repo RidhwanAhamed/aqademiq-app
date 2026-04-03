@@ -20,7 +20,7 @@ import {
   Calendar,
   Clock,
   Database,
-  Flame,
+  
   Home,
   LogOut,
   MessageSquare,

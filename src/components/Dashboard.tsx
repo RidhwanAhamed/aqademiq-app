@@ -187,6 +187,20 @@ export function Dashboard() {
               <div className="text-center">
                 <div className="text-2xl sm:text-3xl font-bold text-warning">{stats?.current_streak || 0}</div>
                 <p className="text-xs sm:text-sm text-muted-foreground">days in a row</p>
+                
+                {/* Percentile Rank */}
+                {streakPercentile && (
+                  <div className="mt-3 flex items-center justify-center gap-1.5">
+                    <Trophy className="w-3.5 h-3.5 text-primary" />
+                    <span className="text-xs font-semibold text-primary">
+                      Top {streakPercentile.topPercent}%
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      of all users
+                    </span>
+                  </div>
+                )}
+
                 <div className="mt-3 sm:mt-4 flex justify-center space-x-1">
                   {[...Array(Math.min(stats?.current_streak || 0, 7))].map((_, i) => (
                     <div 
