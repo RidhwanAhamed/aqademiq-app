@@ -2279,6 +2279,7 @@ export type Database = {
           scope: string
         }[]
       }
+      hard_delete_user_data: { Args: { p_user_id: string }; Returns: Json }
       has_google_tokens: { Args: { p_user_id?: string }; Returns: boolean }
       insert_user_google_tokens: {
         Args: {
