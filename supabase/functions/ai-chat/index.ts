@@ -684,25 +684,102 @@ async function generateQueryEmbedding(query: string, apiKey: string): Promise<nu
     const response = await fetch('https://api.openai.com/v1/embeddings', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: 'text-embedding-3-small', input: query })
+      body: JSON.stringify({ model: 'text-embedding-3-small', input: query.slice(0, 8000) })
     });
-    if (!response.ok) return null;
+    if (!response.ok) {
+      console.error('Query embedding error:', response.status);
+      return null;
+    }
     const data = await response.json();
     return data.data?.[0]?.embedding || null;
-  } catch { return null; }
+  } catch (err) {
+    console.error('Query embedding exception:', err);
+    return null;
+  }
 }
 
 async function searchDocuments(supabase: any, userId: string, embedding: number[], courseId?: string): Promise<any[]> {
   try {
-    const { data } = await supabase.rpc('search_documents', {
-      p_user_id: userId,
-      p_query_embedding: JSON.stringify(embedding),
-      p_match_threshold: 0.35,
-      p_match_count: 5,
-      p_course_id: courseId || null
-    });
-    return data || [];
-  } catch { return []; }
+    // Format as pgvector literal string
+    const embeddingString = `[${embedding.join(',')}]`;
+    
+    // First try with course filter, use low threshold for better recall
+    const threshold = 0.2;
+    const matchCount = 5;
+    
+    let results: any[] = [];
+    
+    if (courseId) {
+      // Try course-specific search first
+      const { data, error } = await supabase.rpc('search_documents', {
+        p_user_id: userId,
+        p_query_embedding: embeddingString,
+        p_match_threshold: threshold,
+        p_match_count: matchCount,
+        p_course_id: courseId
+      });
+      if (error) {
+        console.error('Course-specific search error:', error.message);
+      } else {
+        results = data || [];
+      }
+    }
+    
+    // If no course-specific results, search across all documents
+    if (results.length === 0) {
+      const { data, error } = await supabase.rpc('search_documents', {
+        p_user_id: userId,
+        p_query_embedding: embeddingString,
+        p_match_threshold: threshold,
+        p_match_count: matchCount,
+        p_course_id: null
+      });
+      if (error) {
+        console.error('Global search error:', error.message);
+      } else {
+        results = data || [];
+      }
+      if (results.length > 0) {
+        console.log(`Fallback global search found ${results.length} documents`);
+      }
+    }
+    
+    // Enrich results with file names and course names
+    for (const result of results) {
+      if (result.file_upload_id) {
+        const { data: fileData } = await supabase
+          .from('file_uploads')
+          .select('file_name, display_name, course_id')
+          .eq('id', result.file_upload_id)
+          .single();
+        if (fileData) {
+          result.file_name = fileData.display_name || fileData.file_name;
+          // Also get course name if available
+          if (fileData.course_id || result.course_id) {
+            const cid = fileData.course_id || result.course_id;
+            const { data: courseData } = await supabase
+              .from('courses')
+              .select('name')
+              .eq('id', cid)
+              .single();
+            if (courseData) {
+              result.course_name = courseData.name;
+            }
+          }
+        }
+      }
+    }
+    
+    // Log similarity scores for debugging
+    if (results.length > 0) {
+      console.log(`RAG results: ${results.map((r: any) => `"${(r.file_name || 'unknown').substring(0, 30)}" (sim: ${((r.similarity || 0) * 100).toFixed(1)}%)`).join(', ')}`);
+    }
+    
+    return results;
+  } catch (err) {
+    console.error('Search documents exception:', err);
+    return [];
+  }
 }
 
 // =============================================================================
@@ -951,7 +1028,7 @@ ${calendarData.summary}
     }
 
     // ==========================================================================
-    // DOCUMENT RAG (Enhanced with Grounding)
+    // DOCUMENT RAG (Enhanced with Grounding + Direct Content Fallback)
     // ==========================================================================
     let documentContext = '';
     if (userId && openaiApiKey) {
@@ -967,16 +1044,16 @@ ${calendarData.summary}
 
 **GROUNDING RULES - CRITICAL:**
 1. For questions about course materials, textbooks, syllabi, or uploaded content: Answer ONLY using information from these documents
-2. If the answer is NOT in these documents, say: "I don't see that information in your uploaded course materials."
+2. If the answer is NOT in these documents, say: "I couldn't find that specific information in your uploaded materials."
 3. NEVER generate information from general knowledge when documents are available
-4. Always cite which document you're referencing (e.g., "According to Document 1...")
+4. Always cite which document you're referencing by NAME (e.g., "According to your English Grammar Notes...")
 5. If asked to summarize, use ONLY the content below - do not add external information
+6. NEVER expose file IDs, system errors, or internal metadata to the user
 
 ${docs.map((d: any, i: number) => `
-### 📄 Document ${i + 1}: ${d.file_name || 'Untitled Document'}
+### 📄 Document ${i + 1}: ${d.file_name || 'Uploaded Document'}
 - **Course**: ${d.course_name || 'General'}
 - **Type**: ${d.source_type || 'document'}
-- **Relevance Score**: ${((d.similarity || 0) * 100).toFixed(0)}%
 
 **Content:**
 ${d.content}
@@ -986,12 +1063,65 @@ ${d.content}
 **END OF DOCUMENTS** - Base your response ONLY on the content above for document-related questions.
 `;
           } else {
-            // No documents found - add instruction for transparency
-            documentContext = `
-## 📚 DOCUMENT STATUS
-No relevant uploaded documents found for this query${course_id ? ' in the selected course' : ''}.
-If the user is asking about course materials, inform them that you don't have any uploaded materials to reference.
+            // No vector search results - try direct content fallback for explicitly mentioned files
+            let directContent = '';
+            try {
+              // Check if user is asking about a specific file by matching file names
+              const { data: userFiles } = await supabase
+                .from('file_uploads')
+                .select('id, file_name, display_name, ocr_text, course_id')
+                .eq('user_id', userId)
+                .eq('status', 'indexed');
+              
+              if (userFiles && userFiles.length > 0) {
+                const lowerMessage = message.toLowerCase();
+                const matchedFile = userFiles.find((f: any) => {
+                  const name = (f.display_name || f.file_name || '').toLowerCase();
+                  // Check if the user's message mentions the file name
+                  return name && lowerMessage.includes(name.replace(/\.(pdf|docx?|txt|md)$/i, '').toLowerCase());
+                });
+                
+                if (matchedFile && matchedFile.ocr_text) {
+                  // Get course name
+                  let courseName = 'General';
+                  if (matchedFile.course_id) {
+                    const { data: courseData } = await supabase
+                      .from('courses')
+                      .select('name')
+                      .eq('id', matchedFile.course_id)
+                      .single();
+                    if (courseData) courseName = courseData.name;
+                  }
+                  
+                  console.log(`Direct content fallback: found file "${matchedFile.display_name || matchedFile.file_name}"`);
+                  directContent = `
+## 📚 DOCUMENT CONTENT (Direct Retrieval)
+
+### 📄 ${matchedFile.display_name || matchedFile.file_name}
+- **Course**: ${courseName}
+
+**Content:**
+${matchedFile.ocr_text.slice(0, 4000)}
+
+---
+**Answer the user's question based on this document content.**
 `;
+                }
+              }
+            } catch (fallbackErr) {
+              console.error('Direct content fallback error:', fallbackErr);
+            }
+            
+            if (directContent) {
+              documentContext = directContent;
+            } else {
+              documentContext = `
+## 📚 DOCUMENT STATUS
+No relevant uploaded documents matched this query.
+If the user is asking about specific course materials, let them know you checked their files but couldn't find matching content.
+NEVER mention file IDs, embedding errors, or system internals. Keep the response user-friendly.
+`;
+            }
           }
         }
       } catch (docError) {
@@ -1023,8 +1153,9 @@ If the user is asking about course materials, inform them that you don't have an
         const uncategorizedFiles: any[] = [];
         
         for (const file of files) {
-          const coursesArray = file.courses as Array<{ name: string }> | null;
-          const courseName = coursesArray?.[0]?.name || null;
+          // courses join returns a single object (many-to-one), not an array
+          const courseObj = file.courses as { name: string } | null;
+          const courseName = courseObj?.name || null;
           if (courseName) {
             if (!filesByCourse[courseName]) {
               filesByCourse[courseName] = [];
@@ -1035,10 +1166,11 @@ If the user is asking about course materials, inform them that you don't have an
           }
         }
 
-        // Format files section
+        // Format files section - NEVER expose file IDs to the AI response
         let filesSection = '';
         if (files.length > 0) {
           filesSection = '\n### 📁 UPLOADED FILES:\n';
+          filesSection += '_IMPORTANT: NEVER show file IDs to the user. Refer to files by name only._\n';
           
           // Files by course
           for (const [courseName, courseFiles] of Object.entries(filesByCourse)) {
@@ -1047,22 +1179,22 @@ If the user is asking about course materials, inform them that you don't have an
               const statusIcon = f.status === 'indexed' ? '✅' : f.status === 'processing' ? '⏳' : f.status === 'ocr_completed' ? '📝' : '📄';
               const displayName = f.display_name || f.file_name;
               const sourceType = f.source_type || 'document';
-              filesSection += `- ${statusIcon} "${displayName}" (${sourceType}, ID: ${f.id})\n`;
+              filesSection += `- ${statusIcon} "${displayName}" (${sourceType})\n`;
             }
           }
           
           // Uncategorized files
           if (uncategorizedFiles.length > 0) {
-            filesSection += '\n**Uncategorized:**\n';
+            filesSection += '\n**General / Uncategorized:**\n';
             for (const f of uncategorizedFiles) {
               const statusIcon = f.status === 'indexed' ? '✅' : f.status === 'processing' ? '⏳' : '📄';
               const displayName = f.display_name || f.file_name;
-              filesSection += `- ${statusIcon} "${displayName}" (ID: ${f.id})\n`;
+              filesSection += `- ${statusIcon} "${displayName}"\n`;
             }
           }
           
           filesSection += `\n_Total: ${files.length} file(s) uploaded_\n`;
-          filesSection += `_Status legend: ✅ = indexed/ready, ⏳ = processing, 📝 = OCR done, 📄 = uploaded_\n`;
+          filesSection += `_Status: ✅ = indexed/ready for AI, ⏳ = processing, 📝 = OCR done, 📄 = uploaded_\n`;
         } else {
           filesSection = '\n### 📁 UPLOADED FILES:\n- No files uploaded yet\n';
         }
@@ -1103,12 +1235,18 @@ ${documentContext}
 
 ## ⚠️ GROUNDING RULES (CRITICAL - FOLLOW STRICTLY):
 
+### NEVER EXPOSE INTERNAL DATA:
+- **NEVER** show file IDs, UUIDs, or system identifiers to users
+- **NEVER** say things like "I cannot access" or "the system indicates" or "file ID: ..."
+- **NEVER** expose error messages, embedding details, or technical internals
+- Always refer to files by their **display name only** (e.g., "your English Grammar Notes")
+
 ### For Document/Course Material Questions:
-1. **ONLY** use content from "RELEVANT COURSE DOCUMENTS" section above
+1. **ONLY** use content from "RELEVANT COURSE DOCUMENTS" or "DOCUMENT CONTENT" sections above
 2. If documents are provided, base your answer **exclusively** on their content
 3. If asked to summarize/explain course materials: Use **ONLY** the provided documents
-4. If the answer isn't in the documents, say: "I don't see that information in your uploaded course materials. Would you like to upload more files?"
-5. **Always cite your source**: "According to [Document name]..." or "Based on your uploaded [file type]..."
+4. If the answer isn't in the documents, say: "I couldn't find that specific information in your uploaded materials. Would you like to upload more files?"
+5. **Always cite your source by name**: "According to your English Grammar Notes..." or "Based on your uploaded notes..."
 6. **NEVER** make up information or use general knowledge for document-based questions
 
 ### For Calendar/Schedule Questions:
