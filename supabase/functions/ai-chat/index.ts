@@ -1028,7 +1028,7 @@ ${calendarData.summary}
     }
 
     // ==========================================================================
-    // DOCUMENT RAG (Enhanced with Grounding)
+    // DOCUMENT RAG (Enhanced with Grounding + Direct Content Fallback)
     // ==========================================================================
     let documentContext = '';
     if (userId && openaiApiKey) {
@@ -1044,16 +1044,16 @@ ${calendarData.summary}
 
 **GROUNDING RULES - CRITICAL:**
 1. For questions about course materials, textbooks, syllabi, or uploaded content: Answer ONLY using information from these documents
-2. If the answer is NOT in these documents, say: "I don't see that information in your uploaded course materials."
+2. If the answer is NOT in these documents, say: "I couldn't find that specific information in your uploaded materials."
 3. NEVER generate information from general knowledge when documents are available
-4. Always cite which document you're referencing (e.g., "According to Document 1...")
+4. Always cite which document you're referencing by NAME (e.g., "According to your English Grammar Notes...")
 5. If asked to summarize, use ONLY the content below - do not add external information
+6. NEVER expose file IDs, system errors, or internal metadata to the user
 
 ${docs.map((d: any, i: number) => `
-### 📄 Document ${i + 1}: ${d.file_name || 'Untitled Document'}
+### 📄 Document ${i + 1}: ${d.file_name || 'Uploaded Document'}
 - **Course**: ${d.course_name || 'General'}
 - **Type**: ${d.source_type || 'document'}
-- **Relevance Score**: ${((d.similarity || 0) * 100).toFixed(0)}%
 
 **Content:**
 ${d.content}
@@ -1063,12 +1063,65 @@ ${d.content}
 **END OF DOCUMENTS** - Base your response ONLY on the content above for document-related questions.
 `;
           } else {
-            // No documents found - add instruction for transparency
-            documentContext = `
-## 📚 DOCUMENT STATUS
-No relevant uploaded documents found for this query${course_id ? ' in the selected course' : ''}.
-If the user is asking about course materials, inform them that you don't have any uploaded materials to reference.
+            // No vector search results - try direct content fallback for explicitly mentioned files
+            let directContent = '';
+            try {
+              // Check if user is asking about a specific file by matching file names
+              const { data: userFiles } = await supabase
+                .from('file_uploads')
+                .select('id, file_name, display_name, ocr_text, course_id')
+                .eq('user_id', userId)
+                .eq('status', 'indexed');
+              
+              if (userFiles && userFiles.length > 0) {
+                const lowerMessage = message.toLowerCase();
+                const matchedFile = userFiles.find((f: any) => {
+                  const name = (f.display_name || f.file_name || '').toLowerCase();
+                  // Check if the user's message mentions the file name
+                  return name && lowerMessage.includes(name.replace(/\.(pdf|docx?|txt|md)$/i, '').toLowerCase());
+                });
+                
+                if (matchedFile && matchedFile.ocr_text) {
+                  // Get course name
+                  let courseName = 'General';
+                  if (matchedFile.course_id) {
+                    const { data: courseData } = await supabase
+                      .from('courses')
+                      .select('name')
+                      .eq('id', matchedFile.course_id)
+                      .single();
+                    if (courseData) courseName = courseData.name;
+                  }
+                  
+                  console.log(`Direct content fallback: found file "${matchedFile.display_name || matchedFile.file_name}"`);
+                  directContent = `
+## 📚 DOCUMENT CONTENT (Direct Retrieval)
+
+### 📄 ${matchedFile.display_name || matchedFile.file_name}
+- **Course**: ${courseName}
+
+**Content:**
+${matchedFile.ocr_text.slice(0, 4000)}
+
+---
+**Answer the user's question based on this document content.**
 `;
+                }
+              }
+            } catch (fallbackErr) {
+              console.error('Direct content fallback error:', fallbackErr);
+            }
+            
+            if (directContent) {
+              documentContext = directContent;
+            } else {
+              documentContext = `
+## 📚 DOCUMENT STATUS
+No relevant uploaded documents matched this query.
+If the user is asking about specific course materials, let them know you checked their files but couldn't find matching content.
+NEVER mention file IDs, embedding errors, or system internals. Keep the response user-friendly.
+`;
+            }
           }
         }
       } catch (docError) {
