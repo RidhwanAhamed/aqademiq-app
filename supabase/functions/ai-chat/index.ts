@@ -684,25 +684,102 @@ async function generateQueryEmbedding(query: string, apiKey: string): Promise<nu
     const response = await fetch('https://api.openai.com/v1/embeddings', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: 'text-embedding-3-small', input: query })
+      body: JSON.stringify({ model: 'text-embedding-3-small', input: query.slice(0, 8000) })
     });
-    if (!response.ok) return null;
+    if (!response.ok) {
+      console.error('Query embedding error:', response.status);
+      return null;
+    }
     const data = await response.json();
     return data.data?.[0]?.embedding || null;
-  } catch { return null; }
+  } catch (err) {
+    console.error('Query embedding exception:', err);
+    return null;
+  }
 }
 
 async function searchDocuments(supabase: any, userId: string, embedding: number[], courseId?: string): Promise<any[]> {
   try {
-    const { data } = await supabase.rpc('search_documents', {
-      p_user_id: userId,
-      p_query_embedding: JSON.stringify(embedding),
-      p_match_threshold: 0.35,
-      p_match_count: 5,
-      p_course_id: courseId || null
-    });
-    return data || [];
-  } catch { return []; }
+    // Format as pgvector literal string
+    const embeddingString = `[${embedding.join(',')}]`;
+    
+    // First try with course filter, use low threshold for better recall
+    const threshold = 0.2;
+    const matchCount = 5;
+    
+    let results: any[] = [];
+    
+    if (courseId) {
+      // Try course-specific search first
+      const { data, error } = await supabase.rpc('search_documents', {
+        p_user_id: userId,
+        p_query_embedding: embeddingString,
+        p_match_threshold: threshold,
+        p_match_count: matchCount,
+        p_course_id: courseId
+      });
+      if (error) {
+        console.error('Course-specific search error:', error.message);
+      } else {
+        results = data || [];
+      }
+    }
+    
+    // If no course-specific results, search across all documents
+    if (results.length === 0) {
+      const { data, error } = await supabase.rpc('search_documents', {
+        p_user_id: userId,
+        p_query_embedding: embeddingString,
+        p_match_threshold: threshold,
+        p_match_count: matchCount,
+        p_course_id: null
+      });
+      if (error) {
+        console.error('Global search error:', error.message);
+      } else {
+        results = data || [];
+      }
+      if (results.length > 0) {
+        console.log(`Fallback global search found ${results.length} documents`);
+      }
+    }
+    
+    // Enrich results with file names and course names
+    for (const result of results) {
+      if (result.file_upload_id) {
+        const { data: fileData } = await supabase
+          .from('file_uploads')
+          .select('file_name, display_name, course_id')
+          .eq('id', result.file_upload_id)
+          .single();
+        if (fileData) {
+          result.file_name = fileData.display_name || fileData.file_name;
+          // Also get course name if available
+          if (fileData.course_id || result.course_id) {
+            const cid = fileData.course_id || result.course_id;
+            const { data: courseData } = await supabase
+              .from('courses')
+              .select('name')
+              .eq('id', cid)
+              .single();
+            if (courseData) {
+              result.course_name = courseData.name;
+            }
+          }
+        }
+      }
+    }
+    
+    // Log similarity scores for debugging
+    if (results.length > 0) {
+      console.log(`RAG results: ${results.map((r: any) => `"${(r.file_name || 'unknown').substring(0, 30)}" (sim: ${((r.similarity || 0) * 100).toFixed(1)}%)`).join(', ')}`);
+    }
+    
+    return results;
+  } catch (err) {
+    console.error('Search documents exception:', err);
+    return [];
+  }
 }
 
 // =============================================================================
