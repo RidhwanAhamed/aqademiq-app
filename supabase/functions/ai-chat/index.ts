@@ -1100,8 +1100,9 @@ If the user is asking about course materials, inform them that you don't have an
         const uncategorizedFiles: any[] = [];
         
         for (const file of files) {
-          const coursesArray = file.courses as Array<{ name: string }> | null;
-          const courseName = coursesArray?.[0]?.name || null;
+          // courses join returns a single object (many-to-one), not an array
+          const courseObj = file.courses as { name: string } | null;
+          const courseName = courseObj?.name || null;
           if (courseName) {
             if (!filesByCourse[courseName]) {
               filesByCourse[courseName] = [];
@@ -1112,10 +1113,11 @@ If the user is asking about course materials, inform them that you don't have an
           }
         }
 
-        // Format files section
+        // Format files section - NEVER expose file IDs to the AI response
         let filesSection = '';
         if (files.length > 0) {
           filesSection = '\n### 📁 UPLOADED FILES:\n';
+          filesSection += '_IMPORTANT: NEVER show file IDs to the user. Refer to files by name only._\n';
           
           // Files by course
           for (const [courseName, courseFiles] of Object.entries(filesByCourse)) {
@@ -1124,22 +1126,22 @@ If the user is asking about course materials, inform them that you don't have an
               const statusIcon = f.status === 'indexed' ? '✅' : f.status === 'processing' ? '⏳' : f.status === 'ocr_completed' ? '📝' : '📄';
               const displayName = f.display_name || f.file_name;
               const sourceType = f.source_type || 'document';
-              filesSection += `- ${statusIcon} "${displayName}" (${sourceType}, ID: ${f.id})\n`;
+              filesSection += `- ${statusIcon} "${displayName}" (${sourceType})\n`;
             }
           }
           
           // Uncategorized files
           if (uncategorizedFiles.length > 0) {
-            filesSection += '\n**Uncategorized:**\n';
+            filesSection += '\n**General / Uncategorized:**\n';
             for (const f of uncategorizedFiles) {
               const statusIcon = f.status === 'indexed' ? '✅' : f.status === 'processing' ? '⏳' : '📄';
               const displayName = f.display_name || f.file_name;
-              filesSection += `- ${statusIcon} "${displayName}" (ID: ${f.id})\n`;
+              filesSection += `- ${statusIcon} "${displayName}"\n`;
             }
           }
           
           filesSection += `\n_Total: ${files.length} file(s) uploaded_\n`;
-          filesSection += `_Status legend: ✅ = indexed/ready, ⏳ = processing, 📝 = OCR done, 📄 = uploaded_\n`;
+          filesSection += `_Status: ✅ = indexed/ready for AI, ⏳ = processing, 📝 = OCR done, 📄 = uploaded_\n`;
         } else {
           filesSection = '\n### 📁 UPLOADED FILES:\n- No files uploaded yet\n';
         }
