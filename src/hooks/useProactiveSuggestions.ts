@@ -26,7 +26,7 @@ export function useProactiveSuggestions() {
 
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("proactive_suggestions")
         .select("*")
         .eq("user_id", user.id)
@@ -50,7 +50,7 @@ export function useProactiveSuggestions() {
     setSuggestions((prev) => prev.filter((s) => s.id !== id));
 
     try {
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from("proactive_suggestions")
         .update({ is_read: true })
         .eq("id", id);
