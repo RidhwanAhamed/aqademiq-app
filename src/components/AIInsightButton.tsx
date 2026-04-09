@@ -35,20 +35,20 @@ interface AIInsightResponse {
 const getItemText = (item: any): string => {
   if (typeof item === 'string') return item;
   if (typeof item === 'object' && item !== null) {
-    return item.recommendation || item.tip || item.text || 
-           item.description || item.value || item.content ||
-           item.suggestion || item.focus || JSON.stringify(item);
+    return item.recommendation || item.tip || item.text ||
+      item.description || item.value || item.content ||
+      item.suggestion || item.focus || "Explore this insight for more details.";
   }
   return String(item);
 };
 
-export function AIInsightButton({ 
-  type, 
-  title, 
-  dueDate, 
-  estimatedHours, 
-  availableSlots, 
-  description, 
+export function AIInsightButton({
+  type,
+  title,
+  dueDate,
+  estimatedHours,
+  availableSlots,
+  description,
   courseInfo,
   isCompleted = false
 }: AIInsightButtonProps) {
@@ -98,13 +98,13 @@ export function AIInsightButton({
       setInsights(safeInsights);
     } catch (error: any) {
       console.error('Error generating insights:', error);
-      
+
       // Check if it's a rate limit error
       if (error.message?.includes('Daily AI insights limit reached')) {
         setShowUpgrade(true);
         return;
       }
-      
+
       toast({
         title: "Error",
         description: error.message || "Failed to generate AI insights",
@@ -139,9 +139,9 @@ export function AIInsightButton({
     <>
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogTrigger asChild>
-          <Button 
-            variant="outline" 
-            size="sm" 
+          <Button
+            variant="outline"
+            size="sm"
             onClick={handleOpenDialog}
             className="text-primary border-primary/20 hover:bg-primary/5"
           >
@@ -156,7 +156,7 @@ export function AIInsightButton({
               AI Study Insights for "{title}"
             </DialogTitle>
           </DialogHeader>
-          
+
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <div className="text-center">
@@ -250,8 +250,8 @@ export function AIInsightButton({
         </DialogContent>
       </Dialog>
 
-      <UpgradeToPremiumDialog 
-        open={showUpgrade} 
+      <UpgradeToPremiumDialog
+        open={showUpgrade}
         onOpenChange={setShowUpgrade}
         feature="ai-insights"
       />

@@ -4,11 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { 
-  Brain, 
-  Sparkles, 
-  ArrowRight, 
-  Clock, 
+import {
+  Brain,
+  Sparkles,
+  ArrowRight,
+  Clock,
   Target,
   Lightbulb,
   TrendingUp,
@@ -20,9 +20,9 @@ import {
 const getItemText = (item: any): string => {
   if (typeof item === 'string') return item;
   if (typeof item === 'object' && item !== null) {
-    return item.recommendation || item.tip || item.text || 
-           item.description || item.value || item.content ||
-           item.suggestion || item.focus || JSON.stringify(item);
+    return item.recommendation || item.tip || item.text ||
+      item.description || item.value || item.content ||
+      item.suggestion || item.focus || "Deep analysis available in your progress report.";
   }
   return String(item);
 };
@@ -35,12 +35,12 @@ interface AIInsightModalProps {
   onGenerateInsights: (context: string, data: any, customQuery?: string) => Promise<any>;
 }
 
-export function AIInsightModal({ 
-  open, 
-  onOpenChange, 
-  context, 
+export function AIInsightModal({
+  open,
+  onOpenChange,
+  context,
   contextData,
-  onGenerateInsights 
+  onGenerateInsights
 }: AIInsightModalProps) {
   const [customQuery, setCustomQuery] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -48,7 +48,7 @@ export function AIInsightModal({
 
   const handleGenerateInsights = async () => {
     if (isGenerating) return;
-    
+
     setIsGenerating(true);
     try {
       const result = await onGenerateInsights(context, contextData, customQuery);
@@ -166,7 +166,7 @@ export function AIInsightModal({
           </div>
 
           {/* Generate Button */}
-          <Button 
+          <Button
             onClick={handleGenerateInsights}
             disabled={isGenerating}
             className="w-full bg-gradient-primary hover:opacity-90"
@@ -189,7 +189,7 @@ export function AIInsightModal({
           {insights && (
             <div className="space-y-4">
               <div className="border-t my-4" />
-              
+
               <div className="flex items-center gap-2">
                 <Sparkles className="w-5 h-5 text-primary" />
                 <h3 className="text-lg font-semibold">AI-Generated Insights</h3>

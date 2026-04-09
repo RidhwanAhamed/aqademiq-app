@@ -202,26 +202,7 @@ export function AnalyticsOverview({
                     </div>
 
                     <div className="mt-auto">
-                        <p className="text-indigo-100/90 text-sm mb-3 max-w-md leading-relaxed">
-                            {focusMetrics.score > 80
-                                ? "You're entering a state of flow. This high focus level typically results in 30% greater retention."
-                                : "Consistency is key. Short, intense sessions can boost this score rapidly."}
-                        </p>
-                        {/* Area Graph */}
-                        <div className="w-full h-24 sm:h-32">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <AreaChart data={focusMetrics.weeklyTrend}>
-                                    <defs>
-                                        <linearGradient id="colorScoreHero" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor="#ffffff" stopOpacity={0.4} />
-                                            <stop offset="95%" stopColor="#ffffff" stopOpacity={0} />
-                                        </linearGradient>
-                                    </defs>
-                                    <Tooltip content={<CustomTooltip />} cursor={{ stroke: 'rgba(255,255,255,0.3)', strokeWidth: 1 }} />
-                                    <Area type="monotone" dataKey="score" stroke="#ffffff" strokeWidth={2} fillOpacity={1} fill="url(#colorScoreHero)" />
-                                </AreaChart>
-                            </ResponsiveContainer>
-                        </div>
+                        <div className="w-full h-24 sm:h-32" />
                     </div>
                 </CardContent>
             </Card>
@@ -237,19 +218,9 @@ export function AnalyticsOverview({
                         <h3 className="font-bold text-pink-600/90 text-sm uppercase tracking-wider">Smart Discovery</h3>
                     </div>
                     <div>
-                        <p className="text-lg font-medium text-foreground leading-snug">
-                            "{randomFact}"
+                        <p className="text-sm text-pink-700/80 italic line-clamp-2">
+                            {randomFact}
                         </p>
-                        <div className="mt-3 flex gap-2">
-                            <Badge variant="outline" className="text-xs border-pink-500/30 text-pink-600 bg-pink-500/5">
-                                <Lightbulb className="w-3 h-3 mr-1" />
-                                Did You Know?
-                            </Badge>
-                            <Badge variant="outline" className="text-xs border-orange-500/30 text-orange-600 bg-orange-500/5">
-                                <BookOpen className="w-3 h-3 mr-1" />
-                                Study Hack
-                            </Badge>
-                        </div>
                     </div>
                 </CardContent>
             </Card>
@@ -270,81 +241,6 @@ export function AnalyticsOverview({
                             <span className="text-3xl font-bold text-emerald-600">{timeSaved.minutes}</span>
                             <span className="text-sm font-medium text-emerald-600/80">mins</span>
                         </div>
-                        <p className="text-xs text-muted-foreground leading-relaxed">
-                            That's time NOT spent doomscrolling. {timeSaved.message}
-                        </p>
-                    </div>
-                </CardContent>
-            </Card>
-
-            {/* Insight Card: Deep Work */}
-            <Card className="col-span-1 md:col-span-1 bg-gradient-to-br from-blue-500/5 to-cyan-500/10 border-blue-500/20 backdrop-blur-sm hover:border-blue-500/40 transition-all group">
-                <CardContent className="p-5 h-full flex flex-col">
-                    <div className="flex items-center justify-between mb-4">
-                        <div className="p-2 rounded-lg bg-blue-500/10 text-blue-600 group-hover:scale-110 transition-transform">
-                            <Zap className="w-5 h-5" />
-                        </div>
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-blue-600/70">Intensity</span>
-                    </div>
-
-                    <div className="flex-1">
-                        <h3 className="text-sm font-semibold text-foreground/80 mb-1">Deep Work Achieved</h3>
-                        <div className="flex items-baseline gap-1 mb-2">
-                            <span className="text-3xl font-bold text-blue-600">{todayStudy.hours}</span>
-                            <span className="text-sm font-medium text-blue-600/80">h</span>
-                            <span className="text-3xl font-bold text-blue-600 ml-1">{todayStudy.minutes}</span>
-                            <span className="text-sm font-medium text-blue-600/80">m</span>
-                        </div>
-                        <p className="text-xs text-muted-foreground leading-relaxed">
-                            You entered "The Zone" today. This pushes your cognitive baseline higher.
-                        </p>
-                    </div>
-                </CardContent>
-            </Card>
-
-            {/* Insight Card: Procrastination Prevention */}
-            <Card className="col-span-1 md:col-span-1 bg-gradient-to-br from-amber-500/5 to-orange-500/10 border-amber-500/20 backdrop-blur-sm hover:border-amber-500/40 transition-all group">
-                <CardContent className="p-5 h-full flex flex-col">
-                    <div className="flex items-center justify-between mb-4">
-                        <div className="p-2 rounded-lg bg-amber-500/10 text-amber-600 group-hover:scale-110 transition-transform">
-                            <ShieldCheck className="w-5 h-5" />
-                        </div>
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-amber-600/70">Anti-Procrastination</span>
-                    </div>
-
-                    <div className="flex-1">
-                        <h3 className="text-sm font-semibold text-foreground/80 mb-1">Future Stress Saved</h3>
-                        <div className="flex items-baseline gap-1 mb-2">
-                            <span className="text-3xl font-bold text-amber-600">{pendingTasks.hours}</span>
-                            <span className="text-sm font-medium text-amber-600/80">hours load</span>
-                        </div>
-                        <p className="text-xs text-muted-foreground leading-relaxed">
-                            {pendingTasks.hours > 0
-                                ? `Tackling these ${pendingTasks.count} tasks now prevents a ${pendingTasks.status} panic later.`
-                                : "You're ahead of the curve! Future-you is stress-free."}
-                        </p>
-                    </div>
-                </CardContent>
-            </Card>
-
-            {/* Insight Card: Peak Performance */}
-            <Card className="col-span-1 md:col-span-1 bg-gradient-to-br from-purple-500/5 to-pink-500/10 border-purple-500/20 backdrop-blur-sm hover:border-purple-500/40 transition-all group">
-                <CardContent className="p-5 h-full flex flex-col">
-                    <div className="flex items-center justify-between mb-4">
-                        <div className="p-2 rounded-lg bg-purple-500/10 text-purple-600 group-hover:scale-110 transition-transform">
-                            <TrendingUp className="w-5 h-5" />
-                        </div>
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-purple-600/70">Biology</span>
-                    </div>
-
-                    <div className="flex-1">
-                        <h3 className="text-sm font-semibold text-foreground/80 mb-1">Golden Hour</h3>
-                        <div className="flex items-baseline gap-1 mb-2">
-                            <span className="text-3xl font-bold text-purple-600">{productiveHour.time}</span>
-                        </div>
-                        <p className="text-xs text-muted-foreground leading-relaxed">
-                            Your brain is re-wired to peak here. {productiveHour.insight}
-                        </p>
                     </div>
                 </CardContent>
             </Card>

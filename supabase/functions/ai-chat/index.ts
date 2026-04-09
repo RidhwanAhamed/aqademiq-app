@@ -1124,7 +1124,9 @@ ${documentContext}
 2. For scheduling requests, return JSON with actions
 3. NEVER repeat actions that appear in "PREVIOUSLY EXECUTED ACTIONS"
 4. For calendar questions, use the provided calendar data
-5. Current datetime: ${new Date().toISOString()}
+5. **TERMINOLOGY RESTRICTON**: NEVER use the terms "ROI", "Tuition", or "Return on Investment". 
+6. **INSIGHT FOCUS**: Focus only on: Focus Score, Task Execution, Smart Discovery, Golden Hour, and Future Stress Saved.
+7. Current datetime: ${new Date().toISOString()}
 ${contextSummaryInfo}
 
 ## Schedule Formatting:

@@ -118,8 +118,8 @@ export function PredictiveInsightsPanel({
                 risks: criticalRisks.map(r => r.risk_type),
                 affectedCourses: criticalRisks.flatMap(r => r.affected_courses)
               }}
-              title="Get Emergency Help"
-              description="AI-powered action plan for your critical academic issues"
+              title=""
+              description=""
               variant="critical"
             />
           )}
@@ -175,8 +175,8 @@ export function PredictiveInsightsPanel({
                   courses: decliningCourses,
                   count: decliningCourses.length
                 }}
-                title="Course Recovery Plan"
-                description="AI-powered strategies to improve declining course performance"
+                title=""
+                description=""
                 variant="warning"
               />
             </div>

@@ -140,8 +140,9 @@ IMPORTANT: Return ONLY valid JSON without markdown code blocks:
 }`
     };
 
-    const systemPrompt = prompts[context as keyof typeof prompts] || 
-      "You are an academic advisor. Provide helpful, specific advice based on the student's situation.";
+    const systemPrompt = (prompts[context as keyof typeof prompts] ||
+      "You are an academic advisor. Provide helpful, specific advice based on the student's situation.") +
+      "\n\nIMPORTANT: NEVER use the terms 'ROI', 'Tuition', or 'Return on Investment'. Focus on academic metrics like Focus Score, Task Execution, Smart Discovery, Golden Hour, and Future Stress Saved.";
 
     const userMessage = customQuery || `Help me with ${context} based on this data: ${JSON.stringify(data)}`;
 
@@ -188,29 +189,29 @@ IMPORTANT: Return ONLY valid JSON without markdown code blocks:
       // Remove markdown code blocks if present
       let cleanedText = generatedText.trim();
       if (cleanedText.startsWith('```json')) {
-        cleanedText = cleanedText.replace(/^```json\s*/,'').replace(/\s*```$/,'');
+        cleanedText = cleanedText.replace(/^```json\s*/, '').replace(/\s*```$/, '');
       } else if (cleanedText.startsWith('```')) {
-        cleanedText = cleanedText.replace(/^```\s*/,'').replace(/\s*```$/,'');
+        cleanedText = cleanedText.replace(/^```\s*/, '').replace(/\s*```$/, '');
       }
-      
+
       structuredInsight = JSON.parse(cleanedText);
     } catch (e) {
       console.error('JSON parsing failed, attempting to extract structured data:', e);
-      
+
       // Try to extract useful content from the raw text
       let cleanedText = generatedText;
-      
+
       // Remove any markdown code blocks
       cleanedText = cleanedText.replace(/```json\s*/g, '').replace(/```\s*/g, '');
-      
+
       // Try to extract the generatedText field if it exists partially
       const generatedTextMatch = cleanedText.match(/"generatedText"\s*:\s*"([^"]+)/);
-      
+
       // Try to extract array items
       const sessionsMatch = cleanedText.match(/"suggestedSessions"\s*:\s*\[([\s\S]*?)\]/);
       const tipsMatch = cleanedText.match(/"productivityTips"\s*:\s*\[([\s\S]*?)\]/);
       const recsMatch = cleanedText.match(/"planningRecommendations"\s*:\s*\[([\s\S]*?)\]/);
-      
+
       // Parse array strings into arrays
       const parseArrayContent = (match: string | null) => {
         if (!match) return [];
@@ -219,12 +220,12 @@ IMPORTANT: Return ONLY valid JSON without markdown code blocks:
           return arrayContent ? arrayContent.map((s: string) => s.replace(/"/g, '')) : [];
         } catch { return []; }
       };
-      
+
       structuredInsight = {
         suggestedSessions: parseArrayContent(sessionsMatch?.[1] || null),
         productivityTips: parseArrayContent(tipsMatch?.[1] || null),
         planningRecommendations: parseArrayContent(recsMatch?.[1] || null),
-        generatedText: generatedTextMatch?.[1] || 
+        generatedText: generatedTextMatch?.[1] ||
           "Here are some insights based on your academic data. Please review the suggestions above for actionable recommendations."
       };
     }
@@ -238,9 +239,9 @@ IMPORTANT: Return ONLY valid JSON without markdown code blocks:
     };
 
     // Clean up generatedText if it still contains JSON-like content
-    if (result.generatedText.includes('"suggestedSessions"') || 
-        result.generatedText.includes('```json') ||
-        result.generatedText.startsWith('{')) {
+    if (result.generatedText.includes('"suggestedSessions"') ||
+      result.generatedText.includes('```json') ||
+      result.generatedText.startsWith('{')) {
       result.generatedText = "Here are AI-powered recommendations tailored to your academic situation. Review the study sessions, productivity tips, and planning recommendations above.";
     }
 
@@ -252,9 +253,9 @@ IMPORTANT: Return ONLY valid JSON without markdown code blocks:
 
   } catch (error) {
     console.error('Error in contextual-ai-insights function:', error);
-    return new Response(JSON.stringify({ 
+    return new Response(JSON.stringify({
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error' 
+      error: error instanceof Error ? error.message : 'Unknown error'
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
