@@ -20,6 +20,7 @@ import { QuickStats } from "./QuickStats";
 import { RevisionTasksPanel } from "./RevisionTasksPanel";
 import { TodayTimeline } from "./TodayTimeline";
 import { OverdueTasksButton } from "./SmartNudge";
+import { ProactiveSuggestions } from "./ProactiveSuggestions";
 
 export function Dashboard() {
   const [showAddDialog, setShowAddDialog] = useState(false);
@@ -107,6 +108,9 @@ export function Dashboard() {
 
       {/* Install Banner */}
       <InstallBanner />
+
+      {/* Proactive Suggestions */}
+      <ProactiveSuggestions />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         {/* Main Content */}
