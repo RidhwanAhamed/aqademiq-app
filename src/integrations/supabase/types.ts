@@ -244,6 +244,45 @@ export type Database = {
         }
         Relationships: []
       }
+      ambassador_codes: {
+        Row: {
+          ambassador_email: string | null
+          ambassador_name: string | null
+          ambassador_user_id: string | null
+          code: string
+          created_at: string
+          id: string
+          is_active: boolean
+          max_redemptions: number
+          redemption_count: number
+          updated_at: string
+        }
+        Insert: {
+          ambassador_email?: string | null
+          ambassador_name?: string | null
+          ambassador_user_id?: string | null
+          code: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          max_redemptions?: number
+          redemption_count?: number
+          updated_at?: string
+        }
+        Update: {
+          ambassador_email?: string | null
+          ambassador_name?: string | null
+          ambassador_user_id?: string | null
+          code?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          max_redemptions?: number
+          redemption_count?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       assignments: {
         Row: {
           ai_generated_tasks: Json | null
@@ -1254,6 +1293,7 @@ export type Database = {
           full_name: string | null
           id: string
           onboarding_completed: boolean | null
+          referred_by_code_id: string | null
           study_streak: number | null
           timezone: string | null
           updated_at: string | null
@@ -1265,6 +1305,7 @@ export type Database = {
           full_name?: string | null
           id?: string
           onboarding_completed?: boolean | null
+          referred_by_code_id?: string | null
           study_streak?: number | null
           timezone?: string | null
           updated_at?: string | null
@@ -1276,12 +1317,21 @@ export type Database = {
           full_name?: string | null
           id?: string
           onboarding_completed?: boolean | null
+          referred_by_code_id?: string | null
           study_streak?: number | null
           timezone?: string | null
           updated_at?: string | null
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_referred_by_code_id_fkey"
+            columns: ["referred_by_code_id"]
+            isOneToOne: false
+            referencedRelation: "ambassador_codes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       proposed_schedules: {
         Row: {
@@ -1312,6 +1362,35 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      referral_redemptions: {
+        Row: {
+          code_id: string
+          id: string
+          redeemed_at: string
+          user_id: string
+        }
+        Insert: {
+          code_id: string
+          id?: string
+          redeemed_at?: string
+          user_id: string
+        }
+        Update: {
+          code_id?: string
+          id?: string
+          redeemed_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "referral_redemptions_code_id_fkey"
+            columns: ["code_id"]
+            isOneToOne: false
+            referencedRelation: "ambassador_codes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       reminders: {
         Row: {
@@ -2335,6 +2414,7 @@ export type Database = {
           risk_score: number
         }[]
       }
+      redeem_referral_code: { Args: { p_code: string }; Returns: Json }
       revoke_google_tokens: { Args: { p_user_id?: string }; Returns: boolean }
       search_documents: {
         Args: {
