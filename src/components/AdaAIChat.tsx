@@ -190,7 +190,7 @@ export function AdaAIChat({
   
   // Accessibility
   const [accessibilitySettings, setAccessibilitySettings] = useState<AccessibilitySettings>({
-    fontSize: 16,
+    fontSize: 17,
     highContrast: false,
     soundEnabled: true,
     focusOutlines: true

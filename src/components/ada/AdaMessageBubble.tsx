@@ -1,4 +1,4 @@
-import React, { memo, useState } from 'react';
+import React, { memo, useEffect, useMemo, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Button } from '@/components/ui/button';
@@ -48,12 +48,67 @@ export const AdaMessageBubble = memo(function AdaMessageBubble({
   const hasCalendarData = message.metadata?.can_add_to_calendar;
   const [showActions, setShowActions] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [revealedCount, setRevealedCount] = useState<number>(() => message.message.length);
+  const rafRef = useRef<number | null>(null);
+  const lastTickRef = useRef<number>(0);
   
   const handleCopy = () => {
     onCopy(message.message);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
+
+  const shouldTypewriter =
+    !isUser &&
+    isLast &&
+    !message.metadata?.loading &&
+    !message.metadata?.processing &&
+    typeof message.message === 'string' &&
+    message.message.length > 0 &&
+    message.message.length <= 4000; // keep render cost bounded
+
+  // Autoregressive / typewriter effect for the latest assistant message only.
+  useEffect(() => {
+    if (!shouldTypewriter) {
+      setRevealedCount(message.message.length);
+      return;
+    }
+
+    // Restart animation on new message id/content.
+    setRevealedCount(0);
+    lastTickRef.current = performance.now();
+
+    const speedCharsPerSecond = 55; // tuned for readability
+
+    const tick = (now: number) => {
+      const elapsedMs = now - lastTickRef.current;
+      lastTickRef.current = now;
+
+      setRevealedCount((prev) => {
+        if (prev >= message.message.length) return prev;
+        const next = Math.min(
+          message.message.length,
+          prev + Math.max(1, Math.floor((elapsedMs / 1000) * speedCharsPerSecond))
+        );
+        return next;
+      });
+
+      rafRef.current = requestAnimationFrame(tick);
+    };
+
+    rafRef.current = requestAnimationFrame(tick);
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    };
+  }, [shouldTypewriter, message.id, message.message]);
+
+  const renderedMessage = useMemo(() => {
+    if (!shouldTypewriter) return message.message;
+    return message.message.slice(0, revealedCount);
+  }, [message.message, revealedCount, shouldTypewriter]);
+
+  const isTyping = shouldTypewriter && revealedCount < message.message.length;
 
   const handleTap = () => {
     // Toggle actions on tap for mobile
@@ -126,9 +181,21 @@ export const AdaMessageBubble = memo(function AdaMessageBubble({
                 blockquote: ({...props}) => <blockquote className="border-l-4 border-primary pl-3 sm:pl-4 italic text-muted-foreground mb-2" {...props} />,
               }}
             >
-              {message.message}
+              {renderedMessage}
             </ReactMarkdown>
           </div>
+
+          {/* Subtle typing caret (ChatGPT-like) */}
+          {!isUser && isTyping && (
+            <span
+              className={cn(
+                "inline-block w-[6px] h-[16px] align-text-bottom ml-1",
+                highContrast ? (isUser ? "bg-white" : "bg-black") : "bg-primary/70",
+                "animate-pulse rounded-sm"
+              )}
+              aria-hidden="true"
+            />
+          )}
           
           {message.file_upload_id && (
             <div className="mt-2 flex items-center gap-2 text-xs opacity-70">
