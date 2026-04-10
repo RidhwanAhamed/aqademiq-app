@@ -23,7 +23,6 @@ export function AnimatedSplash({ onComplete, minimumDuration = 2500 }: AnimatedS
     onComplete();
   };
 
-  const wordmark = "Aqademiq";
   const tagline = "Supercharged Productivity";
 
   return (
@@ -70,7 +69,7 @@ export function AnimatedSplash({ onComplete, minimumDuration = 2500 }: AnimatedS
             <motion.div
               className="absolute inset-0 -m-4 rounded-full"
               style={{
-                background: 'linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(221 83% 53%) 100%)',
+                background: 'linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent)) 100%)',
                 filter: 'blur(20px)',
               }}
               animate={{
@@ -87,57 +86,20 @@ export function AnimatedSplash({ onComplete, minimumDuration = 2500 }: AnimatedS
             
             {/* Logo */}
             <motion.div
-              className="relative w-24 h-24 md:w-32 md:h-32 rounded-2xl overflow-hidden shadow-2xl"
+              className="relative rounded-2xl overflow-hidden shadow-2xl"
               whileHover={{ scale: 1.05 }}
             >
               <img
-                src="/assets/aqademiq-icon.png"
+                src="/aqademiq-logo.png"
                 alt="Aqademiq"
-                className="w-full h-full object-cover"
+                className="h-24 md:h-28 w-auto object-cover"
               />
             </motion.div>
           </motion.div>
 
-          {/* Wordmark with staggered letter animation */}
-          <motion.div
-            className="mt-8 flex items-center gap-1 z-10"
-            initial="hidden"
-            animate="visible"
-            variants={{
-              hidden: {},
-              visible: {
-                transition: {
-                  staggerChildren: 0.05,
-                  delayChildren: 0.4,
-                },
-              },
-            }}
-          >
-            {wordmark.split('').map((letter, index) => (
-              <motion.span
-                key={index}
-                className="text-2xl md:text-3xl font-bold tracking-wider text-white"
-                variants={{
-                  hidden: { opacity: 0, y: 20 },
-                  visible: { 
-                    opacity: 1, 
-                    y: 0,
-                    transition: {
-                      type: "spring",
-                      stiffness: 300,
-                      damping: 20,
-                    }
-                  },
-                }}
-              >
-                {letter}
-              </motion.span>
-            ))}
-          </motion.div>
-
           {/* Tagline */}
           <motion.p
-            className="mt-4 text-sm md:text-base text-muted-foreground tracking-wide z-10"
+            className="mt-6 text-sm md:text-base text-muted-foreground tracking-wide z-10"
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{

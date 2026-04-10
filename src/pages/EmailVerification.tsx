@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { CheckCircle, XCircle, Mail, ArrowRight, GraduationCap, Brain } from 'lucide-react';
+import { CheckCircle, XCircle, Mail, ArrowRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
 export default function EmailVerification() {
@@ -90,16 +90,14 @@ export default function EmailVerification() {
       >
         <Card className="backdrop-blur-xl bg-card/80 border-border/50 shadow-2xl">
           <CardHeader className="space-y-4 text-center">
-            <div className="flex items-center justify-center space-x-2">
-              <div className="h-10 w-10 rounded-xl bg-gradient-primary flex items-center justify-center">
-                <Brain className="h-6 w-6 text-white" />
-              </div>
-              <GraduationCap className="h-8 w-8 text-primary" />
+            <div className="flex items-center justify-center">
+              <img
+                src="/aqademiq-logo.png"
+                alt="Aqademiq"
+                className="h-14 w-auto rounded-xl shadow-card"
+              />
             </div>
             <div>
-              <CardTitle className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-                Aqademiq
-              </CardTitle>
               <p className="text-muted-foreground">
                 Email Verification
               </p>

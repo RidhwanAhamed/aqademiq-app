@@ -1028,6 +1028,32 @@ export function AdaAIChat({
     return labels[actionType] || 'Item';
   };
 
+  // Agent compatibility layer: map planner tool actions to existing Ada action shape.
+  const mapPlannedActionToAdaAction = useCallback((action: any): AdaAction | null => {
+    if (!action || typeof action !== 'object') return null;
+
+    // Backward compatible: legacy ai-chat already returns Ada action schema.
+    if (action.type && typeof action.type === 'string') {
+      return action as AdaAction;
+    }
+
+    const tool = typeof action.tool === 'string' ? action.tool : '';
+    const args = action.args && typeof action.args === 'object' ? action.args : {};
+
+    switch (tool) {
+      case 'create_event':
+        return { type: 'CREATE_EVENT', ...(args as Record<string, any>) } as AdaAction;
+      case 'create_assignment':
+        return { type: 'CREATE_ASSIGNMENT', ...(args as Record<string, any>) } as AdaAction;
+      case 'create_study_session':
+        return { type: 'CREATE_STUDY_SESSION', ...(args as Record<string, any>) } as AdaAction;
+      case 'generate_kernel_notes':
+        return { type: 'CREATE_CORNELL_NOTES', ...(args as Record<string, any>) } as AdaAction;
+      default:
+        return null;
+    }
+  }, []);
+
   // Auto-execute Cornell Notes generation (no confirmation needed)
   const executeCreateCornellNotes = useCallback(async (action: AdaAction) => {
     const topic = action.topic || action.title || 'Untitled';
@@ -1695,12 +1721,24 @@ export function AdaAIChat({
       // Detect course context from message or pending file
       const detectedCourseId = pendingFileCourseId || currentCourseId || detectCourseFromMessage(userMessage, userCourses);
       
-      const { data: aiResponse, error } = await supabase.functions.invoke('ai-chat', {
+      const conversationHistory = messages
+        .slice(-12)
+        .map((m) => ({ role: m.is_user ? 'user' : 'assistant', content: m.message }));
+
+      const userContext = {
+        current_course_id: detectedCourseId,
+        current_mode: currentMode,
+        message_count: messageCount,
+        token_usage: tokenUsage,
+        active_courses: userCourses.map((c) => ({ id: c.id, name: c.name, code: c.code })),
+      };
+
+      const { data: agentResponse, error } = await supabase.functions.invoke('agent', {
         body: { 
           message: userMessage || 'What can you tell me about this file?',
-          conversation_id: conversationId,
-          course_id: detectedCourseId,
-          just_indexed_file_id: fileId
+          conversation_history: conversationHistory,
+          user_context: userContext,
+          user_id: user?.id
         }
       });
       
@@ -1709,52 +1747,78 @@ export function AdaAIChat({
 
       if (error) throw error;
 
+      // Backward compatibility: support both new "agent" response and legacy "ai-chat" shape.
+      const assistantResponse =
+        (agentResponse?.final_response as string) ||
+        (agentResponse?.response as string) ||
+        "I analyzed your request and prepared a plan.";
+
+      const actionsToConfirmRaw =
+        (agentResponse?.actions_to_confirm as any[]) ||
+        (agentResponse?.metadata?.actions as any[]) ||
+        [];
+
+      const executedActionsRaw =
+        (agentResponse?.executed_actions as any[]) || [];
+
       const aiMessage = await saveChatMessage(
-        aiResponse.response,
+        assistantResponse,
         false,
         fileId,
-        aiResponse.metadata
+        {
+          planner_understanding: agentResponse?.understanding,
+          planner_goal: agentResponse?.goal,
+          planner_strategy: agentResponse?.strategy,
+          actions_to_confirm: actionsToConfirmRaw,
+          executed_actions: executedActionsRaw
+        }
       );
 
       if (aiMessage) {
         setMessages(prev => [...prev, aiMessage]);
         playNotificationSound();
         
-        // Update token usage from response (don't clobber unlimited flag)
-        if (aiResponse.usage) {
-          setTokenUsage(prev => {
-            const prevUnlimited = prev?.is_unlimited === true;
-            const nextUnlimited = (aiResponse.usage as any)?.is_unlimited === true;
-            return {
-              ...(prev ?? { used: 0, limit: 50000, remaining: 50000 }),
-              ...aiResponse.usage,
-              is_unlimited: prevUnlimited || nextUnlimited,
-            };
-          });
-        } else {
-          // Fetch updated usage if not in response
-          await fetchTokenUsage();
-        }
+        // Agent response does not include token usage yet; keep behavior by refreshing.
+        await fetchTokenUsage();
         playNotificationSound();
-        
-        if (aiResponse.metadata?.has_actions && aiResponse.metadata?.actions?.length > 0) {
-          const actions = aiResponse.metadata.actions as AdaAction[];
-          
-          // Cornell Notes auto-execute (doesn't need confirmation)
-          const cornellActions = actions.filter(a => a.type === 'CREATE_CORNELL_NOTES');
-          const crudActions = actions.filter(a => a.type !== 'CREATE_CORNELL_NOTES');
-          
-          // Auto-execute Cornell Notes
+
+        // Handle confirmable actions from new agent response.
+        if (actionsToConfirmRaw.length > 0) {
+          const mappedActions = actionsToConfirmRaw
+            .map(mapPlannedActionToAdaAction)
+            .filter((a): a is AdaAction => !!a);
+
+          const cornellActions = mappedActions.filter(a => a.type === 'CREATE_CORNELL_NOTES');
+          const dialogActions = mappedActions.filter(a => a.type !== 'CREATE_CORNELL_NOTES');
+
+          // Keep legacy behavior: kernel notes can execute immediately.
           for (const action of cornellActions) {
             await executeCreateCornellNotes(action);
           }
-          
-          // Queue CRUD actions for confirmation
-          if (crudActions.length > 0) {
-            setActionQueue(crudActions as AdaActionData[]);
-            // Show first action in confirmation dialog
-            setPendingConfirmAction(crudActions[0] as AdaActionData);
+
+          if (dialogActions.length > 0) {
+            setActionQueue(dialogActions as AdaActionData[]);
+            setPendingConfirmAction(dialogActions[0] as AdaActionData);
             setConfirmDialogOpen(true);
+          }
+        }
+
+        // Handle already-executed actions (if any) from agent execution layer.
+        if (executedActionsRaw.length > 0) {
+          const successCount = executedActionsRaw.filter((a: any) => a?.success).length;
+          const failedCount = executedActionsRaw.filter((a: any) => !a?.success).length;
+
+          if (successCount > 0) {
+            toast({
+              title: 'Agent Actions Executed',
+              description: `${successCount} action(s) executed successfully${failedCount > 0 ? `, ${failedCount} failed` : ''}.`,
+            });
+          } else if (failedCount > 0) {
+            toast({
+              title: 'Agent Actions Failed',
+              description: `${failedCount} action(s) failed during execution.`,
+              variant: 'destructive'
+            });
           }
         }
       }
@@ -1770,7 +1834,7 @@ export function AdaAIChat({
       setIsProcessing(false);
       setPendingFileStatus('');
     }
-  }, [user, isProcessing, messageCount, pendingFile, conversationId, tokenUsage, uploadAndIndexFile, wantsScheduleParsing, processFileWithAgenticAI, saveChatMessage, playNotificationSound, toast, handleChatBadgeUnlock, executeCreateCornellNotes, fetchTokenUsage, executeAdaAction]);
+  }, [user, isProcessing, messageCount, pendingFile, tokenUsage, uploadAndIndexFile, wantsScheduleParsing, processFileWithAgenticAI, saveChatMessage, playNotificationSound, toast, handleChatBadgeUnlock, executeCreateCornellNotes, fetchTokenUsage, pendingFileCourseId, currentCourseId, detectCourseFromMessage, userCourses, messages, currentMode, mapPlannedActionToAdaAction]);
 
   // Voice toggle
   const handleVoiceToggle = useCallback(async () => {

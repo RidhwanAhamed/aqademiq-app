@@ -166,7 +166,6 @@ export function SecurityHeaders() {
           sessionStorage.removeItem(key);
         });
 
-        // Redirect to login if user is authenticated
         if (typeof window !== 'undefined' && window.location.pathname !== '/auth') {
           window.location.href = '/auth?session_expired=true';
         }

@@ -196,8 +196,8 @@ export const useBackgroundTimer = () => {
     if (notificationPermissionRef.current === 'granted' && 'Notification' in window) {
       new Notification(title, {
         body,
-        icon: '/public/assets/aqademiq-icon.png',
-        badge: '/public/assets/aqademiq-icon.png',
+        icon: '/aqademiq-logo.png',
+        badge: '/aqademiq-logo.png',
       });
     }
   }, []);

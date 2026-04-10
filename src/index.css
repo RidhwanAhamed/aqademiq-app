@@ -11,74 +11,74 @@ All colors MUST be HSL.
     /* iOS Keyboard height - dynamically set by JS */
     --keyboard-height: 0px;
     
-    /* Base colors for Aqademiq */
-    --background: 215 28% 97%;
-    --foreground: 215 25% 15%;
+    /* Base colors inspired by the reference UI */
+    --background: 252 36% 6%;
+    --foreground: 276 24% 95%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 215 25% 15%;
+    --card: 260 26% 12%;
+    --card-foreground: 276 24% 95%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 215 25% 15%;
+    --popover: 256 30% 10%;
+    --popover-foreground: 276 24% 95%;
 
-    /* Primary brand colors - Purple for focus and productivity */
-    --primary: 262 52% 47%;
+    /* Primary brand colors - luminous violet against deep black */
+    --primary: 272 68% 61%;
     --primary-foreground: 0 0% 100%;
-    --primary-hover: 262 52% 42%;
-    --primary-muted: 262 52% 47% / 0.1;
+    --primary-hover: 273 72% 68%;
+    --primary-muted: 272 68% 61% / 0.16;
 
     /* Secondary colors */
-    --secondary: 215 16% 92%;
-    --secondary-foreground: 215 25% 15%;
+    --secondary: 257 21% 16%;
+    --secondary-foreground: 276 24% 95%;
 
-    --muted: 215 16% 92%;
-    --muted-foreground: 215 13% 45%;
+    --muted: 255 18% 14%;
+    --muted-foreground: 265 12% 68%;
 
     /* Accent colors for interactive elements */
-    --accent: 216 88% 60%;
+    --accent: 258 56% 60%;
     --accent-foreground: 0 0% 100%;
-    --accent-muted: 216 88% 60% / 0.1;
+    --accent-muted: 258 56% 60% / 0.14;
 
     /* Status colors */
-    --success: 142 76% 36%;
-    --success-foreground: 0 0% 100%;
-    --success-muted: 142 76% 36% / 0.1;
+    --success: 145 63% 57%;
+    --success-foreground: 255 30% 8%;
+    --success-muted: 145 63% 57% / 0.16;
 
-    --warning: 38 92% 50%;
-    --warning-foreground: 0 0% 100%;
-    --warning-muted: 38 92% 50% / 0.1;
+    --warning: 45 100% 68%;
+    --warning-foreground: 255 30% 8%;
+    --warning-muted: 45 100% 68% / 0.18;
 
-    --marketplace: 217 91% 55%;
+    --marketplace: 281 74% 66%;
     --marketplace-foreground: 0 0% 98%;
 
-    --destructive: 0 72% 51%;
+    --destructive: 352 76% 64%;
     --destructive-foreground: 0 0% 100%;
 
     /* Borders and inputs */
-    --border: 215 16% 85%;
-    --input: 215 16% 85%;
-    --ring: 262 52% 47%;
+    --border: 264 20% 22%;
+    --input: 264 20% 18%;
+    --ring: 272 68% 61%;
 
     /* Course color palette */
-    --course-math: 210 100% 56%;
-    --course-science: 142 76% 36%;
-    --course-english: 262 52% 47%;
-    --course-history: 38 92% 50%;
-    --course-language: 333 71% 51%;
-    --course-art: 280 100% 70%;
+    --course-math: 256 86% 69%;
+    --course-science: 173 58% 57%;
+    --course-english: 272 68% 61%;
+    --course-history: 34 91% 66%;
+    --course-language: 258 56% 60%;
+    --course-art: 289 80% 74%;
 
     /* Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(262 52% 47%), hsl(216 88% 60%));
-    --gradient-card: linear-gradient(135deg, hsl(0 0% 100%), hsl(215 16% 98%));
-    --gradient-progress: linear-gradient(90deg, hsl(262 52% 47%), hsl(216 88% 60%));
-    --gradient-marketplace: linear-gradient(135deg, hsl(217 91% 55%), hsl(217 91% 70%));
+    --gradient-primary: linear-gradient(90deg, hsl(273 76% 66%), hsl(254 42% 10%));
+    --gradient-card: linear-gradient(180deg, hsl(263 32% 17% / 0.96), hsl(255 28% 9% / 0.94));
+    --gradient-progress: linear-gradient(90deg, hsl(273 76% 66%), hsl(258 56% 60%));
+    --gradient-marketplace: linear-gradient(90deg, hsl(276 66% 60%), hsl(252 40% 12%));
 
     /* Shadows */
-    --shadow-card: 0 1px 3px 0 hsl(215 25% 15% / 0.1), 0 1px 2px 0 hsl(215 25% 15% / 0.06);
-    --shadow-elevated: 0 10px 15px -3px hsl(215 25% 15% / 0.1), 0 4px 6px -2px hsl(215 25% 15% / 0.05);
-    --shadow-primary: 0 10px 30px -10px hsl(262 52% 47% / 0.3);
-    --shadow-marketplace: 0 4px 14px 0 hsl(217 91% 55% / 0.3);
-    --shadow-marketplace-hover: 0 8px 25px -3px hsl(217 91% 55% / 0.4);
+    --shadow-card: 0 10px 30px -18px hsl(0 0% 0% / 0.72), inset 0 1px 0 hsl(0 0% 100% / 0.06);
+    --shadow-elevated: 0 22px 50px -24px hsl(0 0% 0% / 0.88), 0 0 0 1px hsl(274 38% 45% / 0.08);
+    --shadow-primary: 0 18px 45px -18px hsl(272 68% 61% / 0.55);
+    --shadow-marketplace: 0 14px 34px -18px hsl(272 68% 61% / 0.45);
+    --shadow-marketplace-hover: 0 18px 42px -18px hsl(272 68% 61% / 0.58);
 
     /* Animations */
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -86,79 +86,79 @@ All colors MUST be HSL.
 
     --radius: 0.5rem;
 
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-background: 255 28% 8%;
+    --sidebar-foreground: 276 24% 92%;
+    --sidebar-primary: 272 68% 61%;
     --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 4.8% 95.9%;
-    --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-accent: 258 22% 15%;
+    --sidebar-accent-foreground: 276 24% 95%;
+    --sidebar-border: 264 20% 18%;
+    --sidebar-ring: 272 68% 61%;
   }
 
   .dark {
-    /* Dark mode for Aqademiq */
-    --background: 215 28% 7%;
-    --foreground: 215 20% 85%;
+    /* Dark mode tuned to the same visual direction, with deeper contrast */
+    --background: 252 38% 4%;
+    --foreground: 280 25% 96%;
 
-    --card: 215 28% 9%;
-    --card-foreground: 215 20% 85%;
+    --card: 258 28% 9%;
+    --card-foreground: 280 25% 96%;
 
-    --popover: 215 28% 9%;
-    --popover-foreground: 215 20% 85%;
+    --popover: 256 30% 8%;
+    --popover-foreground: 280 25% 96%;
 
-    --primary: 262 52% 55%;
+    --primary: 273 72% 66%;
     --primary-foreground: 0 0% 100%;
-    --primary-hover: 262 52% 60%;
-    --primary-muted: 262 52% 55% / 0.15;
+    --primary-hover: 275 74% 72%;
+    --primary-muted: 273 72% 66% / 0.18;
 
-    --secondary: 215 28% 12%;
-    --secondary-foreground: 215 20% 85%;
+    --secondary: 258 24% 13%;
+    --secondary-foreground: 280 25% 96%;
 
-    --muted: 215 28% 12%;
-    --muted-foreground: 215 13% 55%;
+    --muted: 258 20% 11%;
+    --muted-foreground: 265 12% 70%;
 
-    --accent: 216 88% 68%;
+    --accent: 258 58% 64%;
     --accent-foreground: 0 0% 100%;
-    --accent-muted: 216 88% 68% / 0.15;
+    --accent-muted: 258 58% 64% / 0.18;
 
-    --success: 142 76% 45%;
-    --success-foreground: 0 0% 100%;
-    --success-muted: 142 76% 45% / 0.15;
+    --success: 145 63% 60%;
+    --success-foreground: 255 30% 8%;
+    --success-muted: 145 63% 60% / 0.18;
 
-    --warning: 38 92% 60%;
-    --warning-foreground: 0 0% 100%;
-    --warning-muted: 38 92% 60% / 0.15;
+    --warning: 45 100% 70%;
+    --warning-foreground: 255 30% 8%;
+    --warning-muted: 45 100% 70% / 0.2;
 
-    --marketplace: 217 91% 60%;
+    --marketplace: 283 78% 70%;
     --marketplace-foreground: 0 0% 98%;
 
-    --destructive: 0 72% 60%;
+    --destructive: 352 76% 66%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 215 28% 18%;
-    --input: 215 28% 18%;
-    --ring: 262 52% 55%;
+    --border: 264 22% 16%;
+    --input: 264 22% 14%;
+    --ring: 273 72% 66%;
 
-    --gradient-primary: linear-gradient(135deg, hsl(262 52% 55%), hsl(216 88% 68%));
-    --gradient-card: linear-gradient(135deg, hsl(215 28% 9%), hsl(215 28% 11%));
-    --gradient-progress: linear-gradient(90deg, hsl(262 52% 55%), hsl(216 88% 68%));
-    --gradient-marketplace: linear-gradient(135deg, hsl(217 91% 60%), hsl(217 91% 75%));
+    --gradient-primary: linear-gradient(90deg, hsl(274 78% 70%), hsl(252 42% 8%));
+    --gradient-card: linear-gradient(180deg, hsl(261 30% 12% / 0.98), hsl(251 34% 5% / 0.98));
+    --gradient-progress: linear-gradient(90deg, hsl(274 78% 70%), hsl(258 58% 64%));
+    --gradient-marketplace: linear-gradient(90deg, hsl(280 76% 66%), hsl(252 38% 10%));
 
-    --shadow-card: 0 1px 3px 0 hsl(0 0% 0% / 0.3), 0 1px 2px 0 hsl(0 0% 0% / 0.2);
-    --shadow-elevated: 0 10px 15px -3px hsl(0 0% 0% / 0.3), 0 4px 6px -2px hsl(0 0% 0% / 0.2);
-    --shadow-primary: 0 10px 30px -10px hsl(262 52% 55% / 0.4);
-    --shadow-marketplace: 0 4px 14px 0 hsl(217 91% 60% / 0.4);
-    --shadow-marketplace-hover: 0 8px 25px -3px hsl(217 91% 60% / 0.5);
+    --shadow-card: 0 14px 40px -22px hsl(0 0% 0% / 0.82), inset 0 1px 0 hsl(0 0% 100% / 0.05);
+    --shadow-elevated: 0 28px 70px -28px hsl(0 0% 0% / 0.94), 0 0 0 1px hsl(274 38% 45% / 0.1);
+    --shadow-primary: 0 22px 54px -22px hsl(273 72% 66% / 0.58);
+    --shadow-marketplace: 0 16px 38px -20px hsl(273 72% 66% / 0.48);
+    --shadow-marketplace-hover: 0 22px 48px -20px hsl(273 72% 66% / 0.62);
 
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-background: 252 32% 6%;
+    --sidebar-foreground: 280 25% 96%;
+    --sidebar-primary: 273 72% 66%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-accent: 258 22% 12%;
+    --sidebar-accent-foreground: 280 25% 96%;
+    --sidebar-border: 264 22% 14%;
+    --sidebar-ring: 273 72% 66%;
   }
 }
 
@@ -168,7 +168,12 @@ All colors MUST be HSL.
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans;
+    background-image:
+      radial-gradient(circle at 50% 15%, hsl(var(--primary) / 0.24), transparent 24rem),
+      radial-gradient(circle at 50% 45%, hsl(var(--accent) / 0.14), transparent 32rem),
+      linear-gradient(180deg, hsl(254 48% 6%), hsl(252 42% 3%) 42%, hsl(0 0% 0%) 100%);
+    background-attachment: fixed;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }

@@ -7,8 +7,9 @@ import { useExams } from "@/hooks/useExams";
 import { useUserStats } from "@/hooks/useUserStats";
 import { supabase } from "@/integrations/supabase/client";
 import { addDays, format, isAfter, isBefore } from "date-fns";
-import { Brain, Calendar, Clock, Plus, Target, Zap } from "lucide-react";
+import { Brain, Calendar, Clock, Plus, Target, Trophy, Zap } from "lucide-react";
 import { useState, useMemo } from "react";
+import { useStreakPercentile } from "@/hooks/useStreakPercentile";
 import { AddAssignmentDialog } from "./AddAssignmentDialog";
 import { AddStudySessionDialog } from "./AddStudySessionDialog";
 import { AIInsightModal } from "./analytics/AIInsightModal";
@@ -20,6 +21,7 @@ import { RevisionTasksPanel } from "./RevisionTasksPanel";
 import { TodayTimeline } from "./TodayTimeline";
 import { useStudySessions } from "@/hooks/useStudySessions";
 import { OverdueTasksButton } from "./SmartNudge";
+import { ProactiveSuggestions } from "./ProactiveSuggestions";
 
 export function Dashboard() {
   const [showAddDialog, setShowAddDialog] = useState(false);
@@ -34,6 +36,7 @@ export function Dashboard() {
   const { exams } = useExams();
   const { stats } = useUserStats();
   const { studySessions } = useStudySessions();
+  const { data: streakPercentile } = useStreakPercentile();
 
   // Get user's first name for personalized greeting
   const userName = user?.user_metadata?.first_name ||
@@ -128,6 +131,9 @@ export function Dashboard() {
       {/* Install Banner */}
       <InstallBanner />
 
+      {/* Proactive Suggestions */}
+      <ProactiveSuggestions />
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         {/* Main Content */}
         <div className="lg:col-span-2 space-y-4 sm:space-y-6">
@@ -207,6 +213,20 @@ export function Dashboard() {
               <div className="text-center">
                 <div className="text-2xl sm:text-3xl font-bold text-warning">{stats?.current_streak || 0}</div>
                 <p className="text-xs sm:text-sm text-muted-foreground">days in a row</p>
+                
+                {/* Percentile Rank */}
+                {streakPercentile && (
+                  <div className="mt-3 flex items-center justify-center gap-1.5">
+                    <Trophy className="w-3.5 h-3.5 text-primary" />
+                    <span className="text-xs font-semibold text-primary">
+                      Top {streakPercentile.topPercent}%
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      of all users
+                    </span>
+                  </div>
+                )}
+
                 <div className="mt-3 sm:mt-4 flex justify-center space-x-1">
                   {[...Array(Math.min(stats?.current_streak || 0, 7))].map((_, i) => (
                     <div

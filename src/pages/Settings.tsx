@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Settings as SettingsIcon, User, Bell, Palette, Shield, Moon, Sun, Monitor, Download, Smartphone, CheckCircle2, Trophy } from "lucide-react";
+import { DeleteAccountDialog } from "@/components/DeleteAccountDialog";
 import { useAuth } from "@/hooks/useAuth";
 import { useTheme } from "next-themes";
 import { useState, useEffect } from "react";
@@ -308,6 +309,12 @@ export default function Settings() {
                 >
                   Sign Out
                 </Button>
+                <div className="pt-4 border-t border-destructive/20">
+                  <p className="text-xs text-muted-foreground mb-3">
+                    Permanently delete your account and all associated data. This cannot be undone.
+                  </p>
+                  <DeleteAccountDialog />
+                </div>
               </CardContent>
             </Card>
           </div>

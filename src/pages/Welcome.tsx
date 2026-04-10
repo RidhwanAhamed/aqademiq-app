@@ -32,16 +32,13 @@ export default function Welcome() {
           <div className="space-y-4">
             <div className="flex items-center justify-center mb-4">
               <img 
-                src="/assets/aqademiq-icon.png" 
+                src="/aqademiq-logo.png" 
                 alt="Aqademiq" 
-                className="h-16 w-16 rounded-2xl"
+                className="h-20 w-auto rounded-2xl shadow-card"
               />
             </div>
             
             <div className="space-y-3">
-              <h1 className="text-4xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-                Aqademiq
-              </h1>
               <p className="text-xl text-muted-foreground font-medium">
                 Your intelligent academic planner and productivity companion
               </p>

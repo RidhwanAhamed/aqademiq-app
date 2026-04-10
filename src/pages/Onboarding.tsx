@@ -110,7 +110,6 @@ export default function Onboarding() {
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  // Redirect if not authenticated
   useEffect(() => {
     if (!user) {
       navigate('/auth');

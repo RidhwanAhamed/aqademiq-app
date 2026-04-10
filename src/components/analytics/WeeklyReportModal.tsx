@@ -485,7 +485,7 @@ export function WeeklyReportModal({
                         <div className="flex items-center gap-3">
                             <div className="h-10 w-10 relative rounded-xl overflow-hidden shadow-[0_0_15px_rgba(168,85,247,0.3)] border border-purple-500/20 group cursor-pointer hover:border-purple-500/50 transition-all print:border-purple-500/50">
                                 <img
-                                    src="/aqademiq-logo-full.jpg"
+                                    src="/aqademiq-logo.png"
                                     alt="Aqademiq"
                                     className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-500"
                                 />

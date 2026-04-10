@@ -1,11 +1,11 @@
 import { useEffect } from 'react';
 
-// Custom themes - 'default' matches the original index.css values (purple-to-blue gradient)
+// Custom themes - 'default' matches the ambient violet palette from index.css
 const colorThemes = {
   default: {
-    primary: '262 52% 47%',      // Purple
-    secondary: '215 16% 92%',
-    accent: '216 88% 60%',       // Blue → Purple-Blue gradient
+    primary: '272 68% 61%',      // Luminous violet
+    secondary: '257 21% 16%',
+    accent: '258 56% 60%',       // Indigo-violet glow
   },
   forest: {
     primary: '142 76% 36%',      // Deep Green
