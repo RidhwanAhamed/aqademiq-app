@@ -164,6 +164,24 @@ export function AppSidebar() {
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild>
                     <NavLink
+                      to="/admin/users"
+                      className={getNavClass(isActive("/admin/users"))}
+                    >
+                      <Shield className="w-5 h-5" />
+                      {!collapsed && (
+                        <div className="flex items-center justify-between flex-1 ml-3">
+                          <span>Users</span>
+                          <Badge variant="secondary" className="text-xs px-2 py-0.5 ml-2">
+                            Admin
+                          </Badge>
+                        </div>
+                      )}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <NavLink
                       to="/admin/data-dictionary"
                       className={getNavClass(isActive("/admin/data-dictionary"))}
                     >
