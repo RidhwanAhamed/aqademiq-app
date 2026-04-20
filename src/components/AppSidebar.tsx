@@ -28,7 +28,8 @@ import {
   Settings,
   Sparkles,
   Store,
-  Target
+  Target,
+  Shield
 } from "lucide-react";
 import { useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
