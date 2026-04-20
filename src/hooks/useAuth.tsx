@@ -212,7 +212,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signUp = async (email: string, password: string, options?: { data?: any }) => {
     try {
       clearError();
-      const redirectUrl = `${window.location.origin}/auth/verify`;
+      // Redirect to root so PKCE code is exchanged in Index.tsx,
+      // which then routes new users straight to /onboarding.
+      const redirectUrl = `${window.location.origin}/`;
       
       logger.info('Starting signup process', { email });
       

@@ -58,11 +58,26 @@ export default function EmailVerification() {
     verifyEmail();
   }, [searchParams, toast]);
 
-  const handleContinueToLogin = () => {
-    navigate('/auth', { 
-      state: { 
-        message: verificationStatus === 'success' ? 'Your email has been verified. Please sign in.' : undefined 
-      } 
+  // Auto-forward verified users straight to onboarding
+  useEffect(() => {
+    if (verificationStatus !== 'success') return;
+    const t = setTimeout(async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      navigate(session?.user ? '/onboarding' : '/auth', { replace: true });
+    }, 1200);
+    return () => clearTimeout(t);
+  }, [verificationStatus, navigate]);
+
+  const handleContinueToLogin = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.user) {
+      navigate('/onboarding', { replace: true });
+      return;
+    }
+    navigate('/auth', {
+      state: {
+        message: verificationStatus === 'success' ? 'Your email has been verified. Please sign in.' : undefined
+      }
     });
   };
 
