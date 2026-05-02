@@ -306,7 +306,7 @@ export default function Auth() {
         type: 'signup',
         email: verificationEmail,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/verify`,
+          emailRedirectTo: `${window.location.origin}/`,
         }
       }),
       "Resend email"

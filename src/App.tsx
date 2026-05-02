@@ -33,6 +33,7 @@ const Analytics = offlineLazy(() => import("./pages/AdvancedAnalytics"));
 const Marketplace = offlineLazy(() => import("./pages/Marketplace"));
 const CornellNotes = offlineLazy(() => import("./pages/CornellNotes"));
 const DataDictionary = offlineLazy(() => import("./pages/DataDictionary"));
+const AdminUsers = offlineLazy(() => import("./pages/AdminUsers"));
 
 
 // Import all auth and core page components
@@ -149,6 +150,11 @@ const App = () => (
                         <Route path="admin/data-dictionary" element={
                           <Suspense fallback={<OfflineSuspenseFallback pageName="Data Dictionary" />}>
                             <DataDictionary />
+                          </Suspense>
+                        } />
+                        <Route path="admin/users" element={
+                          <Suspense fallback={<OfflineSuspenseFallback pageName="User Management" />}>
+                            <AdminUsers />
                           </Suspense>
                         } />
                       </Route>
