@@ -143,15 +143,33 @@ export function useAssignments() {
   }) => {
     if (!user) return { data: null as Assignment | null, error: "Not authenticated" };
     try {
-      const { data, error } = await supabase
+      const baseInsert = {
+        ...assignment,
+        user_id: user.id,
+        original_due_date: assignment.due_date, // Store original due date
+      };
+
+      // Primary attempt: allow fractional hours (requires DB column to be numeric).
+      let { data, error } = await supabase
         .from("assignments")
-        .insert([{
-          ...assignment,
-          user_id: user.id,
-          original_due_date: assignment.due_date, // Store original due date
-        }])
+        .insert([baseInsert])
         .select()
         .single();
+
+      // Compatibility fallback: if backend still expects INTEGER estimated_hours, retry with rounded hours.
+      // This keeps creation working until the migration that makes estimated_hours numeric is applied.
+      if (error?.message?.includes("invalid input syntax for type integer") && typeof assignment.estimated_hours === "number") {
+        const roundedHours = Math.max(0, Math.round(assignment.estimated_hours));
+        ({ data, error } = await supabase
+          .from("assignments")
+          .insert([{
+            ...baseInsert,
+            estimated_hours: roundedHours,
+          }])
+          .select()
+          .single());
+      }
+
       if (error) throw error;
       await fetchAssignments();
       return { data: data as Assignment, error: null };
@@ -216,6 +234,19 @@ export function useAssignments() {
   useEffect(() => {
     fetchAssignments();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
+  // Allow other parts of the app (e.g. subtasks) to request a refresh
+  // without threading callbacks through many components.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handler = () => {
+      void fetchAssignments();
+    };
+
+    window.addEventListener("aqademiq:assignments:changed", handler);
+    return () => window.removeEventListener("aqademiq:assignments:changed", handler);
   }, [user?.id]);
 
   return {

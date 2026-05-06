@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -19,6 +19,7 @@ import { useAssignments, type Assignment } from "@/hooks/useAssignments";
 import { useExams } from "@/hooks/useExams";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useInputValidation } from "@/hooks/useInputValidation";
+import { Slider } from "@/components/ui/slider";
 
 const assignmentSchema = z.object({
   title: z.string()
@@ -30,7 +31,8 @@ const assignmentSchema = z.object({
     .optional(),
   course_id: z.string().min(1, "Please select a course"),
   due_date: z.date(),
-  estimated_hours: z.number().min(0.5).max(50),
+  // Stored as hours (can be fractional); UI uses a duration picker.
+  estimated_hours: z.number().min(0).max(200),
 });
 
 interface AddAssignmentDialogProps {
@@ -45,7 +47,21 @@ export function AddAssignmentDialog({ open, onOpenChange, onCreated, preselected
   const [description, setDescription] = useState("");
   const [course, setCourse] = useState(preselectedCourse || "");
   const [dueDate, setDueDate] = useState<Date>();
-  const [estimatedHours, setEstimatedHours] = useState(2);
+  // Duration picker state
+  const [estHours, setEstHours] = useState(2);
+  const [estMinutes, setEstMinutes] = useState(0);
+
+  const estimatedTotalMinutes = useMemo(() => {
+    const h = Number.isFinite(estHours) ? Math.max(0, Math.floor(estHours)) : 0;
+    const m = Number.isFinite(estMinutes) ? Math.min(59, Math.max(0, Math.floor(estMinutes))) : 0;
+    return h * 60 + m;
+  }, [estHours, estMinutes]);
+
+  const estimatedHoursDecimal = useMemo(() => {
+    // Keep a stable fractional hour value; round to 2 decimals for storage/display.
+    const hours = estimatedTotalMinutes / 60;
+    return Math.round(hours * 100) / 100;
+  }, [estimatedTotalMinutes]);
   
   // Recurring assignment fields
   const [isRecurring, setIsRecurring] = useState(false);
@@ -71,7 +87,7 @@ export function AddAssignmentDialog({ open, onOpenChange, onCreated, preselected
         description: description || undefined,
         course_id: course,
         due_date: dueDate.toISOString(),
-        estimated_hours: Math.round(Number(estimatedHours) || 0),
+        estimated_hours: estimatedHoursDecimal,
         is_recurring: isRecurring,
         recurrence_pattern: isRecurring ? recurrencePattern : undefined,
         recurrence_interval: isRecurring ? recurrenceInterval : undefined,
@@ -97,7 +113,8 @@ export function AddAssignmentDialog({ open, onOpenChange, onCreated, preselected
       setDescription("");
       setCourse(preselectedCourse || "");
       setDueDate(undefined);
-      setEstimatedHours(2);
+      setEstHours(2);
+      setEstMinutes(0);
       setIsRecurring(false);
       setRecurrencePattern("weekly");
       setRecurrenceInterval(1);
@@ -231,18 +248,64 @@ export function AddAssignmentDialog({ open, onOpenChange, onCreated, preselected
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="hours">Estimated Hours</Label>
-              <div className="flex items-center gap-2">
-                <Clock className="w-4 h-4 text-muted-foreground" />
-                <Input
-                  id="hours"
-                  type="number"
-                  min="0.5"
-                  step="0.5"
-                  value={estimatedHours}
-                  onChange={(e) => setEstimatedHours(Number(e.target.value))}
-                  className="flex-1"
-                />
+              <Label>Estimated Time</Label>
+
+              <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-3">
+                <div className="flex items-center gap-2 text-sm">
+                  <Clock className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-muted-foreground">
+                    Total: <span className="text-foreground font-medium">{estimatedHoursDecimal}</span> hour(s)
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <Label htmlFor="est-hours" className="text-xs text-muted-foreground">Hours</Label>
+                    <Input
+                      id="est-hours"
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={estHours}
+                      onChange={(e) => setEstHours(Number(e.target.value))}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="est-minutes" className="text-xs text-muted-foreground">Minutes</Label>
+                    <Input
+                      id="est-minutes"
+                      type="number"
+                      min="0"
+                      max="59"
+                      step="1"
+                      value={estMinutes}
+                      onChange={(e) => setEstMinutes(Number(e.target.value))}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>Quick adjust (minutes)</span>
+                    <span>{estimatedTotalMinutes} min</span>
+                  </div>
+                  <Slider
+                    value={[estimatedTotalMinutes]}
+                    min={0}
+                    max={8 * 60}
+                    step={5}
+                    onValueChange={([mins]) => {
+                      const total = Math.max(0, mins ?? 0);
+                      const h = Math.floor(total / 60);
+                      const m = total % 60;
+                      setEstHours(h);
+                      setEstMinutes(m);
+                    }}
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    You can set any duration — including under 30 minutes.
+                  </p>
+                </div>
               </div>
             </div>
           </div>

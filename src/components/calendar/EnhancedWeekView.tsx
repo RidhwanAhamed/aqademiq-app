@@ -2,7 +2,8 @@
 // useRealtimeCalendar data via services/api -> /api/calendar/events in backend.
 // TODO: API -> /api/calendar/events
 import React, { useState, useCallback, useMemo } from 'react';
-import { format, startOfWeek, addDays, isSameDay, addWeeks, subWeeks, isToday } from 'date-fns';
+import { format, startOfWeek, addDays, addWeeks, subWeeks, isToday } from 'date-fns';
+import { formatInTimeZone, toZonedTime } from 'date-fns-tz';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { CalendarEvent } from '@/hooks/useRealtimeCalendar';
@@ -10,6 +11,7 @@ import { cn } from '@/lib/utils';
 import { ChevronLeft, ChevronRight, Clock, MapPin, Plus } from 'lucide-react';
 import { AddCalendarEventDialog } from './AddCalendarEventDialog';
 import { EnhancedEventContextMenu } from './EnhancedEventContextMenu';
+import { getUserTimezone, isSameDayInTimezone } from '@/utils/timezone';
 
 const DAY_START_HOUR = 0;
 const DAY_END_HOUR = 24;
@@ -92,6 +94,7 @@ export function EnhancedWeekView({
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<{ date: Date; hour: number } | null>(null);
   const [draggedEvent, setDraggedEvent] = useState<CalendarEvent | null>(null);
+  const userTimezone = useMemo(() => getUserTimezone(), []);
 
   const currentWeek = useMemo(() => 
     startOfWeek(selectedDate, { weekStartsOn: 1 }), 
@@ -114,12 +117,12 @@ export function EnhancedWeekView({
     
     for (const day of weekDays) {
       const dayKey = format(day, 'yyyy-MM-dd');
-      const dayEvts = events.filter(event => isSameDay(event.start, day));
+      const dayEvts = events.filter(event => isSameDayInTimezone(event.start, day, userTimezone));
       dayEvents.set(dayKey, calculateEventPositions(dayEvts));
     }
     
     return dayEvents;
-  }, [events, weekDays]);
+  }, [events, userTimezone, weekDays]);
 
   const handlePrevWeek = () => {
     const newWeek = subWeeks(currentWeek, 1);
@@ -171,10 +174,12 @@ export function EnhancedWeekView({
     const isAdaCreated = (event.data as any)?.rotation_group === 'ada-ai';
 
     // Calculate position
-    const startHour = event.start.getHours();
-    const startMinute = event.start.getMinutes();
-    const endHour = event.end.getHours();
-    const endMinute = event.end.getMinutes();
+    const startInTz = toZonedTime(event.start, userTimezone);
+    const endInTz = toZonedTime(event.end, userTimezone);
+    const startHour = startInTz.getHours();
+    const startMinute = startInTz.getMinutes();
+    const endHour = endInTz.getHours();
+    const endMinute = endInTz.getMinutes();
 
     const startSlot = startHour - DAY_START_HOUR + (startMinute / 60);
     const duration = (endHour - startHour) + ((endMinute - startMinute) / 60);
@@ -210,7 +215,7 @@ export function EnhancedWeekView({
         }}
         onDragStart={() => handleEventDragStart(event)}
         draggable
-        title={`${event.title} - ${format(event.start, 'HH:mm')} to ${format(event.end, 'HH:mm')}`}
+        title={`${event.title} - ${formatInTimeZone(event.start, userTimezone, 'HH:mm')} to ${formatInTimeZone(event.end, userTimezone, 'HH:mm')}`}
       >
         <div className="flex items-center gap-1">
           <span className="font-medium text-foreground truncate flex-1">{event.title}</span>
@@ -223,7 +228,7 @@ export function EnhancedWeekView({
         <div className="flex items-center gap-1 text-muted-foreground">
           <Clock className="w-3 h-3" />
           <span className="text-[10px]">
-            {format(event.start, 'HH:mm')} - {format(event.end, 'HH:mm')}
+            {formatInTimeZone(event.start, userTimezone, 'HH:mm')} - {formatInTimeZone(event.end, userTimezone, 'HH:mm')}
           </span>
         </div>
         {event.location && height > 50 && (

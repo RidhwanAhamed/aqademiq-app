@@ -1,11 +1,13 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { format, addDays, subDays, isSameDay, isToday } from 'date-fns';
+import { format, addDays, subDays, isToday } from 'date-fns';
+import { formatInTimeZone, toZonedTime } from 'date-fns-tz';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { CalendarEvent } from '@/hooks/useRealtimeCalendar';
 import { cn } from '@/lib/utils';
 import { ChevronLeft, ChevronRight, Clock, MapPin, Plus } from 'lucide-react';
 import { AddCalendarEventDialog } from './AddCalendarEventDialog';
+import { getUserTimezone, isSameDayInTimezone } from '@/utils/timezone';
 
 const DAY_START_HOUR = 6;
 const DAY_END_HOUR = 22;
@@ -75,6 +77,7 @@ export function MobileWeekView({
 }: MobileWeekViewProps) {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<{ date: Date; hour: number } | null>(null);
+  const userTimezone = useMemo(() => getUserTimezone(), []);
 
   const timeSlots = useMemo(() => 
     Array.from({ length: HOURS_PER_DAY }, (_, i) => i + DAY_START_HOUR), 
@@ -107,8 +110,8 @@ export function MobileWeekView({
   }, [selectedDate, onTimeSlotClick]);
 
   const dayEvents = useMemo(() => 
-    events.filter(event => isSameDay(event.start, selectedDate)),
-    [events, selectedDate]
+    events.filter(event => isSameDayInTimezone(event.start, selectedDate, userTimezone)),
+    [events, selectedDate, userTimezone]
   );
 
   // Calculate positions for all day events
@@ -119,10 +122,10 @@ export function MobileWeekView({
 
   const getEventsForHour = useCallback((hour: number) => {
     return positionedEvents.filter(pe => {
-      const eventHour = pe.event.start.getHours();
+      const eventHour = toZonedTime(pe.event.start, userTimezone).getHours();
       return eventHour === hour;
     });
-  }, [positionedEvents]);
+  }, [positionedEvents, userTimezone]);
 
   const renderEventCard = (positionedEvent: PositionedEvent) => {
     const { event, column, totalColumns } = positionedEvent;
@@ -130,9 +133,11 @@ export function MobileWeekView({
     const isAdaCreated = (event.data as any)?.rotation_group === 'ada-ai';
     
     // Calculate vertical positioning
-    const startHour = event.start.getHours();
-    const startMinute = event.start.getMinutes();
-    const durationHours = (event.end.getTime() - event.start.getTime()) / (1000 * 60 * 60);
+    const startInTz = toZonedTime(event.start, userTimezone);
+    const endInTz = toZonedTime(event.end, userTimezone);
+    const startHour = startInTz.getHours();
+    const startMinute = startInTz.getMinutes();
+    const durationHours = (endInTz.getTime() - startInTz.getTime()) / (1000 * 60 * 60);
     
     const top = (startHour - DAY_START_HOUR) * HOUR_HEIGHT + (startMinute / 60) * HOUR_HEIGHT;
     const height = Math.max(durationHours * HOUR_HEIGHT - 4, 48);
@@ -186,7 +191,7 @@ export function MobileWeekView({
               <div className="flex items-center gap-1 text-muted-foreground mt-1">
                 <Clock className="w-3 h-3" />
                 <span className="text-xs">
-                  {format(event.start, 'h:mm a')} - {format(event.end, 'h:mm a')}
+                  {formatInTimeZone(event.start, userTimezone, 'h:mm a')} - {formatInTimeZone(event.end, userTimezone, 'h:mm a')}
                 </span>
               </div>
             )}
@@ -229,9 +234,9 @@ export function MobileWeekView({
                 onClick={() => onDateChange(day)}
                 className={cn(
                   "flex-1 flex flex-col items-center py-2 px-1 rounded-lg transition-colors min-w-[48px]",
-                  isSameDay(day, selectedDate) && "bg-primary text-primary-foreground",
-                  !isSameDay(day, selectedDate) && isToday(day) && "bg-primary/10",
-                  !isSameDay(day, selectedDate) && !isToday(day) && "hover:bg-muted"
+                  isSameDayInTimezone(day, selectedDate, userTimezone) && "bg-primary text-primary-foreground",
+                  !isSameDayInTimezone(day, selectedDate, userTimezone) && isToday(day) && "bg-primary/10",
+                  !isSameDayInTimezone(day, selectedDate, userTimezone) && !isToday(day) && "hover:bg-muted"
                 )}
               >
                 <span className="text-[10px] font-medium opacity-75">{format(day, 'EEE')}</span>

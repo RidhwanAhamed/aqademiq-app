@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { format, startOfWeek, endOfWeek, eachDayOfInterval, isToday, isSameDay, addWeeks, subWeeks } from 'date-fns';
+import { format, startOfWeek, endOfWeek, eachDayOfInterval, isToday, addWeeks, subWeeks } from 'date-fns';
+import { formatInTimeZone } from 'date-fns-tz';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -9,6 +10,7 @@ import { CalendarEvent } from '@/hooks/useRealtimeCalendar';
 import { cn } from '@/lib/utils';
 import { ChevronLeft, ChevronRight, Calendar, Clock, MapPin, AlertCircle, CheckCircle } from 'lucide-react';
 import { EnhancedEventContextMenu } from './EnhancedEventContextMenu';
+import { getUserTimezone, isSameDayInTimezone } from '@/utils/timezone';
 
 interface EnhancedAgendaViewProps {
   selectedDate: Date;
@@ -35,6 +37,7 @@ export function EnhancedAgendaView({
   onEventDuplicate,
   onEventReschedule
 }: EnhancedAgendaViewProps) {
+  const userTimezone = useMemo(() => getUserTimezone(), []);
   const currentWeek = useMemo(() => 
     startOfWeek(selectedDate, { weekStartsOn: 1 }), 
     [selectedDate]
@@ -64,7 +67,7 @@ export function EnhancedAgendaView({
 
   const getEventsForDay = (day: Date) => {
     return events
-      .filter(event => isSameDay(event.start, day))
+      .filter(event => isSameDayInTimezone(event.start, day, userTimezone))
       .sort((a, b) => a.start.getTime() - b.start.getTime());
   };
 
@@ -137,7 +140,7 @@ export function EnhancedAgendaView({
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Clock className="w-4 h-4" />
                 <span>
-                  {format(event.start, 'HH:mm')} - {format(event.end, 'HH:mm')}
+                  {formatInTimeZone(event.start, userTimezone, 'HH:mm')} - {formatInTimeZone(event.end, userTimezone, 'HH:mm')}
                 </span>
                 <span className="text-xs">
                   ({Math.round((event.end.getTime() - event.start.getTime()) / (1000 * 60))} min)
@@ -252,7 +255,7 @@ export function EnhancedAgendaView({
                   <div key={event.id} className="text-sm">
                     <span className="font-medium">{event.title}</span>
                     <span className="text-muted-foreground ml-2">
-                      {format(event.start, 'MMM d, HH:mm')}
+                      {formatInTimeZone(event.start, userTimezone, 'MMM d, HH:mm')}
                     </span>
                   </div>
                 ))}
@@ -338,7 +341,7 @@ export function EnhancedAgendaView({
                         <div className="min-w-0 flex-1">
                           <p className="font-medium text-sm truncate">{event.title}</p>
                           <p className="text-xs text-muted-foreground">
-                            {format(event.start, 'MMM d, HH:mm')}
+                            {formatInTimeZone(event.start, userTimezone, 'MMM d, HH:mm')}
                           </p>
                         </div>
                       </div>

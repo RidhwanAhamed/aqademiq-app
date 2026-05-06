@@ -140,27 +140,33 @@ export function useSubtasks(assignmentId?: string) {
 
       if (error) throw error;
 
-      setSubtasks((prev) =>
-        prev.map((task) =>
-          task.id === taskId
-            ? { ...task, is_completed: completed, completed_at: completed ? new Date().toISOString() : null }
-            : task
-        )
+      const completedAt = completed ? new Date().toISOString() : null;
+      const updatedTasks = subtasks.map((t) =>
+        t.id === taskId ? { ...t, is_completed: completed, completed_at: completedAt } : t
       );
 
-      // Update parent assignment completion percentage
+      setSubtasks(updatedTasks);
+
+      // Keep UI responsive: update assignment progress + completion status.
+      // (Database trigger also enforces this server-side for correctness.)
       if (assignmentId) {
-        const updatedTasks = subtasks.map((t) =>
-          t.id === taskId ? { ...t, is_completed: completed } : t
-        );
         const completedCount = updatedTasks.filter((t) => t.is_completed).length;
         const totalCount = updatedTasks.length;
         const percentage = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+        const isCompleted = totalCount > 0 && completedCount === totalCount;
 
         await supabase
           .from("assignments")
-          .update({ completion_percentage: percentage })
+          .update({
+            completion_percentage: isCompleted ? 100 : percentage,
+            is_completed: isCompleted,
+          })
           .eq("id", assignmentId);
+
+        // Ensure any screens using `useAssignments()` refresh their list.
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new Event("aqademiq:assignments:changed"));
+        }
       }
     } catch (err) {
       console.error("Error toggling subtask:", err);

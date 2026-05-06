@@ -89,7 +89,8 @@ export function EnhancedMonthView({
         key={event.id}
         className={cn(
           "text-xs p-1 rounded-sm border-l-2 cursor-pointer transition-all duration-200 hover:shadow-sm mb-1",
-          "bg-gradient-to-r from-white/80 to-white/60 dark:from-card/80 dark:to-card/60",
+          // Use semantic tokens so this stays readable even if OS light mode is enabled.
+          "bg-card/80 text-card-foreground",
           hasConflict && "ring-1 ring-destructive",
           isAllDay && "bg-gradient-to-r from-primary/20 to-primary/10"
         )}
@@ -102,7 +103,7 @@ export function EnhancedMonthView({
         }}
         title={`${event.title} - ${format(event.start, 'HH:mm')} to ${format(event.end, 'HH:mm')}`}
       >
-        <div className="font-medium text-foreground truncate leading-none">
+        <div className="font-medium truncate leading-none">
           {event.type === 'exam' && '📝 '}
           {event.type === 'assignment' && '📋 '}
           {event.type === 'schedule' && '🎓 '}
@@ -254,7 +255,8 @@ export function EnhancedMonthView({
                         "min-h-[120px] p-2 border-r border-b border-border cursor-pointer transition-all duration-200 hover:bg-muted/30 group",
                         !isCurrentMonth && "opacity-50 bg-muted/10",
                         isToday_ && "bg-primary/5 ring-1 ring-primary/20",
-                        hasEvents && "bg-gradient-to-br from-white to-muted/20 dark:from-card dark:to-muted/10"
+                        // Avoid raw white backgrounds when system light mode is on.
+                        hasEvents && "bg-card/40"
                       )}
                       onClick={() => handleDayClick(day, hasEvents)}
                     >
