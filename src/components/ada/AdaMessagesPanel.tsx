@@ -78,6 +78,7 @@ interface AdaMessagesPanelProps {
   onConfirmAction: (index: number) => void;
   onCancelAction: (index: number) => void;
   onQuickSuggestion: (text: string) => void;
+  onQuickAction: (text: string) => void;
 }
 
 export const AdaMessagesPanel = memo(function AdaMessagesPanel({
@@ -90,7 +91,8 @@ export const AdaMessagesPanel = memo(function AdaMessagesPanel({
   onSyncToGoogle,
   onConfirmAction,
   onCancelAction,
-  onQuickSuggestion
+  onQuickSuggestion,
+  onQuickAction
 }: AdaMessagesPanelProps) {
   const scrollViewportRef = useRef<HTMLDivElement>(null);
   const prevMessagesLengthRef = useRef(messages.length);
@@ -156,9 +158,10 @@ export const AdaMessagesPanel = memo(function AdaMessagesPanel({
         onReaction={onReaction}
         onAddToCalendar={onAddToCalendar}
         onSyncToGoogle={onSyncToGoogle}
+        onQuickAction={onQuickAction}
       />
     ));
-  }, [messages, highContrast, onCopy, onReaction, onAddToCalendar, onSyncToGoogle]);
+  }, [messages, highContrast, onCopy, onReaction, onAddToCalendar, onSyncToGoogle, onQuickAction]);
 
   // Memoize pending actions UI
   const pendingActionsUI = useMemo(() => {

@@ -49,6 +49,10 @@ import {
   X
 } from 'lucide-react';
 
+function proactivePendingKey(userId: string, dedupe: string) {
+  return `ada_proactive_autosend_pending:${userId}:${dedupe}`;
+}
+
 interface ScheduleConflict {
   conflict_type: string;
   conflict_id: string;
@@ -125,6 +129,10 @@ interface AdaAIChatProps {
   onConversationChange?: (id: string) => void;
   onHistoryToggle?: () => void;
   isHistoryOpen?: boolean;
+  /** From dashboard proactive bubbles: send once, then parent clears location state. */
+  autoSendPrompt?: string | null;
+  autoSendDedupeKey?: string | null;
+  onAutoSendPromptConsumed?: () => void;
 }
 
 export function AdaAIChat({
@@ -133,7 +141,10 @@ export function AdaAIChat({
   selectedConversationId,
   onConversationChange,
   onHistoryToggle,
-  isHistoryOpen
+  isHistoryOpen,
+  autoSendPrompt,
+  autoSendDedupeKey,
+  onAutoSendPromptConsumed
 }: AdaAIChatProps = {}) {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -1836,6 +1847,30 @@ export function AdaAIChat({
     }
   }, [user, isProcessing, messageCount, pendingFile, tokenUsage, uploadAndIndexFile, wantsScheduleParsing, processFileWithAgenticAI, saveChatMessage, playNotificationSound, toast, handleChatBadgeUnlock, executeCreateCornellNotes, fetchTokenUsage, pendingFileCourseId, currentCourseId, detectCourseFromMessage, userCourses, messages, currentMode, mapPlannedActionToAdaAction]);
 
+  useEffect(() => {
+    const text = autoSendPrompt?.trim();
+    if (!text || !user || !autoSendDedupeKey) return;
+
+    const storageKey = proactivePendingKey(user.id, autoSendDedupeKey);
+    try {
+      if (typeof sessionStorage !== "undefined" && sessionStorage.getItem(storageKey)) {
+        return;
+      }
+      sessionStorage.setItem(storageKey, "1");
+    } catch {
+      // private mode / quota — still attempt one send
+    }
+
+    void handleSendMessage(text).finally(() => {
+      try {
+        sessionStorage.removeItem(storageKey);
+      } catch {
+        /* ignore */
+      }
+      onAutoSendPromptConsumed?.();
+    });
+  }, [autoSendPrompt, autoSendDedupeKey, user, handleSendMessage, onAutoSendPromptConsumed]);
+
   // Voice toggle
   const handleVoiceToggle = useCallback(async () => {
     if (!isSpeechSupported) {
@@ -1886,6 +1921,11 @@ export function AdaAIChat({
     inputPanelRef.current?.setValue(text);
     inputPanelRef.current?.focus();
   }, []);
+
+  const handleQuickAction = useCallback((text: string) => {
+    // Bubble click should actually “do the next step”, not just fill the input.
+    void handleSendMessage(text);
+  }, [handleSendMessage]);
 
   return (
     <>
@@ -1966,6 +2006,7 @@ export function AdaAIChat({
             onConfirmAction={handleConfirmAction}
             onCancelAction={handleCancelAction}
             onQuickSuggestion={handleQuickSuggestion}
+            onQuickAction={handleQuickAction}
           />
         </div>
 

@@ -115,11 +115,11 @@ function NudgeCard({ nudge, onDismiss, onSnooze, onAction }: NudgeCardProps) {
   const getIcon = () => {
     switch (nudge.type) {
       case "skip_warning":
-        return <Sparkles className="h-5 w-5 text-amber-500" />;
+        return <Sparkles className="h-5 w-5 text-warning" />;
       case "deadline_urgent":
-        return <AlertTriangle className="h-5 w-5 text-red-500" />;
+        return <AlertTriangle className="h-5 w-5 text-destructive" />;
       case "overdue":
-        return <Clock className="h-5 w-5 text-red-500" />;
+        return <Clock className="h-5 w-5 text-destructive" />;
       case "breakdown_suggest":
         return <Zap className="h-5 w-5 text-primary" />;
       default:
@@ -127,22 +127,27 @@ function NudgeCard({ nudge, onDismiss, onSnooze, onAction }: NudgeCardProps) {
     }
   };
 
+  // Use semantic theme tokens (defined in :root and .dark in index.css) so the
+  // popup is readable regardless of the OS-level light/dark preference. Raw
+  // Tailwind palette colors like `from-red-50` were producing near-white
+  // backgrounds in system light mode, which collided with the near-white
+  // `--foreground` and made the card unreadable.
   const getBackground = () => {
     switch (nudge.type) {
       case "deadline_urgent":
       case "overdue":
-        return "bg-gradient-to-br from-red-50 to-orange-50 dark:from-red-950/50 dark:to-orange-950/50 border-red-200 dark:border-red-800";
+        return "bg-card border-destructive/40 ring-1 ring-destructive/20";
       case "skip_warning":
-        return "bg-gradient-to-br from-amber-50 to-yellow-50 dark:from-amber-950/50 dark:to-yellow-950/50 border-amber-200 dark:border-amber-800";
+        return "bg-card border-warning/40 ring-1 ring-warning/20";
       default:
-        return "bg-gradient-to-br from-primary/5 to-primary/10 dark:from-primary/10 dark:to-primary/20 border-primary/20";
+        return "bg-card border-primary/30 ring-1 ring-primary/15";
     }
   };
 
   return (
     <div
       className={cn(
-        "relative rounded-xl border p-4 shadow-lg backdrop-blur-sm",
+        "relative rounded-xl border p-4 shadow-elevated backdrop-blur-md text-card-foreground",
         getBackground()
       )}
     >

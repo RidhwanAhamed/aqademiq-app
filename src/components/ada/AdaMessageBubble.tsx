@@ -33,6 +33,7 @@ interface AdaMessageBubbleProps {
   onReaction: (messageId: string, reaction: string) => void;
   onAddToCalendar?: (data: any) => void;
   onSyncToGoogle?: (data: any) => void;
+  onQuickAction?: (text: string) => void;
 }
 
 export const AdaMessageBubble = memo(function AdaMessageBubble({
@@ -42,7 +43,8 @@ export const AdaMessageBubble = memo(function AdaMessageBubble({
   onCopy,
   onReaction,
   onAddToCalendar,
-  onSyncToGoogle
+  onSyncToGoogle,
+  onQuickAction
 }: AdaMessageBubbleProps) {
   const isUser = message.is_user;
   const hasCalendarData = message.metadata?.can_add_to_calendar;
@@ -107,6 +109,36 @@ export const AdaMessageBubble = memo(function AdaMessageBubble({
     if (!shouldTypewriter) return message.message;
     return message.message.slice(0, revealedCount);
   }, [message.message, revealedCount, shouldTypewriter]);
+
+  const quickActions = useMemo(() => {
+    if (isUser) return [];
+    const raw = typeof message.message === 'string' ? message.message : '';
+    const match = raw.match(/<BUBBLES>\s*([\s\S]*?)\s*<\/BUBBLES>/i);
+    if (!match?.[1]) return [];
+
+    const lines = match[1]
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean);
+
+    const actions: Array<{ label: string; text: string }> = [];
+    for (const line of lines) {
+      const normalized = line.startsWith('-') ? line.slice(1).trim() : line;
+      const parts = normalized.split('|').map((p) => p.trim()).filter(Boolean);
+      if (parts.length < 2) continue;
+      const [label, ...rest] = parts;
+      const text = rest.join(' | ').trim();
+      if (!label || !text) continue;
+      actions.push({ label, text });
+    }
+    return actions.slice(0, 6);
+  }, [isUser, message.message]);
+
+  const messageForRender = useMemo(() => {
+    if (!renderedMessage) return renderedMessage;
+    // Hide bubble tag section from markdown rendering.
+    return renderedMessage.replace(/<BUBBLES>[\s\S]*?<\/BUBBLES>/gi, '').trim();
+  }, [renderedMessage]);
 
   const isTyping = shouldTypewriter && revealedCount < message.message.length;
 
@@ -181,9 +213,30 @@ export const AdaMessageBubble = memo(function AdaMessageBubble({
                 blockquote: ({...props}) => <blockquote className="border-l-4 border-primary pl-3 sm:pl-4 italic text-muted-foreground mb-2" {...props} />,
               }}
             >
-              {renderedMessage}
+              {messageForRender || ' '}
             </ReactMarkdown>
           </div>
+
+          {!isUser && quickActions.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {quickActions.map((a, idx) => (
+                <Button
+                  key={`${message.id}-qa-${idx}`}
+                  type="button"
+                  variant="outline"
+                  className="rounded-full h-8 px-3 text-xs touch-target bg-background/60 hover:bg-background"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onQuickAction?.(a.text);
+                  }}
+                  aria-label={a.label}
+                  title={a.text}
+                >
+                  {a.label}
+                </Button>
+              ))}
+            </div>
+          )}
 
           {/* Subtle typing caret (ChatGPT-like) */}
           {!isUser && isTyping && (

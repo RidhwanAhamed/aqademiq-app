@@ -7,10 +7,18 @@ import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Menu, Maximize2, Minimize2 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+
+type AdaLocationState = {
+  prompt?: string;
+  proactiveKey?: string;
+};
 
 const Ada = () => {
   const { user } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [refreshKey, setRefreshKey] = useState(0);
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
@@ -103,6 +111,17 @@ const Ada = () => {
     }
   };
 
+  const navState = location.state as AdaLocationState | null | undefined;
+  const navPrompt = typeof navState?.prompt === "string" ? navState.prompt.trim() : "";
+  const navProactiveKey =
+    typeof navState?.proactiveKey === "string" && navState.proactiveKey
+      ? navState.proactiveKey
+      : navPrompt || null;
+
+  const clearNavBootstrap = useCallback(() => {
+    navigate(location.pathname, { replace: true, state: {} });
+  }, [navigate, location.pathname]);
+
   return (
     <div
       ref={adaContainerRef}
@@ -131,6 +150,9 @@ const Ada = () => {
           onFullScreenToggle={handleToggleFullscreen}
           onHistoryToggle={handleToggleHistory}
           isHistoryOpen={isHistoryOpen}
+          autoSendPrompt={navPrompt || null}
+          autoSendDedupeKey={navProactiveKey}
+          onAutoSendPromptConsumed={clearNavBootstrap}
         />
       </div>
 
