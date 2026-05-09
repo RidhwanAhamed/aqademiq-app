@@ -33,6 +33,7 @@ interface TimerSettingsDialogProps {
   onOpenChange: (open: boolean) => void;
   soundSettings: SoundSettings;
   onSoundSettingsChange: (settings: Partial<SoundSettings>) => void;
+  container?: HTMLElement | null;
 }
 
 const SOUND_OPTIONS = [
@@ -55,6 +56,7 @@ export function TimerSettingsDialog({
   onOpenChange,
   soundSettings,
   onSoundSettingsChange,
+  container,
 }: TimerSettingsDialogProps) {
   const [localSettings, setLocalSettings] = useState(soundSettings);
   const [playingSound, setPlayingSound] = useState<string | null>(null);
@@ -118,7 +120,7 @@ export function TimerSettingsDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleDialogChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[500px]" container={container}>
         <DialogHeader>
           <DialogTitle>Timer Settings</DialogTitle>
           <DialogDescription>
@@ -164,7 +166,7 @@ export function TimerSettingsDialog({
                 <SelectTrigger className="flex-1">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent container={container}>
                   {SOUND_OPTIONS.map((option) => (
                     <SelectItem key={option.value} value={option.value}>
                       <div className="flex flex-col">
@@ -204,7 +206,7 @@ export function TimerSettingsDialog({
                 <SelectTrigger className="flex-1">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent container={container}>
                   {SOUND_OPTIONS.map((option) => (
                     <SelectItem key={option.value} value={option.value}>
                       <div className="flex flex-col">

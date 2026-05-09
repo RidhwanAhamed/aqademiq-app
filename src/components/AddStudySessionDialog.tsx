@@ -20,9 +20,10 @@ import { format, parse } from "date-fns";
 interface AddStudySessionDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  container?: HTMLElement | null;
 }
 
-export function AddStudySessionDialog({ open, onOpenChange }: AddStudySessionDialogProps) {
+export function AddStudySessionDialog({ open, onOpenChange, container }: AddStudySessionDialogProps) {
   const { user } = useAuth();
   const { courses } = useCourses();
   const { assignments } = useAssignments();
@@ -195,7 +196,7 @@ export function AddStudySessionDialog({ open, onOpenChange }: AddStudySessionDia
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" container={container}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Clock className="w-5 h-5 text-primary" />
@@ -225,7 +226,7 @@ export function AddStudySessionDialog({ open, onOpenChange }: AddStudySessionDia
                     {formData.startDate ? format(parse(formData.startDate, 'yyyy-MM-dd', new Date()), 'PPP') : "Pick a date"}
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-0 bg-background border shadow-lg z-50" align="start" sideOffset={5}>
+                <PopoverContent className="w-auto p-0 bg-background border shadow-lg z-50" align="start" sideOffset={5} container={container}>
                   <CalendarComponent
                     mode="single"
                     selected={parse(formData.startDate, 'yyyy-MM-dd', new Date())}
@@ -290,7 +291,7 @@ export function AddStudySessionDialog({ open, onOpenChange }: AddStudySessionDia
                 <SelectTrigger>
                   <SelectValue placeholder="None" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent container={container}>
                   <SelectItem value="none">None</SelectItem>
                   <SelectItem value="course">Course</SelectItem>
                   <SelectItem value="assignment">Assignment</SelectItem>
@@ -306,7 +307,7 @@ export function AddStudySessionDialog({ open, onOpenChange }: AddStudySessionDia
                   <SelectTrigger>
                     <SelectValue placeholder="Select a course" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent container={container}>
                      {courses?.map((course) => (
                        <SelectItem key={course.id} value={course.id}>
                          {course.name}
@@ -325,7 +326,7 @@ export function AddStudySessionDialog({ open, onOpenChange }: AddStudySessionDia
                     <SelectTrigger>
                       <SelectValue placeholder="Filter by course" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent container={container}>
                       <SelectItem value="__all__">All courses</SelectItem>
                        {courses?.map((course) => (
                          <SelectItem key={course.id} value={course.id}>
@@ -341,7 +342,7 @@ export function AddStudySessionDialog({ open, onOpenChange }: AddStudySessionDia
                     <SelectTrigger>
                       <SelectValue placeholder="Select an assignment" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent container={container}>
                        {filteredAssignments.length > 0 ? (
                          filteredAssignments.map((assignment) => (
                            <SelectItem key={assignment.id} value={assignment.id}>
@@ -365,7 +366,7 @@ export function AddStudySessionDialog({ open, onOpenChange }: AddStudySessionDia
                     <SelectTrigger>
                       <SelectValue placeholder="Filter by course" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent container={container}>
                       <SelectItem value="__all__">All courses</SelectItem>
                        {courses?.map((course) => (
                          <SelectItem key={course.id} value={course.id}>
@@ -381,7 +382,7 @@ export function AddStudySessionDialog({ open, onOpenChange }: AddStudySessionDia
                     <SelectTrigger>
                       <SelectValue placeholder="Select an exam" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent container={container}>
                        {filteredExams.length > 0 ? (
                          filteredExams.map((exam) => (
                            <SelectItem key={exam.id} value={exam.id}>

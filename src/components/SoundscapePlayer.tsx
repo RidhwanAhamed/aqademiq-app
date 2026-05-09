@@ -48,9 +48,10 @@ import { SoundscapeId, StudyType } from '@/utils/soundscapeEngine';
 
 interface SoundscapePlayerProps {
   className?: string;
+  container?: HTMLElement | null;
 }
 
-export function SoundscapePlayer({ className }: SoundscapePlayerProps) {
+export function SoundscapePlayer({ className, container }: SoundscapePlayerProps) {
   const [showPicker, setShowPicker] = useState(false);
   const [loadingId, setLoadingId] = useState<SoundscapeId | null>(null);
   
@@ -131,6 +132,7 @@ export function SoundscapePlayer({ className }: SoundscapePlayerProps) {
         className="w-[340px] p-0" 
         align="end"
         aria-label="Soundscape controls"
+        container={container}
       >
         {showPicker ? (
           // Soundscape Picker View
@@ -284,7 +286,7 @@ export function SoundscapePlayer({ className }: SoundscapePlayerProps) {
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select study type" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent container={container}>
                   {studyTypes.map((type) => (
                     <SelectItem key={type.id} value={type.id}>
                       <div className="flex flex-col items-start">

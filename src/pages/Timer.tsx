@@ -22,6 +22,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Badge as BadgeType } from "@/types/badges";
 import { BookOpen, Clock, Coffee, FileText, GraduationCap, Maximize2, Minimize2, Pause, Play, Plus, RotateCcw, Settings, SlidersHorizontal, Sparkles, Target, Volume2, VolumeX } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { cn } from "@/lib/utils";
 
 export default function Timer() {
   const [showStudySessionDialog, setShowStudySessionDialog] = useState(false);
@@ -320,7 +321,13 @@ export default function Timer() {
   const progress = ((presets[mode] - timeLeft) / presets[mode]) * 100;
 
   return (
-    <div ref={timerContainerRef} className="p-4 sm:p-6 space-y-4 sm:space-y-6 min-h-screen bg-background">
+    <div 
+      ref={timerContainerRef} 
+      className={cn(
+        "flex flex-col p-4 sm:p-6 space-y-4 sm:space-y-6 min-h-screen bg-background",
+        isFullscreen && "overflow-y-auto max-h-screen"
+      )}
+    >
       {/* Header - responsive */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <div>
@@ -328,7 +335,7 @@ export default function Timer() {
           <p className="text-sm sm:text-base text-muted-foreground">Focus with Pomodoro technique</p>
         </div>
         <div className="flex gap-2">
-          <SoundscapePlayer />
+          <SoundscapePlayer container={timerContainerRef.current} />
           <WhiteNoisePlayer />
           <Button 
             onClick={() => setSettingsOpen(true)}
@@ -375,7 +382,10 @@ export default function Timer() {
         />
       )}
 
-      <div className={`grid ${isFullscreen ? 'grid-cols-1 max-w-4xl mx-auto' : 'grid-cols-1 lg:grid-cols-2'} gap-4 sm:gap-6`}>
+      <div className={cn(
+        "grid gap-4 sm:gap-6",
+        isFullscreen ? "grid-cols-1 max-w-4xl mx-auto flex-1 flex flex-col justify-center w-full" : "grid-cols-1 lg:grid-cols-2"
+      )}>
         {/* Timer */}
         <Card className="bg-gradient-card">
           <CardHeader className="pb-2 sm:pb-4">
@@ -409,7 +419,7 @@ export default function Timer() {
                 <SelectTrigger className="w-full sm:w-56 mx-auto h-12 sm:h-10">
                   <SelectValue placeholder="Select timer mode" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent container={timerContainerRef.current}>
                   <SelectItem value="custom">Custom Timer</SelectItem>
                   <SelectItem value="focus-25">Focus (25 min)</SelectItem>
                   <SelectItem value="focus-45">Deep Focus (45 min)</SelectItem>
@@ -433,7 +443,7 @@ export default function Timer() {
                       <SelectTrigger className="w-20 h-12 text-center text-lg font-medium">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent className="max-h-48">
+                      <SelectContent className="max-h-48" container={timerContainerRef.current}>
                         {Array.from({ length: 24 }, (_, i) => (
                           <SelectItem key={i} value={String(i)} className="text-center">
                             {i}
@@ -453,7 +463,7 @@ export default function Timer() {
                       <SelectTrigger className="w-20 h-12 text-center text-lg font-medium">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent className="max-h-48">
+                      <SelectContent className="max-h-48" container={timerContainerRef.current}>
                         {Array.from({ length: 60 }, (_, i) => (
                           <SelectItem key={i} value={String(i)} className="text-center">
                             {i}
@@ -473,7 +483,7 @@ export default function Timer() {
                       <SelectTrigger className="w-20 h-12 text-center text-lg font-medium">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent className="max-h-48">
+                      <SelectContent className="max-h-48" container={timerContainerRef.current}>
                         {Array.from({ length: 60 }, (_, i) => (
                           <SelectItem key={i} value={String(i)} className="text-center">
                             {i}
@@ -487,7 +497,7 @@ export default function Timer() {
               )}
               
               <div className="flex items-center justify-center gap-3">
-                <div className={`${isFullscreen ? 'text-9xl' : 'text-5xl sm:text-6xl lg:text-7xl'} font-mono font-bold text-primary transition-all`}>
+                <div className={`${isFullscreen ? 'text-7xl sm:text-8xl lg:text-9xl' : 'text-5xl sm:text-6xl lg:text-7xl'} font-mono font-bold text-primary transition-all`}>
                   {formatTime(timeLeft)}
                 </div>
                 {soundSettings.enabled ? (
@@ -628,6 +638,7 @@ export default function Timer() {
       <AddStudySessionDialog
         open={showStudySessionDialog}
         onOpenChange={setShowStudySessionDialog}
+        container={timerContainerRef.current}
       />
       
       <TimerSettingsDialog
@@ -635,6 +646,7 @@ export default function Timer() {
         onOpenChange={setSettingsOpen}
         soundSettings={soundSettings}
         onSoundSettingsChange={updateSoundSettings}
+        container={timerContainerRef.current}
       />
 
       <AchievementUnlockModal
