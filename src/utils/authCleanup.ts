@@ -1,7 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { logger } from '@/utils/logger';
 import { STORAGE_KEYS } from '@/services/offline/types';
-
+// please be careful while pushing changes to the mian branch 
 // Keys that should NEVER be cleared during auth cleanup (offline data)
 const PROTECTED_KEYS = [
   STORAGE_KEYS.ENTITIES,
