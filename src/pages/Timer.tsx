@@ -22,6 +22,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Badge as BadgeType } from "@/types/badges";
 import { BookOpen, Clock, Coffee, FileText, GraduationCap, Maximize2, Minimize2, Pause, Play, Plus, RotateCcw, Settings, SlidersHorizontal, Sparkles, Target, Volume2, VolumeX } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { cn } from "@/lib/utils";
 
 export default function Timer() {
   const [showStudySessionDialog, setShowStudySessionDialog] = useState(false);
@@ -96,14 +97,19 @@ export default function Timer() {
     }
   }, [timeLeft, isRunning, sessionsCompleted]);
 
-  // Handle fullscreen changes
+  // Handle fullscreen changes (standard + webkit)
   useEffect(() => {
     const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
+      const d = document as Document & { webkitFullscreenElement?: Element | null };
+      setIsFullscreen(!!(document.fullscreenElement ?? d.webkitFullscreenElement));
     };
 
     document.addEventListener('fullscreenchange', handleFullscreenChange);
-    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+    };
   }, []);
 
   const handleTimerComplete = async () => {
@@ -248,10 +254,16 @@ export default function Timer() {
 
   const handleToggleFullscreen = () => {
     const elem = timerContainerRef.current;
-    if (!document.fullscreenElement) {
-      elem?.requestFullscreen?.();
+    const fsDoc = document as Document & { webkitFullscreenElement?: Element | null };
+    const isFs = document.fullscreenElement ?? fsDoc.webkitFullscreenElement;
+    if (!isFs) {
+      (document.activeElement as HTMLElement | null)?.blur?.();
+      elem?.requestFullscreen?.().catch(() => {});
     } else {
-      document.exitFullscreen();
+      const doc = document as Document & { webkitExitFullscreen?: () => Promise<void> | void };
+      const p = document.exitFullscreen?.();
+      if (p) void p.catch(() => {});
+      else void Promise.resolve(doc.webkitExitFullscreen?.()).catch(() => {});
     }
   };
 
@@ -319,10 +331,26 @@ export default function Timer() {
 
   const progress = ((presets[mode] - timeLeft) / presets[mode]) * 100;
 
+  const selectPortalContainer =
+    isFullscreen ? timerContainerRef.current ?? undefined : undefined;
+
   return (
-    <div ref={timerContainerRef} className="p-4 sm:p-6 space-y-4 sm:space-y-6 min-h-screen bg-background">
+    <div
+      ref={timerContainerRef}
+      className={cn(
+        "p-4 sm:p-6 bg-background",
+        isFullscreen
+          ? "min-h-[100dvh] flex flex-col"
+          : "min-h-screen space-y-4 sm:space-y-6"
+      )}
+    >
       {/* Header - responsive */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+      <div
+        className={cn(
+          "flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4",
+          isFullscreen && "shrink-0"
+        )}
+      >
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Study Timer</h1>
           <p className="text-sm sm:text-base text-muted-foreground">Focus with Pomodoro technique</p>
@@ -375,7 +403,17 @@ export default function Timer() {
         />
       )}
 
-      <div className={`grid ${isFullscreen ? 'grid-cols-1 max-w-4xl mx-auto' : 'grid-cols-1 lg:grid-cols-2'} gap-4 sm:gap-6`}>
+      <div
+        className={cn(
+          isFullscreen && "flex-1 flex flex-col justify-center min-h-0 py-4"
+        )}
+      >
+      <div
+        className={cn(
+          "grid gap-4 sm:gap-6",
+          isFullscreen ? "grid-cols-1 max-w-4xl mx-auto w-full" : "grid-cols-1 lg:grid-cols-2"
+        )}
+      >
         {/* Timer */}
         <Card className="bg-gradient-card">
           <CardHeader className="pb-2 sm:pb-4">
@@ -409,7 +447,7 @@ export default function Timer() {
                 <SelectTrigger className="w-full sm:w-56 mx-auto h-12 sm:h-10">
                   <SelectValue placeholder="Select timer mode" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent container={selectPortalContainer}>
                   <SelectItem value="custom">Custom Timer</SelectItem>
                   <SelectItem value="focus-25">Focus (25 min)</SelectItem>
                   <SelectItem value="focus-45">Deep Focus (45 min)</SelectItem>
@@ -433,7 +471,7 @@ export default function Timer() {
                       <SelectTrigger className="w-20 h-12 text-center text-lg font-medium">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent className="max-h-48">
+                      <SelectContent className="max-h-48" container={selectPortalContainer}>
                         {Array.from({ length: 24 }, (_, i) => (
                           <SelectItem key={i} value={String(i)} className="text-center">
                             {i}
@@ -453,7 +491,7 @@ export default function Timer() {
                       <SelectTrigger className="w-20 h-12 text-center text-lg font-medium">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent className="max-h-48">
+                      <SelectContent className="max-h-48" container={selectPortalContainer}>
                         {Array.from({ length: 60 }, (_, i) => (
                           <SelectItem key={i} value={String(i)} className="text-center">
                             {i}
@@ -473,7 +511,7 @@ export default function Timer() {
                       <SelectTrigger className="w-20 h-12 text-center text-lg font-medium">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent className="max-h-48">
+                      <SelectContent className="max-h-48" container={selectPortalContainer}>
                         {Array.from({ length: 60 }, (_, i) => (
                           <SelectItem key={i} value={String(i)} className="text-center">
                             {i}
@@ -568,6 +606,7 @@ export default function Timer() {
             </div>
           </CardContent>
         </Card>
+      </div>
       </div>
 
       {/* Recent Sessions - Hidden in fullscreen */}

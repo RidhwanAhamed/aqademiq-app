@@ -9,11 +9,13 @@ import { LogOut, Menu, Loader2 } from "lucide-react";
 import { useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { useKeyboardHeight } from "@/hooks/useKeyboardHeight";
+import { useDocumentFullscreen } from "@/hooks/useDocumentFullscreen";
 
 export function AppLayout() {
   const { signOut, user, loading } = useAuth();
   const navigate = useNavigate();
   const { isKeyboardVisible } = useKeyboardHeight();
+  const isDocumentFullscreen = useDocumentFullscreen();
 
   useEffect(() => {
     if (!loading && !user) {
@@ -43,7 +45,12 @@ export function AppLayout() {
         
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
           {/* Mobile Header - with iOS safe area support */}
-          <header className="lg:hidden border-b bg-card/95 backdrop-blur-lg flex items-center justify-between px-4 sticky top-0 z-40 pt-[env(safe-area-inset-top)]">
+          <header
+            className={cn(
+              "lg:hidden border-b bg-card/95 backdrop-blur-lg flex items-center justify-between px-4 sticky top-0 z-40 pt-[env(safe-area-inset-top)]",
+              isDocumentFullscreen && "hidden"
+            )}
+          >
             <div className="flex items-center space-x-2 h-14">
               <SidebarTrigger className="h-9 w-9">
                 <Menu className="h-4 w-4" />
@@ -69,18 +76,22 @@ export function AppLayout() {
           </header>
 
           {/* Main Content - With bottom padding on mobile for nav (removed when keyboard visible) */}
-          <main className={cn(
-            "flex-1 overflow-y-auto overflow-x-hidden min-w-0",
-            isKeyboardVisible ? "pb-0" : "pb-20 lg:pb-0"
-          )}>
+          <main
+            className={cn(
+              "flex-1 overflow-y-auto overflow-x-hidden min-w-0",
+              isKeyboardVisible || isDocumentFullscreen ? "pb-0" : "pb-20 lg:pb-0"
+            )}
+          >
             <Outlet />
           </main>
 
-          {/* Smart Nudge - Floating above bottom nav */}
-          <SmartNudge className="fixed bottom-24 left-4 right-4 z-50 lg:bottom-4 lg:left-auto lg:right-4 lg:w-96" />
-
-          {/* Mobile Bottom Navigation */}
-          <MobileBottomNav />
+          {/* Hidden during element fullscreen: fixed layers sit above the fullscreen subtree and steal clicks */}
+          {!isDocumentFullscreen && (
+            <>
+              <SmartNudge className="fixed bottom-24 left-4 right-4 z-50 lg:bottom-4 lg:left-auto lg:right-4 lg:w-96" />
+              <MobileBottomNav />
+            </>
+          )}
         </div>
       </div>
     </SidebarProvider>
