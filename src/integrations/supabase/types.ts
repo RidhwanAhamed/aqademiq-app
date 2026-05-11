@@ -1242,6 +1242,57 @@ export type Database = {
         }
         Relationships: []
       }
+      onboarding_questionnaire: {
+        Row: {
+          avoided_task: string | null
+          biggest_headache: string | null
+          calendar_use: string | null
+          cgpa: string | null
+          created_at: string | null
+          id: string
+          micro_task: string | null
+          overwhelmed_scale: number | null
+          peak_brain_power: string | null
+          start_assignment: string | null
+          stops_starting: string | null
+          study_hours: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          avoided_task?: string | null
+          biggest_headache?: string | null
+          calendar_use?: string | null
+          cgpa?: string | null
+          created_at?: string | null
+          id?: string
+          micro_task?: string | null
+          overwhelmed_scale?: number | null
+          peak_brain_power?: string | null
+          start_assignment?: string | null
+          stops_starting?: string | null
+          study_hours?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          avoided_task?: string | null
+          biggest_headache?: string | null
+          calendar_use?: string | null
+          cgpa?: string | null
+          created_at?: string | null
+          id?: string
+          micro_task?: string | null
+          overwhelmed_scale?: number | null
+          peak_brain_power?: string | null
+          start_assignment?: string | null
+          stops_starting?: string | null
+          study_hours?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       performance_analytics: {
         Row: {
           calculation_date: string
