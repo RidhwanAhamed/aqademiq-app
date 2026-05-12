@@ -110,9 +110,23 @@ export function useRealtimeCalendar() {
     assignments.forEach(assignment => {
       if (assignment.is_completed) return;
       
+      const hasExplicitTime = assignment.due_date.includes('T');
       const dueDate = new Date(assignment.due_date);
-      const start = new Date(dueDate.getTime() - (60 * 60 * 1000));
-      const end = dueDate;
+
+      // Keep date-only assignments on the correct calendar day.
+      // Using dueDate - 1h can shift them to the previous day at 23:00.
+      const end = hasExplicitTime
+        ? dueDate
+        : new Date(
+            dueDate.getFullYear(),
+            dueDate.getMonth(),
+            dueDate.getDate(),
+            23,
+            59,
+            0,
+            0
+          );
+      const start = new Date(end.getTime() - (60 * 60 * 1000));
 
       events.push({
         id: `assignment-${assignment.id}`,
