@@ -37,276 +37,74 @@ export function useAssignments() {
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
 
-  const triggerRecurringGeneration = async () => {
-    try {
-      const { error } = await supabase.rpc("generate_recurring_assignments");
-      if (error) {
-        console.warn("Recurring assignment generation failed:", error);
-      }
-    } catch (err) {
-      console.warn("Recurring assignment generation exception:", err);
-    }
-  };
-
-  // MOCK DATA GENERATOR
-  const generateMockAssignments = () => {
-    const courseIds = ["course-math-uuid", "course-physics-uuid", "course-cs-uuid", "course-history-uuid"];
-    const now = new Date();
-
-    return [
-      // Completed (Recent for Report)
-      {
-        id: "assign-1", user_id: user?.id, course_id: courseIds[0], title: "Calculus Limit Problem Set",
-        due_date: new Date(now.getTime() - 2 * 86400000).toISOString(), // 2 days ago
-        status: "completed", is_completed: true, grade: 95, grade_received: "A", estimated_hours: 3,
-        created_at: new Date().toISOString(), updated_at: new Date().toISOString()
-      },
-      {
-        id: "assign-2", user_id: user?.id, course_id: courseIds[1], title: "Quantum Wave Function Essay",
-        due_date: new Date(now.getTime() - 5 * 86400000).toISOString(), // 5 days ago
-        status: "completed", is_completed: true, grade: 88, grade_received: "B+", estimated_hours: 5,
-        created_at: new Date().toISOString(), updated_at: new Date().toISOString()
-      },
-      {
-        id: "assign-3", user_id: user?.id, course_id: courseIds[2], title: "Binary Tree Implementation",
-        due_date: new Date(now.getTime() - 7 * 86400000).toISOString(),
-        status: "completed", is_completed: true, grade: 100, grade_received: "A+", estimated_hours: 4,
-        created_at: new Date().toISOString(), updated_at: new Date().toISOString()
-      },
-
-      // Completed (Recent)
-      {
-        id: "assign-4", user_id: user?.id, course_id: courseIds[3], title: "World War I Timeline",
-        due_date: new Date(now.getTime() - 2 * 86400000).toISOString(),
-        status: "completed", is_completed: true, grade: 92, grade_received: "A-", estimated_hours: 2,
-        created_at: new Date().toISOString(), updated_at: new Date().toISOString()
-      },
-
-      // Overdue / Pending
-      {
-        id: "assign-5", user_id: user?.id, course_id: courseIds[0], title: "Integration by Parts",
-        due_date: new Date(now.getTime() - 1 * 86400000).toISOString(), // Yesterday
-        is_completed: false, estimated_hours: 3,
-        created_at: new Date().toISOString(), updated_at: new Date().toISOString()
-      },
-
-      // Upcoming
-      {
-        id: "assign-6", user_id: user?.id, course_id: courseIds[1], title: "Thermodynamics Lab Report",
-        due_date: new Date(now.getTime() + 2 * 86400000).toISOString(),
-        is_completed: false, estimated_hours: 4,
-        created_at: new Date().toISOString(), updated_at: new Date().toISOString()
-      },
-      {
-        id: "assign-7", user_id: user?.id, course_id: courseIds[2], title: "Graph Algorithms Project",
-        due_date: new Date(now.getTime() + 5 * 86400000).toISOString(),
-        is_completed: false, estimated_hours: 8,
-        created_at: new Date().toISOString(), updated_at: new Date().toISOString()
-      },
-      {
-        id: "assign-8", user_id: user?.id, course_id: courseIds[3], title: "Cold War Analysis",
-        due_date: new Date(now.getTime() + 7 * 86400000).toISOString(),
-        is_completed: false, estimated_hours: 3,
-        created_at: new Date().toISOString(), updated_at: new Date().toISOString()
-      }
-    ] as any[];
-    // Cast as any[] because local mock structure might vary slightly from strict Supabase type definition
-  };
-
   const fetchAssignments = async () => {
+    if (!user) {
+      setAssignments([]);
+      setLoading(false);
+      return;
+    }
     try {
-      if (!user) {
-        setAssignments(generateMockAssignments());
-        return;
-      }
+      setLoading(true);
       const { data, error } = await supabase
         .from("assignments")
         .select("*")
         .eq("user_id", user.id)
         .order("due_date", { ascending: true });
       if (error) throw error;
-
-      if (!data || data.length === 0) {
-        console.log("Analytics Demo: Injecting Mock Assignments");
-        setAssignments(generateMockAssignments());
-      } else {
-        setAssignments(data);
-      }
+      setAssignments(data || []);
     } catch (err) {
       console.error("Error fetching assignments:", err);
-      setAssignments(generateMockAssignments());
+      setError("Failed to fetch assignments");
+      setAssignments([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const addAssignment = async (assignment: {
-    title: string;
-    description?: string;
-    course_id: string;
-    due_date: string; // ISO
-    estimated_hours?: number;
-    is_recurring?: boolean;
-    recurrence_pattern?: string;
-    recurrence_interval?: number;
-    recurrence_end_date?: string;
-    exam_id?: string;
-  }) => {
-    if (!user) return { data: null as Assignment | null, error: "Not authenticated" };
+  const addAssignment = async (assignment: Omit<Assignment, 'id' | 'user_id' | 'created_at' | 'updated_at'>) => {
+    if (!user) return null;
     try {
-      const baseInsert = {
-        ...assignment,
-        user_id: user.id,
-        original_due_date: assignment.due_date, // Store original due date
-      };
-
-      // Primary attempt: allow fractional hours (requires DB column to be numeric).
-      let { data, error } = await supabase
+      const { data, error } = await supabase
         .from("assignments")
-        .insert([baseInsert])
+        .insert([{ ...assignment, user_id: user.id }])
         .select()
         .single();
-
-      // Compatibility fallback: if backend still expects INTEGER estimated_hours, retry with rounded hours.
-      // This keeps creation working until the migration that makes estimated_hours numeric is applied.
-      if (error?.message?.includes("invalid input syntax for type integer") && typeof assignment.estimated_hours === "number") {
-        const roundedHours = Math.max(0, Math.round(assignment.estimated_hours));
-        ({ data, error } = await supabase
-          .from("assignments")
-          .insert([{
-            ...baseInsert,
-            estimated_hours: roundedHours,
-          }])
-          .select()
-          .single());
-      }
-
       if (error) throw error;
-
-      if (assignment.is_recurring) {
-        await triggerRecurringGeneration();
-      }
-
       await fetchAssignments();
-      return { data: data as Assignment, error: null };
-    } catch (err: any) {
+      return data;
+    } catch (err) {
       console.error("Error adding assignment:", err);
       setError("Failed to add assignment");
-      return { data: null, error: err?.message || "Failed to add assignment" };
+      return null;
     }
   };
 
-  const updateAssignment = useCallback(async (id: string, updates: Partial<Assignment>) => {
-    if (!user) return false;
-
+  const updateAssignment = async (id: string, updates: Partial<Assignment>) => {
     try {
-      // Find the current assignment to check for date changes
-      const currentAssignment = assignments.find(a => a.id === id);
-
-      let finalUpdates = { ...updates };
-
-      // Check if due_date is being changed (postponement detection)
-      if (updates.due_date && currentAssignment) {
-        const currentDueDate = new Date(currentAssignment.due_date);
-        const newDueDate = new Date(updates.due_date);
-
-        // If the new date is later than the current date (postponed)
-        if (newDueDate > currentDueDate) {
-          const currentRescheduleCount = currentAssignment.reschedule_count || 0;
-
-          finalUpdates = {
-            ...finalUpdates,
-            reschedule_count: currentRescheduleCount + 1,
-            last_rescheduled_at: new Date().toISOString(),
-            // Store original due date only on first postponement
-            original_due_date: currentAssignment.original_due_date || currentAssignment.due_date,
-          };
-
-          console.log(`Assignment "${currentAssignment.title}" postponed. Reschedule count: ${currentRescheduleCount + 1}`);
-        }
-      }
-
       const { error } = await supabase
         .from("assignments")
-        .update(finalUpdates)
+        .update(updates)
         .eq("id", id);
       if (error) throw error;
-
-      const shouldRegenerateRecurring =
-        !!currentAssignment?.is_recurring ||
-        finalUpdates.is_recurring === true ||
-        !!finalUpdates.recurrence_pattern ||
-        !!finalUpdates.recurrence_interval ||
-        !!finalUpdates.recurrence_end_date ||
-        !!finalUpdates.due_date;
-
-      if (shouldRegenerateRecurring) {
-        await triggerRecurringGeneration();
-      }
-
       await fetchAssignments();
       return true;
-    } catch (err: any) {
+    } catch (err) {
       console.error("Error updating assignment:", err);
       setError("Failed to update assignment");
       return false;
     }
-  }, [user, assignments]);
-
-  const toggleComplete = async (id: string, completed: boolean) => {
-    return updateAssignment(id, {
-      is_completed: completed,
-      completion_percentage: completed ? 100 : 0
-    });
   };
-
-  const deleteAssignment = useCallback(async (id: string) => {
-    if (!user) return false;
-
-    try {
-      const { error } = await supabase
-        .from("assignments")
-        .delete()
-        .eq("id", id)
-        .eq("user_id", user.id);
-
-      if (error) throw error;
-
-      await fetchAssignments();
-      return true;
-    } catch (err: any) {
-      console.error("Error deleting assignment:", err);
-      setError("Failed to delete assignment");
-      return false;
-    }
-  }, [user]);
 
   useEffect(() => {
     fetchAssignments();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
-
-  // Allow other parts of the app (e.g. subtasks) to request a refresh
-  // without threading callbacks through many components.
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const handler = () => {
-      void fetchAssignments();
-    };
-
-    window.addEventListener("aqademiq:assignments:changed", handler);
-    return () => window.removeEventListener("aqademiq:assignments:changed", handler);
-  }, [user?.id]);
+  }, [user]);
 
   return {
     assignments,
     loading,
     error,
-    refetch: fetchAssignments,
     addAssignment,
     updateAssignment,
-    toggleComplete,
-    deleteAssignment,
+    refetch: fetchAssignments,
   };
 }
