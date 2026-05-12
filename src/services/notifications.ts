@@ -34,6 +34,13 @@ class NotificationService {
       return false;
     }
 
+    // Android push requires Firebase setup (google-services.json + FCM config).
+    // Temporarily disabled to prevent startup crashes in simulator/dev builds.
+    if (Capacitor.getPlatform() === 'android') {
+      console.log('Skipping Android push registration (Firebase not configured)');
+      return false;
+    }
+
     try {
       // Request permission
       const permStatus = await PushNotifications.requestPermissions();

@@ -2,7 +2,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ThemeCustomizer } from "@/components/ThemeCustomizer";
 import { NotificationSettings } from "@/components/NotificationSettings";
-import { GoogleCalendarSettings } from "@/components/GoogleCalendarSettings";
 import { EnhancedNotificationSettings } from "@/components/EnhancedNotificationSettings";
 import { SecurityMonitorDashboard } from "@/components/SecurityMonitorDashboard";
 import { AchievementShowcase } from "@/components/AchievementShowcase";
@@ -189,8 +188,6 @@ export default function Settings() {
         </div>
 
         <TabsContent value="general" className="space-y-4 sm:space-y-6">
-          <GoogleCalendarSettings />
-
           {/* Install App Section */}
           <Card className="bg-gradient-card">
             <CardHeader className="pb-2 sm:pb-4">

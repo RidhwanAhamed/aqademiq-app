@@ -94,7 +94,7 @@ export function DeleteAccountDialog() {
               <li>Calendar events &amp; schedule blocks</li>
               <li>AI chat history &amp; uploaded files</li>
               <li>Notes, reminders &amp; all preferences</li>
-              <li>Google Calendar integration data</li>
+              <li>Connected calendar integration data</li>
             </ul>
             <div className="pt-2">
               <Label htmlFor="delete-confirm" className="text-sm font-medium text-foreground">

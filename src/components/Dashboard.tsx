@@ -16,7 +16,6 @@ import { AIInsightModal } from "./analytics/AIInsightModal";
 import { CourseCard } from "./CourseCard";
 import { InstallBanner } from "./InstallBanner";
 import { QuickStats } from "./QuickStats";
-import { RevisionTasksPanel } from "./RevisionTasksPanel";
 import { TodayTimeline } from "./TodayTimeline";
 import { OverdueTasksButton } from "./SmartNudge";
 import { ProactiveSuggestions } from "./ProactiveSuggestions";
@@ -311,9 +310,6 @@ export function Dashboard() {
               </div>
             </CardContent>
           </Card>
-           
-           {/* Revision Tasks */}
-           <RevisionTasksPanel />
         </div>
       </div>
 
