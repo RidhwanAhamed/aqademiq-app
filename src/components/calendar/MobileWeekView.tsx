@@ -208,7 +208,7 @@ export function MobileWeekView({
   };
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 overflow-x-hidden">
       {/* Compact Header with Day Navigation */}
       <div className="space-y-3">
         {/* Month/Year + Today Button */}
@@ -253,30 +253,32 @@ export function MobileWeekView({
 
       {/* Day View - Single Column Timeline */}
       <Card className="overflow-hidden">
-        <div className="relative" style={{ height: `${HOURS_PER_DAY * HOUR_HEIGHT}px` }}>
-          {/* Time slots background */}
-          {timeSlots.map((hour, index) => (
-            <div
-              key={hour}
-              className="absolute left-0 right-0 border-b border-border hover:bg-primary/5 transition-colors cursor-pointer"
-              style={{ 
-                top: `${index * HOUR_HEIGHT}px`, 
-                height: `${HOUR_HEIGHT}px` 
-              }}
-              onClick={(e) => handleTimeSlotClick(hour, e)}
-            >
-              {/* Time label */}
-              <div className="absolute left-2 top-1 text-xs text-muted-foreground font-medium w-12">
-                {format(new Date().setHours(hour, 0), 'h a')}
-              </div>
-              
-              {/* Hour line */}
-              <div className="absolute left-14 right-0 top-0 border-t border-border/50" />
-            </div>
-          ))}
+        <div className="max-h-[68vh] overflow-y-auto overscroll-contain">
+          <div className="relative" style={{ height: `${HOURS_PER_DAY * HOUR_HEIGHT}px` }}>
+            {/* Time slots background */}
+            {timeSlots.map((hour, index) => (
+              <div
+                key={hour}
+                className="absolute left-0 right-0 border-b border-border hover:bg-primary/5 transition-colors cursor-pointer"
+                style={{
+                  top: `${index * HOUR_HEIGHT}px`,
+                  height: `${HOUR_HEIGHT}px`
+                }}
+                onClick={(e) => handleTimeSlotClick(hour, e)}
+              >
+                {/* Time label */}
+                <div className="absolute left-2 top-1 text-xs text-muted-foreground font-medium w-12">
+                  {format(new Date().setHours(hour, 0), 'h a')}
+                </div>
 
-          {/* Events layer - rendered above time slots */}
-          {positionedEvents.map(pe => renderEventCard(pe))}
+                {/* Hour line */}
+                <div className="absolute left-14 right-0 top-0 border-t border-border/50" />
+              </div>
+            ))}
+
+            {/* Events layer - rendered above time slots */}
+            {positionedEvents.map(pe => renderEventCard(pe))}
+          </div>
         </div>
       </Card>
 
