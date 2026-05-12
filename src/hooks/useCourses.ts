@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 
+const COURSES_CHANGED_EVENT = 'aqademiq:courses:changed';
+
 export interface Course {
   id: string;
   user_id: string;
@@ -39,76 +41,14 @@ export function useCourses() {
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
 
-  // MOCK DATA GENERATOR
-  const mockCourses: Course[] = [
-    {
-      id: "course-math-uuid",
-      user_id: user?.id || "mock-user",
-      semester_id: "sem-1",
-      name: "Advanced Calculus",
-      code: "MATH301",
-      credits: 4,
-      color: "#3B82F6",
-      progress_percentage: 78,
-      is_active: true,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      semesters: { name: "Fall 2024" }
-    },
-    {
-      id: "course-physics-uuid",
-      user_id: user?.id || "mock-user",
-      semester_id: "sem-1",
-      name: "Quantum Mechanics",
-      code: "PHYS402",
-      credits: 4,
-      color: "#10B981",
-      progress_percentage: 65,
-      is_active: true,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      semesters: { name: "Fall 2024" }
-    },
-    {
-      id: "course-cs-uuid",
-      user_id: user?.id || "mock-user",
-      semester_id: "sem-1",
-      name: "Data Structures",
-      code: "CS201",
-      credits: 3,
-      color: "#8B5CF6",
-      progress_percentage: 92,
-      is_active: true,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      semesters: { name: "Fall 2024" }
-    },
-    {
-      id: "course-history-uuid",
-      user_id: user?.id || "mock-user",
-      semester_id: "sem-1",
-      name: "World History",
-      code: "HIST101",
-      credits: 3,
-      color: "#F59E0B",
-      progress_percentage: 45,
-      is_active: true,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      semesters: { name: "Fall 2024" }
-    }
-  ];
-
   const fetchCourses = async () => {
-    // Note: We authenticate but allow fallback to mock for demo purposes if no user
-    // if (!user) return; 
+    if (!user) {
+      setCourses([]);
+      setLoading(false);
+      return;
+    }
 
     try {
-      if (!user) {
-        setCourses(mockCourses);
-        return;
-      }
-
       const { data, error } = await supabase
         .from('courses')
         .select(`
@@ -122,20 +62,19 @@ export function useCourses() {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-
-      // INJECT MOCK DATA IF EMPTY
-      if (!data || data.length === 0) {
-        console.log("Analytics Demo: Injecting Mock Courses");
-        setCourses(mockCourses);
-      } else {
-        setCourses(data);
-      }
+      setCourses(data || []);
     } catch (error) {
       console.error('Error fetching courses:', error);
-      // Fallback to mock on error for seamless demo
-      setCourses(mockCourses);
+      setCourses([]);
+      setError('Failed to fetch courses');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const broadcastCoursesChanged = () => {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event(COURSES_CHANGED_EVENT));
     }
   };
 
@@ -150,9 +89,9 @@ export function useCourses() {
         .single();
 
       if (error) throw error;
-
-      await fetchCourses(); // Refresh the list
-      return data;
+      setCourses((prev) => [data as Course, ...prev]);
+      broadcastCoursesChanged();
+      return data as Course;
     } catch (error) {
       console.error('Error adding course:', error);
       setError('Failed to add course');
@@ -168,8 +107,12 @@ export function useCourses() {
         .eq('id', id);
 
       if (error) throw error;
-
-      await fetchCourses(); // Refresh the list
+      setCourses((prev) =>
+        prev.map((course) =>
+          course.id === id ? { ...course, ...updates, updated_at: new Date().toISOString() } : course
+        )
+      );
+      broadcastCoursesChanged();
       return true;
     } catch (error) {
       console.error('Error updating course:', error);
@@ -186,8 +129,8 @@ export function useCourses() {
         .eq('id', id);
 
       if (error) throw error;
-
-      await fetchCourses(); // Refresh the list
+      setCourses((prev) => prev.filter((course) => course.id !== id));
+      broadcastCoursesChanged();
       return true;
     } catch (error) {
       console.error('Error deleting course:', error);
@@ -199,6 +142,17 @@ export function useCourses() {
   useEffect(() => {
     fetchCourses();
   }, [user]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const onCoursesChanged = () => {
+      void fetchCourses();
+    };
+
+    window.addEventListener(COURSES_CHANGED_EVENT, onCoursesChanged);
+    return () => window.removeEventListener(COURSES_CHANGED_EVENT, onCoursesChanged);
+  }, [user?.id]);
 
   return {
     courses,

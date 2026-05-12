@@ -19,10 +19,14 @@ interface ScheduleSlot {
   end_time: string;
 }
 
+function timeToMinutes(timeStr: string): number {
+  const [h = "0", m = "0"] = timeStr.split(":");
+  return Number(h) * 60 + Number(m);
+}
+
 // Helper to add minutes to a time string
 function addMinutesToTime(timeStr: string, minutes: number): string {
-  const [h, m] = timeStr.split(":").map(Number);
-  const totalMinutes = h * 60 + m + minutes;
+  const totalMinutes = timeToMinutes(timeStr) + minutes;
   const newHours = Math.floor(totalMinutes / 60) % 24;
   const newMinutes = totalMinutes % 60;
   return `${String(newHours).padStart(2, "0")}:${String(newMinutes).padStart(2, "0")}:00`;
@@ -47,8 +51,9 @@ function findAvailableSlots(
   date: string,
   durationMinutes: number,
   existingBlocks: Array<{ specific_date: string | null; day_of_week: number | null; start_time: string; end_time: string }>,
-  workdayStart = 9,
-  workdayEnd = 21
+  workdayStart = 8,
+  workdayEnd = 22,
+  bufferMinutes = 10
 ): ScheduleSlot | null {
   const dateObj = new Date(date);
   const dayOfWeek = dateObj.getDay();
@@ -56,32 +61,36 @@ function findAvailableSlots(
   // Get blocks for this specific date or recurring on this day
   const dayBlocks = existingBlocks.filter(b => 
     b.specific_date === date || b.day_of_week === dayOfWeek
-  ).sort((a, b) => a.start_time.localeCompare(b.start_time));
+  ).sort((a, b) => timeToMinutes(a.start_time) - timeToMinutes(b.start_time));
   
   // Try to find a slot between workday hours
-  let currentStart = workdayStart;
+  let currentStartMinutes = workdayStart * 60;
+  const workdayEndMinutes = workdayEnd * 60;
   
   for (const block of dayBlocks) {
-    const [blockStartH] = block.start_time.split(":").map(Number);
-    const [blockEndH, blockEndM] = block.end_time.split(":").map(Number);
-    const blockEnd = blockEndH + blockEndM / 60;
+    const blockStartMinutes = timeToMinutes(block.start_time);
+    const blockEndMinutes = timeToMinutes(block.end_time);
     
     // Check if we can fit before this block
-    const slotEnd = currentStart + durationMinutes / 60;
-    if (slotEnd <= blockStartH && currentStart >= workdayStart) {
-      const startTime = `${String(Math.floor(currentStart)).padStart(2, "0")}:${String(Math.round((currentStart % 1) * 60)).padStart(2, "0")}:00`;
+    const slotEndMinutes = currentStartMinutes + durationMinutes;
+    if (slotEndMinutes + bufferMinutes <= blockStartMinutes && currentStartMinutes >= workdayStart * 60) {
+      const startHours = Math.floor(currentStartMinutes / 60);
+      const startMins = currentStartMinutes % 60;
+      const startTime = `${String(startHours).padStart(2, "0")}:${String(startMins).padStart(2, "0")}:00`;
       const endTime = addMinutesToTime(startTime, durationMinutes);
       return { date, start_time: startTime, end_time: endTime };
     }
     
-    // Move current start past this block
-    currentStart = Math.max(currentStart, blockEnd);
+    // Move current start past this block with a small buffer
+    currentStartMinutes = Math.max(currentStartMinutes, blockEndMinutes + bufferMinutes);
   }
   
   // Check if we can fit after all blocks
-  const slotEnd = currentStart + durationMinutes / 60;
-  if (slotEnd <= workdayEnd && currentStart >= workdayStart) {
-    const startTime = `${String(Math.floor(currentStart)).padStart(2, "0")}:${String(Math.round((currentStart % 1) * 60)).padStart(2, "0")}:00`;
+  const slotEndMinutes = currentStartMinutes + durationMinutes;
+  if (slotEndMinutes <= workdayEndMinutes && currentStartMinutes >= workdayStart * 60) {
+    const startHours = Math.floor(currentStartMinutes / 60);
+    const startMins = currentStartMinutes % 60;
+    const startTime = `${String(startHours).padStart(2, "0")}:${String(startMins).padStart(2, "0")}:00`;
     const endTime = addMinutesToTime(startTime, durationMinutes);
     return { date, start_time: startTime, end_time: endTime };
   }

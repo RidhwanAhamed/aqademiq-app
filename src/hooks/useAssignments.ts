@@ -37,6 +37,17 @@ export function useAssignments() {
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
 
+  const triggerRecurringGeneration = async () => {
+    try {
+      const { error } = await supabase.rpc("generate_recurring_assignments");
+      if (error) {
+        console.warn("Recurring assignment generation failed:", error);
+      }
+    } catch (err) {
+      console.warn("Recurring assignment generation exception:", err);
+    }
+  };
+
   // MOCK DATA GENERATOR
   const generateMockAssignments = () => {
     const courseIds = ["course-math-uuid", "course-physics-uuid", "course-cs-uuid", "course-history-uuid"];
@@ -171,6 +182,11 @@ export function useAssignments() {
       }
 
       if (error) throw error;
+
+      if (assignment.is_recurring) {
+        await triggerRecurringGeneration();
+      }
+
       await fetchAssignments();
       return { data: data as Assignment, error: null };
     } catch (err: any) {
@@ -215,6 +231,19 @@ export function useAssignments() {
         .update(finalUpdates)
         .eq("id", id);
       if (error) throw error;
+
+      const shouldRegenerateRecurring =
+        !!currentAssignment?.is_recurring ||
+        finalUpdates.is_recurring === true ||
+        !!finalUpdates.recurrence_pattern ||
+        !!finalUpdates.recurrence_interval ||
+        !!finalUpdates.recurrence_end_date ||
+        !!finalUpdates.due_date;
+
+      if (shouldRegenerateRecurring) {
+        await triggerRecurringGeneration();
+      }
+
       await fetchAssignments();
       return true;
     } catch (err: any) {
@@ -230,6 +259,27 @@ export function useAssignments() {
       completion_percentage: completed ? 100 : 0
     });
   };
+
+  const deleteAssignment = useCallback(async (id: string) => {
+    if (!user) return false;
+
+    try {
+      const { error } = await supabase
+        .from("assignments")
+        .delete()
+        .eq("id", id)
+        .eq("user_id", user.id);
+
+      if (error) throw error;
+
+      await fetchAssignments();
+      return true;
+    } catch (err: any) {
+      console.error("Error deleting assignment:", err);
+      setError("Failed to delete assignment");
+      return false;
+    }
+  }, [user]);
 
   useEffect(() => {
     fetchAssignments();
@@ -257,5 +307,6 @@ export function useAssignments() {
     addAssignment,
     updateAssignment,
     toggleComplete,
+    deleteAssignment,
   };
 }

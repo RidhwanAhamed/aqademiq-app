@@ -30,6 +30,9 @@ export function useSubtasks(assignmentId?: string) {
   const [schedulingTaskId, setSchedulingTaskId] = useState<string | null>(null);
   const { user } = useAuth();
   const { toast } = useToast();
+  const STUDY_START_HOUR = 8;
+  const STUDY_END_HOUR = 22;
+  const SLOT_BUFFER_MIN = 10;
 
   const fetchSubtasks = useCallback(async () => {
     if (!user || !assignmentId) return;
@@ -41,13 +44,19 @@ export function useSubtasks(assignmentId?: string) {
         .select("*")
         .eq("user_id", user.id)
         .eq("assignment_id", assignmentId)
-        .eq("task_type", "micro_task")
         .order("order_index", { ascending: true });
 
       if (error) throw error;
       
+      // Some older/generated rows may have null/variant task_type.
+      // Keep assignment-scoped task visibility resilient in UI.
+      const assignmentTasks = (data || []).filter((task) => {
+        if (!task.task_type) return true;
+        return task.task_type === "micro_task";
+      });
+
       // Map to include scheduled_block_id (stored in metadata or separate lookup)
-      const tasksWithScheduleInfo = (data || []).map(task => ({
+      const tasksWithScheduleInfo = assignmentTasks.map(task => ({
         ...task,
         scheduled_block_id: null, // Will be populated from schedule_blocks lookup
       }));
@@ -87,46 +96,6 @@ export function useSubtasks(assignmentId?: string) {
       setLoading(false);
     }
   }, [user, assignmentId]);
-
-  const generateBreakdown = useCallback(async () => {
-    if (!user || !assignmentId) return { success: false };
-    
-    setGenerating(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("breakdown-task", {
-        body: { assignment_id: assignmentId },
-      });
-
-      if (error) throw error;
-
-      if (data.error) {
-        toast({
-          title: "Error",
-          description: data.error,
-          variant: "destructive",
-        });
-        return { success: false };
-      }
-
-      toast({
-        title: "Tasks Generated!",
-        description: `Created ${data.tasks?.length || 0} micro-tasks for this assignment.`,
-      });
-
-      await fetchSubtasks();
-      return { success: true, tasks: data.tasks };
-    } catch (err) {
-      console.error("Error generating breakdown:", err);
-      toast({
-        title: "Error",
-        description: "Failed to generate micro-tasks. Please try again.",
-        variant: "destructive",
-      });
-      return { success: false };
-    } finally {
-      setGenerating(false);
-    }
-  }, [user, assignmentId, fetchSubtasks, toast]);
 
   const toggleSubtask = useCallback(async (taskId: string, completed: boolean) => {
     try {
@@ -229,8 +198,8 @@ export function useSubtasks(assignmentId?: string) {
     }
   }, [toast]);
 
-  const scheduleSubtask = useCallback(async (task: Subtask) => {
-    if (!user) return;
+  const scheduleSubtask = useCallback(async (task: Subtask, silent = false): Promise<boolean> => {
+    if (!user) return false;
     
     setSchedulingTaskId(task.id);
     try {
@@ -245,38 +214,114 @@ export function useSubtasks(assignmentId?: string) {
         throw new Error("Assignment not found");
       }
 
-      // Use recommended time from task if available, otherwise calculate
-      let scheduleDate: Date;
-      let startTime: string;
-      let endTime: string;
-      
-      if (task.due_date) {
-        // Use the recommended time stored in due_date
-        const recommendedDate = new Date(task.due_date);
-        scheduleDate = recommendedDate;
-        const hours = recommendedDate.getHours();
-        const minutes = recommendedDate.getMinutes();
-        startTime = `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:00`;
-        
-        const durationMinutes = task.estimated_minutes || 30;
-        const endMinutesTotal = hours * 60 + minutes + durationMinutes;
-        const endHour = Math.floor(endMinutesTotal / 60) % 24;
-        const endMin = endMinutesTotal % 60;
-        endTime = `${String(endHour).padStart(2, "0")}:${String(endMin).padStart(2, "0")}:00`;
-      } else {
-        // Fallback: schedule for tomorrow with smart time selection
-        const now = new Date();
-        scheduleDate = new Date();
-        scheduleDate.setDate(now.getDate() + 1);
-        
-        // Find next available slot starting at 9 AM
-        const startHour = 9 + Math.floor(Math.random() * 8);
-        startTime = `${String(startHour).padStart(2, "0")}:00:00`;
-        const durationMinutes = task.estimated_minutes || 30;
-        const endMinutesTotal = startHour * 60 + durationMinutes;
-        const endHour = Math.floor(endMinutesTotal / 60);
-        const endMin = endMinutesTotal % 60;
-        endTime = `${String(endHour).padStart(2, "0")}:${String(endMin).padStart(2, "0")}:00`;
+      const toMinutes = (time: string): number => {
+        const [h = "0", m = "0"] = time.split(":");
+        return Number(h) * 60 + Number(m);
+      };
+
+      const toTimeString = (minutes: number): string => {
+        const h = Math.floor(minutes / 60);
+        const m = minutes % 60;
+        return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:00`;
+      };
+
+      const startOfDay = (date: Date): Date => {
+        const d = new Date(date);
+        d.setHours(0, 0, 0, 0);
+        return d;
+      };
+
+      const formatDateOnly = (date: Date): string => date.toISOString().split("T")[0];
+
+      const overlaps = (
+        aStart: number,
+        aEnd: number,
+        bStart: number,
+        bEnd: number
+      ): boolean => aStart < bEnd && bStart < aEnd;
+
+      const durationMinutes = Math.max(10, task.estimated_minutes || 30);
+      const preferredStart = task.due_date ? new Date(task.due_date) : null;
+      const searchStart = preferredStart && !Number.isNaN(preferredStart.getTime())
+        ? preferredStart
+        : new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+      const { data: existingBlocks, error: blocksError } = await supabase
+        .from("schedule_blocks")
+        .select("specific_date, day_of_week, is_recurring, start_time, end_time")
+        .eq("user_id", user.id)
+        .eq("is_active", true);
+
+      if (blocksError) throw blocksError;
+
+      let scheduledSlot:
+        | { scheduleDate: Date; startTime: string; endTime: string }
+        | null = null;
+
+      const maxDaysLookahead = 45;
+      const firstDay = startOfDay(searchStart);
+
+      for (let offset = 0; offset <= maxDaysLookahead; offset++) {
+        const day = new Date(firstDay);
+        day.setDate(firstDay.getDate() + offset);
+
+        const dateStr = formatDateOnly(day);
+        const dayOfWeek = day.getDay();
+        const dayBlocks = (existingBlocks || [])
+          .filter((b) => b.specific_date === dateStr || (b.is_recurring && b.day_of_week === dayOfWeek))
+          .map((b) => ({
+            start: toMinutes(b.start_time),
+            end: toMinutes(b.end_time),
+          }))
+          .sort((a, b) => a.start - b.start);
+
+        const earliestStartMin = offset === 0 && preferredStart
+          ? Math.max(STUDY_START_HOUR * 60, preferredStart.getHours() * 60 + preferredStart.getMinutes())
+          : STUDY_START_HOUR * 60;
+        const latestEndMin = STUDY_END_HOUR * 60;
+
+        let cursor = earliestStartMin;
+
+        for (const block of dayBlocks) {
+          const candidateEnd = cursor + durationMinutes;
+          if (!overlaps(cursor, candidateEnd, block.start, block.end) && candidateEnd + SLOT_BUFFER_MIN <= block.start) {
+            scheduledSlot = {
+              scheduleDate: day,
+              startTime: toTimeString(cursor),
+              endTime: toTimeString(candidateEnd),
+            };
+            break;
+          }
+          if (overlaps(cursor, candidateEnd, block.start, block.end) || candidateEnd + SLOT_BUFFER_MIN > block.start) {
+            cursor = Math.max(cursor, block.end + SLOT_BUFFER_MIN);
+          }
+        }
+
+        if (!scheduledSlot) {
+          const candidateEnd = cursor + durationMinutes;
+          if (candidateEnd <= latestEndMin) {
+            scheduledSlot = {
+              scheduleDate: day,
+              startTime: toTimeString(cursor),
+              endTime: toTimeString(candidateEnd),
+            };
+          }
+        }
+
+        if (scheduledSlot) break;
+      }
+
+      if (!scheduledSlot) {
+        // Last-resort fallback so users are never blocked by scheduling failure.
+        const fallbackDate = new Date(firstDay);
+        fallbackDate.setDate(firstDay.getDate() + 1);
+        const fallbackStart = STUDY_START_HOUR * 60;
+        const fallbackEnd = fallbackStart + durationMinutes;
+        scheduledSlot = {
+          scheduleDate: fallbackDate,
+          startTime: toTimeString(fallbackStart),
+          endTime: toTimeString(fallbackEnd),
+        };
       }
 
       const { error } = await supabase
@@ -285,10 +330,10 @@ export function useSubtasks(assignmentId?: string) {
           user_id: user.id,
           title: task.title,
           description: `Micro-task for: ${assignment.title} - Task ID: ${task.id}`,
-          specific_date: scheduleDate.toISOString().split("T")[0],
-          day_of_week: scheduleDate.getDay(),
-          start_time: startTime,
-          end_time: endTime,
+          specific_date: scheduledSlot.scheduleDate.toISOString().split("T")[0],
+          day_of_week: scheduledSlot.scheduleDate.getDay(),
+          start_time: scheduledSlot.startTime,
+          end_time: scheduledSlot.endTime,
           course_id: assignment.course_id,
           is_recurring: false,
           is_active: true,
@@ -297,6 +342,14 @@ export function useSubtasks(assignmentId?: string) {
 
       if (error) throw error;
 
+      // Persist chosen slot back to task so recommendation chips stay accurate.
+      await supabase
+        .from("tasks")
+        .update({
+          due_date: `${scheduledSlot.scheduleDate.toISOString().split("T")[0]}T${scheduledSlot.startTime}`,
+        })
+        .eq("id", task.id);
+
       // Update local state to show as scheduled
       setSubtasks((prev) =>
         prev.map((t) =>
@@ -304,21 +357,75 @@ export function useSubtasks(assignmentId?: string) {
         )
       );
 
-      toast({
-        title: "Scheduled!",
-        description: `"${task.title}" added to calendar for ${scheduleDate.toLocaleDateString()}.`,
-      });
+      if (!silent) {
+        toast({
+          title: "Scheduled!",
+          description: `"${task.title}" added to calendar for ${scheduledSlot.scheduleDate.toLocaleDateString()}.`,
+        });
+      }
+      return true;
     } catch (err) {
       console.error("Error scheduling subtask:", err);
-      toast({
-        title: "Error",
-        description: "Failed to schedule task to calendar.",
-        variant: "destructive",
-      });
+      if (!silent) {
+        toast({
+          title: "Error",
+          description: "Failed to schedule task to calendar.",
+          variant: "destructive",
+        });
+      }
+      return false;
     } finally {
       setSchedulingTaskId(null);
     }
   }, [user, toast]);
+
+  const generateBreakdown = useCallback(async () => {
+    if (!user || !assignmentId) return { success: false };
+    
+    setGenerating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("breakdown-task", {
+        body: { assignment_id: assignmentId },
+      });
+
+      if (error) throw error;
+
+      if (data.error) {
+        toast({
+          title: "Error",
+          description: data.error,
+          variant: "destructive",
+        });
+        return { success: false };
+      }
+
+      const generatedTasks = (data.tasks || []) as Subtask[];
+      let scheduledCount = 0;
+      for (const generatedTask of generatedTasks) {
+        const ok = await scheduleSubtask(generatedTask, true);
+        if (ok) scheduledCount += 1;
+      }
+
+      await fetchSubtasks();
+
+      toast({
+        title: "Tasks Generated!",
+        description: `Created ${generatedTasks.length} micro-tasks and scheduled ${scheduledCount}.`,
+      });
+
+      return { success: true, tasks: data.tasks };
+    } catch (err) {
+      console.error("Error generating breakdown:", err);
+      toast({
+        title: "Error",
+        description: "Failed to generate micro-tasks. Please try again.",
+        variant: "destructive",
+      });
+      return { success: false };
+    } finally {
+      setGenerating(false);
+    }
+  }, [user, assignmentId, fetchSubtasks, scheduleSubtask, toast]);
 
   const scheduleAllSubtasks = useCallback(async () => {
     if (!user) return;
@@ -328,13 +435,16 @@ export function useSubtasks(assignmentId?: string) {
 
     setSchedulingTaskId("all");
     try {
+      let scheduledCount = 0;
       for (const task of unscheduledTasks) {
-        await scheduleSubtask(task);
+        const ok = await scheduleSubtask(task, true);
+        if (ok) scheduledCount += 1;
       }
       
       toast({
-        title: "All Tasks Scheduled!",
-        description: `${unscheduledTasks.length} tasks added to your calendar.`,
+        title: scheduledCount === unscheduledTasks.length ? "All Tasks Scheduled!" : "Tasks Partially Scheduled",
+        description: `${scheduledCount}/${unscheduledTasks.length} tasks added to your calendar.`,
+        variant: scheduledCount === unscheduledTasks.length ? "default" : "destructive",
       });
     } catch (err) {
       console.error("Error scheduling all subtasks:", err);

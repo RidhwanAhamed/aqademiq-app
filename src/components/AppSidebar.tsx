@@ -27,7 +27,6 @@ import {
   Plus,
   Settings,
   Sparkles,
-  Store,
   Target,
   Shield
 } from "lucide-react";
@@ -45,7 +44,6 @@ const mainItems: NavItem[] = [
   { title: "Dashboard", url: "/", icon: Home },
   { title: "Calendar", url: "/calendar", icon: Calendar },
   { title: "Ada AI", url: "/ada", icon: Sparkles, badge: "Beta" },
-  { title: "Marketplace", url: "/marketplace", icon: Store, badge: "Coming Soon" },
   { title: "Courses", url: "/courses", icon: BookOpen },
   { title: "Assignments", url: "/assignments", icon: Target },
   { title: "Study Timer", url: "/timer", icon: Clock },
@@ -113,7 +111,7 @@ export function AppSidebar() {
                   className="bg-gradient-primary hover:opacity-90 shadow-primary text-white hover:text-white hover:bg-primary"
                 >
                   <Plus className="w-5 h-5" />
-                  {!collapsed && <span>Quick Add</span>}
+                  {!collapsed && <span>Add Course</span>}
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>

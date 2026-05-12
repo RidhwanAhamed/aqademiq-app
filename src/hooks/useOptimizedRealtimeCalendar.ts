@@ -123,12 +123,15 @@ export function useOptimizedRealtimeCalendar() {
     const sevenDaysFromNow = now + (7 * 24 * 60 * 60 * 1000);
     assignments.forEach(assignment => {
       if (assignment.is_completed) return;
+      if ((assignment as any).breakdown_status === 'generated') return;
       
       const dueDate = new Date(assignment.due_date);
       if (dueDate.getTime() > sevenDaysFromNow) return; // Only show assignments due within 7 days
-      
-      const start = new Date(dueDate.getTime() - (60 * 60 * 1000)); // 1 hour before
-      const end = dueDate;
+
+      const start = Number.isNaN(dueDate.getTime())
+        ? new Date()
+        : dueDate;
+      const end = new Date(start.getTime() + 60 * 60 * 1000);
 
       events.push({
         id: `assignment-${assignment.id}`,

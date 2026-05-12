@@ -79,6 +79,17 @@ export default function Timer() {
   // Track if soundscape was playing before timer pause (to restore on resume)
   const soundscapeWasPlaying = useRef(false);
 
+  const formatFocusTime = (totalMinutes: number): string => {
+    const totalSeconds = Math.max(0, Math.round(totalMinutes * 60));
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+
+    if (hours > 0) return `${hours}h ${minutes}m`;
+    if (minutes > 0) return `${minutes}m ${seconds}s`;
+    return `${seconds}s`;
+  };
+
   // Sync custom picker with stored custom duration
   useEffect(() => {
     const totalSeconds = customDuration;
@@ -596,7 +607,7 @@ export default function Timer() {
             </div>
             <div className="flex justify-between items-center p-3 sm:p-4 bg-muted/30 rounded-lg">
               <span className="text-sm sm:text-base text-muted-foreground">Total Focus Time</span>
-              <span className="font-bold text-xl sm:text-2xl">{Math.floor(totalFocusTime / 60)}h {totalFocusTime % 60}m</span>
+              <span className="font-bold text-xl sm:text-2xl">{formatFocusTime(totalFocusTime)}</span>
             </div>
             <div className="flex justify-between items-center p-3 sm:p-4 bg-muted/30 rounded-lg">
               <span className="text-sm sm:text-base text-muted-foreground">Focus Score</span>

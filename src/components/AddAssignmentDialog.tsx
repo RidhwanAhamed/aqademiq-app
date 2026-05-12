@@ -47,6 +47,7 @@ export function AddAssignmentDialog({ open, onOpenChange, onCreated, preselected
   const [description, setDescription] = useState("");
   const [course, setCourse] = useState(preselectedCourse || "");
   const [dueDate, setDueDate] = useState<Date>();
+  const [dueTime, setDueTime] = useState("23:59");
   // Duration picker state
   const [estHours, setEstHours] = useState(2);
   const [estMinutes, setEstMinutes] = useState(0);
@@ -82,11 +83,15 @@ export function AddAssignmentDialog({ open, onOpenChange, onCreated, preselected
     if (!dueDate || (isRecurring && !recurrenceEndDate)) return;
     setIsProcessing(true);
     try {
+      const [dueHour, dueMinute] = dueTime.split(":").map(Number);
+      const dueDateTime = new Date(dueDate);
+      dueDateTime.setHours(dueHour || 0, dueMinute || 0, 0, 0);
+
       const assignmentData = {
         title,
         description: description || undefined,
         course_id: course,
-        due_date: dueDate.toISOString(),
+        due_date: dueDateTime.toISOString(),
         estimated_hours: estimatedHoursDecimal,
         is_recurring: isRecurring,
         recurrence_pattern: isRecurring ? recurrencePattern : undefined,
@@ -113,6 +118,7 @@ export function AddAssignmentDialog({ open, onOpenChange, onCreated, preselected
       setDescription("");
       setCourse(preselectedCourse || "");
       setDueDate(undefined);
+      setDueTime("23:59");
       setEstHours(2);
       setEstMinutes(0);
       setIsRecurring(false);
@@ -220,7 +226,7 @@ export function AddAssignmentDialog({ open, onOpenChange, onCreated, preselected
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Due Date</Label>
               <Popover>
@@ -245,6 +251,16 @@ export function AddAssignmentDialog({ open, onOpenChange, onCreated, preselected
                   />
                 </PopoverContent>
               </Popover>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="due-time">Due Time</Label>
+              <Input
+                id="due-time"
+                type="time"
+                value={dueTime}
+                onChange={(e) => setDueTime(e.target.value)}
+              />
             </div>
 
             <div className="space-y-2">

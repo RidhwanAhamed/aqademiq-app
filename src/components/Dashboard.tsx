@@ -15,7 +15,6 @@ import { AddStudySessionDialog } from "./AddStudySessionDialog";
 import { AIInsightModal } from "./analytics/AIInsightModal";
 import { CourseCard } from "./CourseCard";
 import { InstallBanner } from "./InstallBanner";
-import { MarketplaceTeaserCard } from "./MarketplaceTeaserCard";
 import { QuickStats } from "./QuickStats";
 import { RevisionTasksPanel } from "./RevisionTasksPanel";
 import { TodayTimeline } from "./TodayTimeline";
@@ -102,7 +101,7 @@ export function Dashboard() {
           size="sm"
         >
           <Plus className="w-4 h-4 mr-2" />
-          Quick Add
+          Add New Assignment
         </Button>
       </div>
 
@@ -225,9 +224,6 @@ export function Dashboard() {
               </div>
             </CardContent>
           </Card>
-
-          {/* Marketplace Teaser */}
-          <MarketplaceTeaserCard />
 
           {/* Upcoming Deadlines */}
           <Card className="bg-gradient-card shadow-card">

@@ -17,7 +17,7 @@ interface EditEventDialogProps {
   event: CalendarEvent | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (event: CalendarEvent, updates: Partial<CalendarEvent>) => Promise<void>;
+  onSave: (event: CalendarEvent, updates: Partial<CalendarEvent>) => Promise<boolean>;
 }
 
 export function EditEventDialog({

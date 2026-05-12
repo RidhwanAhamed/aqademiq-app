@@ -181,10 +181,12 @@ export function EnhancedWeekView({
     const endHour = endInTz.getHours();
     const endMinute = endInTz.getMinutes();
 
-    const startSlot = startHour - DAY_START_HOUR + (startMinute / 60);
+    const minuteOffsetInHour = startMinute / 60;
     const duration = (endHour - startHour) + ((endMinute - startMinute) / 60);
     
-    const top = startSlot * HOUR_HEIGHT + 2;
+    // Events are rendered inside their starting hour cell, so only offset by minutes.
+    // Applying full-day slot offsets here pushes cards out of view.
+    const top = minuteOffsetInHour * HOUR_HEIGHT + 2;
     const height = Math.max(duration * HOUR_HEIGHT - 4, 32);
 
     // Calculate width and left position for overlapping events
@@ -326,7 +328,7 @@ export function EnhancedWeekView({
                 const dayPositionedEvents = eventsByDay.get(dayKey) || [];
                 // Get events that START in this hour slot
                 const hourEvents = dayPositionedEvents.filter(pe => {
-                  const startHour = pe.event.start.getHours();
+                  const startHour = toZonedTime(pe.event.start, userTimezone).getHours();
                   return startHour === hour;
                 });
                 

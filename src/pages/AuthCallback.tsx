@@ -40,6 +40,28 @@ export default function AuthCallback() {
         }
       }
 
+      // Handle standard Supabase PKCE callback with auth code.
+      // This supports Google OAuth flows (including signup-tab button flows)
+      // without relying on custom edge function state formats.
+      if (code && !window.opener) {
+        try {
+          const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(window.location.href);
+          if (exchangeError) {
+            console.error('Supabase code exchange error:', exchangeError);
+            navigate('/auth?error=' + encodeURIComponent(exchangeError.message));
+            return;
+          }
+          if (data.session) {
+            navigate('/');
+            return;
+          }
+        } catch (err) {
+          console.error('Supabase PKCE callback error:', err);
+          navigate('/auth?error=authentication_failed');
+          return;
+        }
+      }
+
       // Check if this is a custom Google Sign-In callback (state starts with 'signin_')
       if (code && state?.startsWith('signin_')) {
         try {
@@ -128,7 +150,7 @@ export default function AuthCallback() {
             Processing Authentication
           </CardTitle>
           <CardDescription>
-            Completing your Google Calendar connection...
+            Completing authentication...
           </CardDescription>
         </CardHeader>
         <CardContent className="text-center space-y-4">
@@ -138,7 +160,7 @@ export default function AuthCallback() {
           </div>
           <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
-            Setting up calendar sync
+            Finalizing your sign in
           </div>
           <p className="text-xs text-muted-foreground">
             This should only take a moment. You'll be redirected automatically.

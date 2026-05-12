@@ -40,6 +40,111 @@ export function useUserStats() {
   const { user } = useAuth();
   const { toast } = useToast();
 
+  const parseStoredDate = (value: string): Date => {
+    // last_study_date is typically stored as YYYY-MM-DD; parse in local time to avoid UTC drift.
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      const [y, m, d] = value.split('-').map(Number);
+      return new Date(y, m - 1, d, 0, 0, 0, 0);
+    }
+    const parsed = new Date(value);
+    return new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate(), 0, 0, 0, 0);
+  };
+
+  const getTodayLocal = (): Date => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+  };
+
+  const formatLocalDateKey = (date: Date): string =>
+    `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+
+  const recalculateStreakFromSessions = useCallback(async (persist = true) => {
+    if (!user) return { currentStreak: 0, longestStreak: 0, lastStudyDate: null as string | null };
+
+    const { data: sessions, error: sessionsError } = await supabase
+      .from('study_sessions')
+      .select('actual_start, scheduled_start, status')
+      .eq('user_id', user.id)
+      .eq('status', 'completed')
+      .order('scheduled_start', { ascending: false })
+      .limit(5000);
+
+    if (sessionsError) throw sessionsError;
+
+    const sessionDays = new Set<string>();
+    (sessions || []).forEach((session) => {
+      const source = session.actual_start || session.scheduled_start;
+      if (!source) return;
+      const dt = new Date(source);
+      const localDay = new Date(dt.getFullYear(), dt.getMonth(), dt.getDate(), 0, 0, 0, 0);
+      sessionDays.add(formatLocalDateKey(localDay));
+    });
+
+    if (sessionDays.size === 0) {
+      if (persist) {
+        await supabase
+          .from('user_stats')
+          .update({
+            current_streak: 0,
+            last_study_date: null,
+          })
+          .eq('user_id', user.id);
+      }
+      return { currentStreak: 0, longestStreak: 0, lastStudyDate: null as string | null };
+    }
+
+    const sortedDays = [...sessionDays]
+      .map((day) => parseStoredDate(day))
+      .sort((a, b) => a.getTime() - b.getTime());
+
+    // Longest streak from full session history (distinct study days).
+    let longestStreak = 1;
+    let runningLongest = 1;
+    for (let i = 1; i < sortedDays.length; i++) {
+      const diffDays = Math.floor((sortedDays[i].getTime() - sortedDays[i - 1].getTime()) / (1000 * 60 * 60 * 24));
+      if (diffDays === 1) {
+        runningLongest += 1;
+      } else if (diffDays > 1) {
+        runningLongest = 1;
+      }
+      longestStreak = Math.max(longestStreak, runningLongest);
+    }
+
+    // Current streak anchored to today or yesterday.
+    const today = getTodayLocal();
+    const todayKey = formatLocalDateKey(today);
+    const yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
+    const yesterdayKey = formatLocalDateKey(yesterday);
+
+    let currentStreak = 0;
+    let cursor = sessionDays.has(todayKey) ? new Date(today) : sessionDays.has(yesterdayKey) ? new Date(yesterday) : null;
+    while (cursor) {
+      const key = formatLocalDateKey(cursor);
+      if (!sessionDays.has(key)) break;
+      currentStreak += 1;
+      cursor.setDate(cursor.getDate() - 1);
+    }
+
+    const lastStudyDate = formatLocalDateKey(sortedDays[sortedDays.length - 1]);
+
+    if (persist) {
+      const nextLongest = Math.max(stats?.longest_streak || 0, longestStreak);
+      const { error: updateError } = await supabase
+        .from('user_stats')
+        .update({
+          current_streak: currentStreak,
+          longest_streak: nextLongest,
+          last_study_date: lastStudyDate,
+        })
+        .eq('user_id', user.id);
+
+      if (updateError) throw updateError;
+    }
+
+    return { currentStreak, longestStreak, lastStudyDate };
+  }, [user, stats?.longest_streak]);
+
   // Check and award streak badges
   const checkStreakBadges = useCallback(async (currentStreak: number) => {
     if (!user) return;
@@ -203,87 +308,20 @@ export function useUserStats() {
   };
 
   const checkAndUpdateStreak = async () => {
-    if (!user || !stats) return;
-
     try {
-      const now = new Date();
-      const today = now.toISOString().split('T')[0];
-      const lastStudyDate = stats.last_study_date;
-      
-      let newStreak = stats.current_streak;
-      
-      if (lastStudyDate) {
-        const lastDate = new Date(lastStudyDate);
-        const currentTime = now.getTime();
-        const lastStudyTime = lastDate.getTime();
-        
-        // Check if more than 24 hours have passed since last study
-        const hoursSinceLastStudy = (currentTime - lastStudyTime) / (1000 * 60 * 60);
-        
-        if (hoursSinceLastStudy > 24) {
-          // Reset streak if more than 24 hours have passed
-          newStreak = 0;
-        }
-      }
-
-      // Only update if streak changed
-      if (newStreak !== stats.current_streak) {
-        const { error } = await supabase
-          .from('user_stats')
-          .update({
-            current_streak: newStreak,
-          })
-          .eq('user_id', user.id);
-
-        if (error) throw error;
-        await fetchUserStats();
-      }
+      if (!user) return;
+      await recalculateStreakFromSessions(true);
+      await fetchUserStats();
     } catch (error) {
       console.error('Error checking study streak:', error);
     }
   };
 
   const updateStudyStreak = async () => {
-    if (!user || !stats) return;
-
     try {
-      const today = new Date().toISOString().split('T')[0];
-      const lastStudyDate = stats.last_study_date;
-      
-      let newStreak = stats.current_streak;
-      
-      if (lastStudyDate) {
-        const lastDate = new Date(lastStudyDate);
-        const todayDate = new Date(today);
-        const daysDiff = Math.floor((todayDate.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24));
-        
-        if (daysDiff === 1) {
-          // Consecutive day
-          newStreak = stats.current_streak + 1;
-        } else if (daysDiff > 1) {
-          // Streak broken
-          newStreak = 1;
-        }
-        // If daysDiff === 0, same day, keep current streak
-      } else {
-        // First study session
-        newStreak = 1;
-      }
-
-      const { error } = await supabase
-        .from('user_stats')
-        .update({
-          current_streak: newStreak,
-          longest_streak: Math.max(newStreak, stats.longest_streak),
-          last_study_date: today
-        })
-        .eq('user_id', user.id);
-
-      if (error) throw error;
-      
-      // Check for streak badges (7-day, 30-day)
-      await checkStreakBadges(newStreak);
-      
+      if (!user) return;
+      const recalculated = await recalculateStreakFromSessions(true);
+      await checkStreakBadges(recalculated.currentStreak);
       await fetchUserStats();
     } catch (error) {
       console.error('Error updating study streak:', error);
@@ -307,7 +345,7 @@ export function useUserStats() {
     const streakCheckInterval = setInterval(checkAndUpdateStreak, 60 * 60 * 1000);
     
     return () => clearInterval(streakCheckInterval);
-  }, [user, stats]);
+  }, [user?.id]);
 
   // Check streak when stats are first loaded
   useEffect(() => {

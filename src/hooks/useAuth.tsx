@@ -10,7 +10,11 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   error: string | null;
-  signUp: (email: string, password: string, options?: { data?: any }) => Promise<{ error: any }>;
+  signUp: (
+    email: string,
+    password: string,
+    options?: { data?: any }
+  ) => Promise<{ error: any; requiresEmailVerification?: boolean }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signInWithGoogle: () => Promise<{ error: any }>;
   signOut: () => Promise<void>;
@@ -313,8 +317,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           userId: result.data.user.id 
         });
       }
-      
-      return { error: result.error };
+
+      // Supabase returns a session when email confirmation is disabled (auto-confirm).
+      // If no session, user needs to verify via email.
+      const requiresEmailVerification = !result.data?.session;
+      return { error: result.error, requiresEmailVerification };
     } catch (error) {
       logger.error('Sign up failed with exception', { error, email });
       

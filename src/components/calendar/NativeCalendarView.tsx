@@ -28,6 +28,9 @@ interface NativeCalendarViewProps {
 }
 
 export function NativeCalendarView({ selectedDate, onDateChange }: NativeCalendarViewProps) {
+  const AUTO_RESOLVE_START_HOUR = 8;
+  const AUTO_RESOLVE_END_HOUR = 22;
+  const AUTO_RESOLVE_BUFFER_MIN = 15;
   const isMobile = useIsMobile();
   // Default to agenda on mobile for best readability
   const [activeView, setActiveView] = useState<'week' | 'month' | 'agenda'>('week');
@@ -43,6 +46,7 @@ export function NativeCalendarView({ selectedDate, onDateChange }: NativeCalenda
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [showDetailSheet, setShowDetailSheet] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
+  const [isAutoResolving, setIsAutoResolving] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const { toast } = useToast();
@@ -67,12 +71,18 @@ export function NativeCalendarView({ selectedDate, onDateChange }: NativeCalenda
   } = useConflictDetection();
 
   // Handle event updates using the CalendarService
-  const handleEventUpdate = useCallback(async (event: CalendarEvent, updates: Partial<CalendarEvent>) => {
+  const handleEventUpdate = useCallback(async (
+    event: CalendarEvent,
+    updates: Partial<CalendarEvent>,
+    options?: { suppressToast?: boolean }
+  ): Promise<boolean> => {
     const parsed = CalendarService.parseEventId(event.id);
     
     if (!parsed) {
-      toast({ title: "Error", description: "Invalid event ID", variant: "destructive" });
-      return;
+      if (!options?.suppressToast) {
+        toast({ title: "Error", description: "Invalid event ID", variant: "destructive" });
+      }
+      return false;
     }
 
     console.log('[NativeCalendarView] Updating event:', { eventId: event.id, type: parsed.type, updates });
@@ -114,11 +124,16 @@ export function NativeCalendarView({ selectedDate, onDateChange }: NativeCalenda
     }
 
     if (result.success) {
-      toast({ title: "Event Updated", description: `${updates.title || event.title} updated successfully.` });
+      if (!options?.suppressToast) {
+        toast({ title: "Event Updated", description: `${updates.title || event.title} updated successfully.` });
+      }
       refetch();
     } else {
-      toast({ title: "Update Failed", description: result.error || "Failed to update event", variant: "destructive" });
+      if (!options?.suppressToast) {
+        toast({ title: "Update Failed", description: result.error || "Failed to update event", variant: "destructive" });
+      }
     }
+    return result.success;
   }, [refetch, toast]);
 
   // Enhanced drag and drop functionality
@@ -223,6 +238,157 @@ export function NativeCalendarView({ selectedDate, onDateChange }: NativeCalenda
     setShowConflictPanel(true);
     setContextMenu(null);
   }, []);
+
+  const handleAutoResolveConflicts = useCallback(async () => {
+    if (conflicts.length === 0 || isAutoResolving) return;
+
+    setIsAutoResolving(true);
+
+    try {
+      const eventById = new Map(events.map((event) => [event.id, event]));
+      const processed = new Set<string>();
+      const updates: Array<{ event: CalendarEvent; start: Date; end: Date }> = [];
+
+      const isFixedEvent = (event: CalendarEvent): boolean =>
+        event.type === 'schedule' || event.type === 'exam';
+
+      const addMinutes = (date: Date, minutes: number): Date =>
+        new Date(date.getTime() + minutes * 60 * 1000);
+
+      const clampIntoStudyWindow = (date: Date): Date => {
+        const adjusted = new Date(date);
+        const hour = adjusted.getHours();
+
+        if (hour < AUTO_RESOLVE_START_HOUR) {
+          adjusted.setHours(AUTO_RESOLVE_START_HOUR, 0, 0, 0);
+          return adjusted;
+        }
+
+        if (hour >= AUTO_RESOLVE_END_HOUR) {
+          adjusted.setDate(adjusted.getDate() + 1);
+          adjusted.setHours(AUTO_RESOLVE_START_HOUR, 0, 0, 0);
+        }
+
+        return adjusted;
+      };
+
+      const nextValidSlot = (startFrom: Date, durationMs: number): { start: Date; end: Date } => {
+        let slotStart = clampIntoStudyWindow(startFrom);
+        let slotEnd = new Date(slotStart.getTime() + durationMs);
+
+        while (slotEnd.getHours() > AUTO_RESOLVE_END_HOUR || (slotEnd.getHours() === AUTO_RESOLVE_END_HOUR && slotEnd.getMinutes() > 0)) {
+          slotStart.setDate(slotStart.getDate() + 1);
+          slotStart.setHours(AUTO_RESOLVE_START_HOUR, 0, 0, 0);
+          slotEnd = new Date(slotStart.getTime() + durationMs);
+        }
+
+        return { start: slotStart, end: slotEnd };
+      };
+
+      // Build connected conflict groups so each overlapping chain is resolved together.
+      for (const conflict of conflicts) {
+        if (processed.has(conflict.eventId)) continue;
+
+        const queue = [conflict.eventId];
+        const groupIds = new Set<string>();
+
+        while (queue.length > 0) {
+          const current = queue.shift()!;
+          if (groupIds.has(current)) continue;
+          groupIds.add(current);
+
+          const linked = conflicts.find((c) => c.eventId === current);
+          if (linked) {
+            linked.conflictingEventIds.forEach((id) => {
+              if (!groupIds.has(id)) queue.push(id);
+            });
+          }
+
+          conflicts.forEach((c) => {
+            if (c.conflictingEventIds.includes(current) && !groupIds.has(c.eventId)) {
+              queue.push(c.eventId);
+            }
+          });
+        }
+
+        groupIds.forEach((id) => processed.add(id));
+
+        const groupEvents = [...groupIds]
+          .map((id) => eventById.get(id))
+          .filter((event): event is CalendarEvent => Boolean(event));
+
+        if (groupEvents.length <= 1) continue;
+
+        const fixedEvents = groupEvents.filter(isFixedEvent).sort((a, b) => a.start.getTime() - b.start.getTime());
+        const movableEvents = groupEvents
+          .filter((event) => !isFixedEvent(event))
+          .sort((a, b) => a.start.getTime() - b.start.getTime());
+
+        if (movableEvents.length === 0) continue;
+
+        let cursor = fixedEvents.length > 0
+          ? new Date(Math.max(...fixedEvents.map((event) => event.end.getTime())))
+          : new Date(Math.min(...groupEvents.map((event) => event.start.getTime())));
+
+        cursor = addMinutes(cursor, AUTO_RESOLVE_BUFFER_MIN);
+
+        for (const event of movableEvents) {
+          const durationMs = Math.max(event.end.getTime() - event.start.getTime(), 30 * 60 * 1000);
+          const slot = nextValidSlot(cursor, durationMs);
+          updates.push({ event, start: slot.start, end: slot.end });
+          cursor = addMinutes(slot.end, AUTO_RESOLVE_BUFFER_MIN);
+        }
+      }
+
+      if (updates.length === 0) {
+        toast({
+          title: "No movable conflicts",
+          description: "All detected conflicts involve fixed events only.",
+        });
+        return;
+      }
+
+      let successCount = 0;
+
+      for (const update of updates) {
+        const didUpdate = await handleEventUpdate(update.event, {
+          start: update.start,
+          end: update.end,
+        }, { suppressToast: true });
+
+        if (didUpdate) successCount += 1;
+      }
+
+      if (successCount === 0) {
+        toast({
+          title: "Auto resolve failed",
+          description: "No events were updated. Please try again or reschedule manually.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      toast({
+        title: successCount === updates.length ? "Conflicts auto-resolved" : "Conflicts partially resolved",
+        description: `Rescheduled ${successCount}/${updates.length} event${updates.length > 1 ? 's' : ''}.`,
+        variant: successCount === updates.length ? "default" : "destructive",
+      });
+      setShowConflictPanel(false);
+      setRescheduleEvent(null);
+      setNewStartTime('');
+      setNewEndTime('');
+      refetch();
+    } catch (error) {
+      console.error('[NativeCalendarView] Auto resolve conflicts failed:', error);
+      toast({
+        title: "Auto resolve failed",
+        description: "We couldn't auto-reschedule all conflicts. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsAutoResolving(false);
+    }
+  }, [conflicts, events, handleEventUpdate, isAutoResolving, refetch, toast]);
 
   if (loading) {
     return (
@@ -399,6 +565,22 @@ export function NativeCalendarView({ selectedDate, onDateChange }: NativeCalenda
                 <SheetDescription>
                   {conflicts.length} conflicting event{conflicts.length > 1 ? 's' : ''} detected
                 </SheetDescription>
+                {conflicts.length > 0 && (
+                  <Button
+                    className="mt-3 w-full"
+                    onClick={handleAutoResolveConflicts}
+                    disabled={isAutoResolving}
+                  >
+                    {isAutoResolving ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Auto-resolving conflicts...
+                      </>
+                    ) : (
+                      'Auto Resolve All Conflicts'
+                    )}
+                  </Button>
+                )}
               </>
             )}
           </SheetHeader>

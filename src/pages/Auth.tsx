@@ -12,7 +12,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { useGoogleSignIn } from '@/hooks/useGoogleSignIn';
 import { Eye, EyeOff, Mail, Lock, Loader2, CheckCircle, RefreshCw, AlertTriangle } from 'lucide-react';
 import { supabase } from "@/integrations/supabase/client";
 import { NetworkStatusIndicator } from '@/components/NetworkStatusIndicator';
@@ -51,11 +50,11 @@ export default function Auth() {
   const [authError, setAuthError] = useState<string | null>(null);
   const [networkError, setNetworkError] = useState<string | null>(null);
   const [isRetrying, setIsRetrying] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [resetEmailSent, setResetEmailSent] = useState(false);
   const [resetEmailTimestamp, setResetEmailTimestamp] = useState<Date | null>(null);
   
-  const { signIn, signUp, user } = useAuth();
-  const { handleGoogleSignIn: initiateGoogleSignIn, isLoading: googleLoading, error: googleError } = useGoogleSignIn();
+  const { signIn, signUp, signInWithGoogle, user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
@@ -266,13 +265,22 @@ export default function Auth() {
       console.log('Signup result:', result);
       
       if (!result.error) {
-        console.log('Signup successful, showing verification');
-        setVerificationEmail(data.email);
-        setActiveTab('verify');
-        toast({
-          title: "Account created successfully!",
-          description: "We've sent a verification email to your inbox. Please check your email and click the verification link to complete your registration.",
-        });
+        if (result.requiresEmailVerification) {
+          console.log('Signup successful, verification required');
+          setVerificationEmail(data.email);
+          setActiveTab('verify');
+          toast({
+            title: "Account created successfully!",
+            description: "We've sent a verification email to your inbox. Please check your email and click the verification link to complete your registration.",
+          });
+        } else {
+          console.log('Signup successful, no email verification required');
+          toast({
+            title: "Account created successfully!",
+            description: "You're signed in and ready to continue.",
+          });
+          navigate('/');
+        }
       } else {
         console.error('Signup error:', result.error);
         
@@ -386,8 +394,11 @@ export default function Auth() {
     setNetworkError(null);
     
     try {
-      await initiateGoogleSignIn();
-      // The hook will redirect to Google OAuth, so no need for further handling here
+      setGoogleLoading(true);
+      const result = await signInWithGoogle();
+      if (result?.error) {
+        throw result.error;
+      }
     } catch (error) {
       const err = error as Error;
       handleError(err);
@@ -396,6 +407,8 @@ export default function Auth() {
         description: err.message || "Failed to sign in with Google. Please try again.",
         variant: "destructive",
       });
+    } finally {
+      setGoogleLoading(false);
     }
   };
 

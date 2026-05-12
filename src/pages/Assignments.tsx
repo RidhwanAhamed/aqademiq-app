@@ -25,7 +25,7 @@ export default function Assignments() {
     sortOrder: "asc",
   });
   
-  const { assignments, loading, refetch, updateAssignment, toggleComplete } = useAssignments();
+  const { assignments, loading, refetch, updateAssignment, toggleComplete, deleteAssignment } = useAssignments();
   const { courses } = useCourses();
   const courseMap = useMemo(() => Object.fromEntries(courses.map(c => [c.id, c.name])), [courses]);
   const today = startOfToday();
@@ -252,6 +252,7 @@ export default function Assignments() {
                     assignment={a} 
                     onUpdate={updateAssignment}
                     onToggleComplete={toggleComplete}
+                    onDelete={deleteAssignment}
                   />
                 ))}
               </div>

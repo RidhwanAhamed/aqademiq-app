@@ -17,14 +17,21 @@ import { AIInsightButton } from "@/components/AIInsightButton";
 import { GradeDialog } from "@/components/GradeDialog";
 import { SubtaskChecklist } from "@/components/SubtaskChecklist";
 import { useSubtasks } from "@/hooks/useSubtasks";
+import { Trash2 } from "lucide-react";
 
 interface AssignmentRowProps {
   assignment: Assignment;
   onUpdate: (id: string, updates: Partial<Assignment>) => Promise<boolean>;
   onToggleComplete: (id: string, completed: boolean) => Promise<boolean>;
+  onDelete: (id: string) => Promise<boolean>;
 }
 
-export function AssignmentRow({ assignment, onUpdate, onToggleComplete }: AssignmentRowProps) {
+export function AssignmentRow({ assignment, onUpdate, onToggleComplete, onDelete }: AssignmentRowProps) {
+  const getTimeFromIso = (isoString: string) => {
+    const dt = new Date(isoString);
+    return `${String(dt.getHours()).padStart(2, "0")}:${String(dt.getMinutes()).padStart(2, "0")}`;
+  };
+
   const [isEditing, setIsEditing] = useState(false);
   const [showGradeDialog, setShowGradeDialog] = useState(false);
   const [showSubtasks, setShowSubtasks] = useState(false);
@@ -32,8 +39,10 @@ export function AssignmentRow({ assignment, onUpdate, onToggleComplete }: Assign
   const [description, setDescription] = useState(assignment.description || "");
   const [courseId, setCourseId] = useState(assignment.course_id);
   const [dueDate, setDueDate] = useState<Date>(new Date(assignment.due_date));
+  const [dueTime, setDueTime] = useState(getTimeFromIso(assignment.due_date));
   const [estimatedHours, setEstimatedHours] = useState(assignment.estimated_hours || 1);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const { courses } = useCourses();
   const { totalCount, generating, generateBreakdown } = useSubtasks(assignment.id);
@@ -43,11 +52,15 @@ export function AssignmentRow({ assignment, onUpdate, onToggleComplete }: Assign
 
   const handleSave = async () => {
     setSaving(true);
+    const [dueHour, dueMinute] = dueTime.split(":").map(Number);
+    const dueDateTime = new Date(dueDate);
+    dueDateTime.setHours(dueHour || 0, dueMinute || 0, 0, 0);
+
     const success = await onUpdate(assignment.id, {
       title,
       description: description || null,
       course_id: courseId,
-      due_date: dueDate.toISOString(),
+      due_date: dueDateTime.toISOString(),
       estimated_hours: estimatedHours,
     });
     if (success) {
@@ -61,6 +74,7 @@ export function AssignmentRow({ assignment, onUpdate, onToggleComplete }: Assign
     setDescription(assignment.description || "");
     setCourseId(assignment.course_id);
     setDueDate(new Date(assignment.due_date));
+    setDueTime(getTimeFromIso(assignment.due_date));
     setEstimatedHours(assignment.estimated_hours || 1);
     setIsEditing(false);
   };
@@ -72,6 +86,14 @@ export function AssignmentRow({ assignment, onUpdate, onToggleComplete }: Assign
   const handleMagicBreakdown = async () => {
     await generateBreakdown();
     setShowSubtasks(true);
+  };
+
+  const handleDeleteAssignment = async () => {
+    const confirmed = window.confirm(`Delete "${assignment.title}"? This cannot be undone.`);
+    if (!confirmed) return;
+    setDeleting(true);
+    await onDelete(assignment.id);
+    setDeleting(false);
   };
 
   if (isEditing) {
@@ -115,6 +137,16 @@ export function AssignmentRow({ assignment, onUpdate, onToggleComplete }: Assign
                 />
               </PopoverContent>
             </Popover>
+
+            <div className="flex items-center gap-2">
+              <Clock className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+              <Input
+                type="time"
+                value={dueTime}
+                onChange={(e) => setDueTime(e.target.value)}
+                className="flex-1 h-12 sm:h-10"
+              />
+            </div>
 
             <div className="flex items-center gap-2">
               <Clock className="w-4 h-4 text-muted-foreground flex-shrink-0" />
@@ -200,7 +232,7 @@ export function AssignmentRow({ assignment, onUpdate, onToggleComplete }: Assign
               
               {/* Mobile: stack vertically, Desktop: inline */}
               <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-xs sm:text-sm text-muted-foreground">
-                <span>Due {format(new Date(assignment.due_date), "MMM d")}</span>
+                <span>Due {format(new Date(assignment.due_date), "MMM d, h:mm a")}</span>
                 <span className="hidden sm:inline">•</span>
                 <span className="truncate">{course?.name || "Unknown Course"}</span>
                 {assignment.estimated_hours && (
@@ -282,6 +314,16 @@ export function AssignmentRow({ assignment, onUpdate, onToggleComplete }: Assign
               className="h-10 w-10 sm:h-9 sm:w-9 p-0"
             >
               <Edit2 className="w-4 h-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleDeleteAssignment}
+              disabled={deleting}
+              className="h-10 w-10 sm:h-9 sm:w-9 p-0 text-destructive hover:text-destructive"
+              title="Delete assignment"
+            >
+              <Trash2 className="w-4 h-4" />
             </Button>
           </div>
         </div>
